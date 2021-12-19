@@ -59,6 +59,13 @@ pub const Vec3 = struct {
             .z = v.x * o.y - v.y * o.x,
         };
     }
+
+    /// the distance between two vectors
+    pub fn dist(v: Self, o: Self) f32 {
+        return math.sqrt((v.x - o.x) * (v.x - o.x) +
+            (v.y - o.y) * (v.y - o.y) +
+            (v.z - o.z) * (v.z - o.z));
+    }
 };
 
 test "new" {
@@ -125,4 +132,11 @@ test "cross" {
     var a = Vec3.new(1, 2, 3);
     var b = Vec3.new(1, 5, 7);
     try testing.expectEqual(a.cross(b), Vec3.new(-1, -4, 3));
+}
+
+test "dist" {
+    var a = Vec3.new(1, 2, 3);
+    var b = Vec3.new(1, 5, 7);
+    try testing.expectEqual(a.dist(b), 5);
+    try testing.expectEqual(b.dist(a), 5);
 }

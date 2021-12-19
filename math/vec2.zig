@@ -51,6 +51,12 @@ pub const Vec2 = struct {
     pub fn dot(v: Self, o: Self) f32 {
         return v.x * o.x + v.y * o.y;
     }
+
+    /// the distance between two vectors
+    pub fn dist(v: Self, o: Self) f32 {
+        return math.sqrt((v.x - o.x) * (v.x - o.x) +
+            (v.y - o.y) * (v.y - o.y));
+    }
 };
 
 test "new" {
@@ -105,4 +111,11 @@ test "dot" {
     var b = Vec2.new(3, 2);
     try testing.expectApproxEqAbs(a.dot(b), 0.6, 0.001);
     try testing.expectApproxEqAbs(b.dot(a), 0.6, 0.001);
+}
+
+test "dist" {
+    var a = Vec2.new(1, 2);
+    var b = Vec2.new(1, 5);
+    try testing.expectEqual(a.dist(b), 3);
+    try testing.expectEqual(b.dist(a), 3);
 }
