@@ -4,8 +4,8 @@ const math = std.math;
 // im being lazy so this will all be in f32 and can be changed later
 
 pub const Vec2 = struct {
-    x: f32,
-    y: f32,
+    x: f32 = 0,
+    y: f32 = 0,
 
     const Self = @This();
 
