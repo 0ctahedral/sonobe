@@ -1,6 +1,21 @@
+//! affine stuff
+//! M_affine = U(3x3) 0(3x1)
+//!            t(1x3) 1
+//!            or
+//!
+//! U is rotation and scale
+//! t is translation
+//!  .{ U, U, U, 0 },
+//!  .{ U, U, U, 0 },
+//!  .{ U, U, U, 0 },
+//!  .{ t, t, t, 1 },
+//! we use this order so that we can multiply ROW VECTORS
+//! e.g. v x M
+
 const std = @import("std");
 const testing = std.testing;
 const math = std.math;
+const Vec3 = @import("vec3.zig").Vec3;
 
 /// a ROW MAJOR 4 by 4 matrix
 pub const Mat4 = struct {
@@ -31,7 +46,6 @@ pub const Mat4 = struct {
         var mat = Self.identity();
         // for keeping track of the current op
         var row: usize = 0;
-
         while (row < 4) : (row += 1) {
             var col: usize = 0;
             while (col < 4) : (col += 1) {
@@ -98,7 +112,7 @@ pub const Mat4 = struct {
     }
 
     /// transposes a matrix
-    pub fn trans(mat: Self) Self {
+    pub fn T(mat: Self) Self {
         // matrix to return
         var ret = mat;
 
@@ -111,6 +125,58 @@ pub const Mat4 = struct {
         }
 
         return ret;
+    }
+
+    /// returns a matrix created from a vector translation
+    /// aka multiplies a row vector by the idenity
+    pub fn translate(v: Vec3) Self {
+        var mat = Self.identity();
+        mat.m[3][0] = v.x;
+        mat.m[3][1] = v.y;
+        mat.m[3][2] = v.z;
+        return mat;
+    }
+
+    /// create a rotation matrix from an axis we are rotating
+    /// around and the angle in radians
+    pub fn rotate(axis: enum { x, y, z }, angle: f32) Self {
+        // TODO: make this in degrees
+        var mat = Self.identity();
+
+        const cos = math.cos(angle);
+        const sin = math.sin(angle);
+
+        mat.m = switch (axis) {
+            .x => .{
+                .{ 1, 0, 0, 0 },
+                .{ 0, cos, sin, 0 },
+                .{ 0, -sin, cos, 0 },
+                .{ 0, 0, 0, 1 },
+            },
+            .y => .{
+                .{ cos, 0, -sin, 0 },
+                .{ 0, 1, 0, 0 },
+                .{ sin, 0, cos, 0 },
+                .{ 0, 0, 0, 1 },
+            },
+            .z => .{
+                .{ cos, sin, 0, 0 },
+                .{ -sin, cos, 0, 0 },
+                .{ 0, 0, 1, 0 },
+                .{ 0, 0, 0, 1 },
+            },
+        };
+
+        return mat;
+    }
+
+    pub fn scale(v: Vec3) Self {
+        var mat = Self.identity();
+        mat.m[0][0] = v.x;
+        mat.m[1][1] = v.y;
+        mat.m[2][2] = v.z;
+
+        return mat;
     }
 };
 
@@ -228,12 +294,64 @@ test "transpose" {
         .{ 0, 0, 0, 1 },
     } };
 
-    try testing.expectEqual(a.trans().m, .{
+    try testing.expectEqual(a.T().m, .{
         .{ 1, 0, 0, 0 },
         .{ 0, 1, 0, 0 },
         .{ 0, 0, 1, 0 },
         .{ 5, 3, 2, 1 },
     });
 
-    try testing.expectEqual(i.trans(), i);
+    try testing.expectEqual(i.T(), i);
+}
+
+test "translate" {
+    try testing.expectEqual(Mat4.translate(Vec3.new(5, 3, 2)).m, .{
+        .{ 1, 0, 0, 0 },
+        .{ 0, 1, 0, 0 },
+        .{ 0, 0, 1, 0 },
+        .{ 5, 3, 2, 1 },
+    });
+}
+
+test "rotate" {
+    var rotx = Mat4.rotate(.x, math.pi).m;
+    var rotx_expect: [4][4]f32 = .{
+        .{ 1, 0, 0, 0 },
+        .{ 0, -1, 0, 0 },
+        .{ 0, 0, -1, 0 },
+        .{ 0, 0, 0, 1 },
+    };
+    var roty = Mat4.rotate(.y, math.pi).m;
+    var roty_expect: [4][4]f32 = .{
+        .{ -1, 0, 0, 0 },
+        .{ 0, 1, 0, 0 },
+        .{ 0, 0, -1, 0 },
+        .{ 0, 0, 0, 1 },
+    };
+    var rotz = Mat4.rotate(.z, math.pi).m;
+    var rotz_expect: [4][4]f32 = .{
+        .{ -1, 0, 0, 0 },
+        .{ 0, -1, 0, 0 },
+        .{ 0, 0, 1, 0 },
+        .{ 0, 0, 0, 1 },
+    };
+
+    var row: usize = 0;
+    while (row < 4) : (row += 1) {
+        var col: usize = 0;
+        while (col < 4) : (col += 1) {
+            try testing.expectApproxEqAbs(rotx_expect[row][col], rotx[row][col], 0.001);
+            try testing.expectApproxEqAbs(roty_expect[row][col], roty[row][col], 0.001);
+            try testing.expectApproxEqAbs(rotz_expect[row][col], rotz[row][col], 0.001);
+        }
+    }
+}
+
+test "scale" {
+    try testing.expectEqual(Mat4.scale(Vec3.new(-1, -1, -1)).m, .{
+        .{ -1, 0, 0, 0 },
+        .{ 0, -1, 0, 0 },
+        .{ 0, 0, -1, 0 },
+        .{ 0, 0, 0, 1 },
+    });
 }
