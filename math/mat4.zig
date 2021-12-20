@@ -98,10 +98,19 @@ pub const Mat4 = struct {
     }
 
     /// transposes a matrix
-    pub fn trans(m: Self) Self {
+    pub fn trans(mat: Self) Self {
         // matrix to return
-        var mat = Self.identity();
-        return mat;
+        var ret = mat;
+
+        var col: usize = 0;
+        while (col < 4) : (col += 1) {
+            var row: usize = 0;
+            while (row < 4) : (row += 1) {
+                ret.m[row][col] = mat.m[col][row];
+            }
+        }
+
+        return ret;
     }
 };
 
@@ -208,4 +217,23 @@ test "inv" {
     try testing.expectApproxEqAbs(b.inv().m[3][1], 0, 0.001);
     try testing.expectApproxEqAbs(b.inv().m[3][2], 0, 0.001);
     try testing.expectApproxEqAbs(b.inv().m[3][3], 0.2, 0.001);
+}
+
+test "transpose" {
+    var i = Mat4.identity();
+    var a = Mat4{ .m = .{
+        .{ 1, 0, 0, 5 },
+        .{ 0, 1, 0, 3 },
+        .{ 0, 0, 1, 2 },
+        .{ 0, 0, 0, 1 },
+    } };
+
+    try testing.expectEqual(a.trans().m, .{
+        .{ 1, 0, 0, 0 },
+        .{ 0, 1, 0, 0 },
+        .{ 0, 0, 1, 0 },
+        .{ 5, 3, 2, 1 },
+    });
+
+    try testing.expectEqual(i.trans(), i);
 }
