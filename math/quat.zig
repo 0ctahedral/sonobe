@@ -42,6 +42,10 @@ pub const Quat = struct {
         return Self.new(math.cos(angle / 2), a.x * sin, a.y * sin, a.z * sin);
     }
 
+    pub inline fn fromVec3(v: Vec3) Self {
+        return Self.new(0, v.x, v.y, v.z);
+    }
+
     /// multiply two Quaternions
     /// grassman product
     /// creates composite rotation of q then p
@@ -57,7 +61,7 @@ pub const Quat = struct {
     }
 
     /// inverts a quaternion
-    /// Assumes that the quaternion is normalize
+    /// Assumes that the quaternion is normalized
     pub fn inv(q: Self) Self {
         const n = q.norm();
         return Self.new(n.w, -n.x, -n.y, -n.z);
@@ -67,7 +71,7 @@ pub const Quat = struct {
     pub fn rotate(q: Self, v: Vec3) Vec3 {
         // create quat from vec
         // TODO: normalize?
-        var p = Self.new(0, v.x, v.y, v.z);
+        var p = Self.fromVec3(v);
         p = q.mul(p).mul(q.inv());
         return Vec3.new(p.x, p.y, p.z);
     }
