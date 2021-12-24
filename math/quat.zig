@@ -10,6 +10,8 @@ const std = @import("std");
 const testing = std.testing;
 const math = std.math;
 const Vec3 = @import("vec3.zig").Vec3;
+const Mat4 = @import("mat4.zig").Mat4;
+const util = @import("util.zig");
 
 pub const Quat = struct {
     w: f32 = 1,
@@ -34,14 +36,16 @@ pub const Quat = struct {
         return Self.new(q.w / d, q.x / d, q.y / d, q.z / d);
     }
 
-    /// creates a new quaternion given an axis and angle
-    /// axis does not have to be normalized
+    /// creates a new unit quaternion given an axis and angle
+    /// axis does not have to be normalized as we do that here
     pub fn fromAngleAxis(vec: Vec3, angle: f32) Self {
-        const a = vec.norm();
         const sin = math.sin(angle / 2);
-        return Self.new(math.cos(angle / 2), a.x * sin, a.y * sin, a.z * sin);
+        const a = vec.norm().scale(sin);
+        return Self.new(math.cos(angle / 2), a.x, a.y, a.z);
     }
 
+    /// convinience function to create a quaternion from a vec3
+    /// does not normalize
     pub inline fn fromVec3(v: Vec3) Self {
         return Self.new(0, v.x, v.y, v.z);
     }
@@ -70,10 +74,44 @@ pub const Quat = struct {
     /// rotates a vector by a quaternion
     pub fn rotate(q: Self, v: Vec3) Vec3 {
         // create quat from vec
-        // TODO: normalize?
         var p = Self.fromVec3(v);
         p = q.mul(p).mul(q.inv());
         return Vec3.new(p.x, p.y, p.z);
+    }
+
+    pub fn toMat4(q: Self) Mat4 {
+        var mat: Mat4 = undefined;
+        const n = q.norm();
+        const x = n.x;
+        const y = n.y;
+        const z = n.z;
+        const w = n.w;
+
+        const x2 = n.x * n.x;
+        const y2 = n.y * n.y;
+        const z2 = n.z * n.z;
+
+        mat.m[0][0] = 1 - 2 * y2 - 2 * z2;
+        mat.m[0][1] = 2 * (x * y) + 2 * (z * w);
+        mat.m[0][2] = 2 * (x * z) - 2 * (y * w);
+        mat.m[0][3] = 0;
+
+        mat.m[1][0] = 2 * x * y - 2 * z * w;
+        mat.m[1][1] = 1 - (2 * x2) - (2 * z2);
+        mat.m[1][2] = 2 * (y * z) + 2 * (x * w);
+        mat.m[1][3] = 0;
+
+        mat.m[2][0] = 2 * (x * z) + 2 * (y * w);
+        mat.m[2][1] = 2 * (y * z) - 2 * (x * w);
+        mat.m[2][2] = 1 - (2 * x2) - (2 * y2);
+        mat.m[2][3] = 0;
+
+        mat.m[3][0] = 0;
+        mat.m[3][1] = 0;
+        mat.m[3][2] = 0;
+        mat.m[3][3] = 1;
+
+        return mat;
     }
 };
 
@@ -184,4 +222,30 @@ test "rotate" {
     try testing.expectApproxEqAbs(r.x, 0, 0.001);
     try testing.expectApproxEqAbs(r.y, 1, 0.001);
     try testing.expectApproxEqAbs(r.z, 0, 0.001);
+
+    const r2 = q.rotate(Vec3.new(2, 0, 0));
+    try testing.expectApproxEqAbs(r2.x, 0, 0.001);
+    try testing.expectApproxEqAbs(r2.y, 2, 0.001);
+    try testing.expectApproxEqAbs(r2.z, 0, 0.001);
+}
+
+test "toMat4" {
+    const q = Quat.fromAngleAxis(Vec3.new(1, 0, 0), math.pi);
+    const rotx = q.toMat4().m;
+
+    // from mat4 rotate test
+    var rotx_expect: [4][4]f32 = .{
+        .{ 1, 0, 0, 0 },
+        .{ 0, -1, 0, 0 },
+        .{ 0, 0, -1, 0 },
+        .{ 0, 0, 0, 1 },
+    };
+
+    var row: usize = 0;
+    while (row < 4) : (row += 1) {
+        var col: usize = 0;
+        while (col < 4) : (col += 1) {
+            try testing.expectApproxEqAbs(rotx_expect[row][col], rotx[row][col], 0.001);
+        }
+    }
 }
