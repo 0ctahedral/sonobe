@@ -1,6 +1,7 @@
 const std = @import("std");
 const testing = std.testing;
 const math = std.math;
+const util = @import("util.zig");
 // im being lazy so this will all be in f32 and can be changed later
 
 pub const Vec3 = struct {
@@ -65,6 +66,15 @@ pub const Vec3 = struct {
         return math.sqrt((v.x - o.x) * (v.x - o.x) +
             (v.y - o.y) * (v.y - o.y) +
             (v.z - o.z) * (v.z - o.z));
+    }
+
+    /// lerp
+    pub fn lerp(l: Self, r: Self, t: f32) Self {
+        return Self.new(
+            util.lerp(l.x, r.x, t),
+            util.lerp(l.y, r.y, t),
+            util.lerp(l.z, r.z, t),
+        );
     }
 };
 
@@ -139,4 +149,13 @@ test "dist" {
     var b = Vec3.new(1, 5, 7);
     try testing.expectEqual(a.dist(b), 5);
     try testing.expectEqual(b.dist(a), 5);
+}
+
+test "lerp" {
+    var a = Vec3.new(1, 2, -10);
+    var b = Vec3.new(-1, 5, -5);
+    var c = Vec3.lerp(a, b, 0.5);
+    try testing.expectApproxEqAbs(c.x, 0.0, 0.001);
+    try testing.expectApproxEqAbs(c.y, 3.5, 0.001);
+    try testing.expectApproxEqAbs(c.z, -7.5, 0.001);
 }

@@ -113,6 +113,15 @@ pub const Quat = struct {
 
         return mat;
     }
+
+    pub fn lerp(l: Self, r: Self, t: f32) Self {
+        return Self.new(
+            util.lerp(l.w, r.w, t),
+            util.lerp(l.x, r.x, t),
+            util.lerp(l.y, r.y, t),
+            util.lerp(l.z, r.z, t),
+        );
+    }
 };
 
 test "init" {
@@ -248,4 +257,27 @@ test "toMat4" {
             try testing.expectApproxEqAbs(rotx_expect[row][col], rotx[row][col], 0.001);
         }
     }
+}
+
+test "lerp" {
+    const p = Quat{
+        .w = 1,
+        .x = 3,
+        .y = -4,
+        .z = -5,
+    };
+
+    const q = Quat{
+        .w = 0,
+        .x = 5,
+        .y = 4,
+        .z = 0,
+    };
+
+    const l = Quat.lerp(p, q, 0.5);
+
+    try testing.expectApproxEqAbs(l.w, 0.5, 0.001);
+    try testing.expectApproxEqAbs(l.x, 4.0, 0.001);
+    try testing.expectApproxEqAbs(l.y, 0, 0.001);
+    try testing.expectApproxEqAbs(l.z, -2.5, 0.001);
 }
