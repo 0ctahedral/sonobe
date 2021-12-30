@@ -15,6 +15,10 @@ pub const Vec2 = struct {
         return .{ .x = x, .y = y };
     }
 
+    pub fn eql(l: Self, r: Self) bool {
+        return (l.x == r.x and l.y == r.y);
+    }
+
     /// add two vectors
     pub fn add(v: Self, o: Self) Self {
         return .{ .x = v.x + o.x, .y = v.y + o.y };
@@ -135,4 +139,21 @@ test "lerp" {
     var c = Vec2.lerp(a, b, 0.5);
     try testing.expectApproxEqAbs(c.x, 0.0, 0.001);
     try testing.expectApproxEqAbs(c.y, 3.5, 0.001);
+}
+
+test "eql" {
+    const p = Vec2{
+        .x = 3,
+        .y = -4,
+    };
+
+    const q = Vec2{
+        .x = 5,
+        .y = 4,
+    };
+
+    try testing.expect(p.eql(p));
+    try testing.expect(q.eql(q));
+    try testing.expect(!q.eql(p));
+    try testing.expect(!p.eql(q));
 }

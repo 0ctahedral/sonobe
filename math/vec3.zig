@@ -16,6 +16,10 @@ pub const Vec3 = struct {
         return .{ .x = x, .y = y, .z = z };
     }
 
+    pub fn eql(l: Self, r: Self) bool {
+        return (l.x == r.x and l.y == r.y and l.z == r.z);
+    }
+
     /// add two vectors
     pub fn add(v: Self, o: Self) Self {
         return .{ .x = v.x + o.x, .y = v.y + o.y, .z = v.z + o.z };
@@ -158,4 +162,23 @@ test "lerp" {
     try testing.expectApproxEqAbs(c.x, 0.0, 0.001);
     try testing.expectApproxEqAbs(c.y, 3.5, 0.001);
     try testing.expectApproxEqAbs(c.z, -7.5, 0.001);
+}
+
+test "eql" {
+    const p = Vec3{
+        .x = 3,
+        .y = -4,
+        .z = -5,
+    };
+
+    const q = Vec3{
+        .x = 5,
+        .y = 4,
+        .z = 0,
+    };
+
+    try testing.expect(p.eql(p));
+    try testing.expect(q.eql(q));
+    try testing.expect(!q.eql(p));
+    try testing.expect(!p.eql(q));
 }

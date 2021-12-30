@@ -178,6 +178,19 @@ pub const Mat4 = struct {
 
         return mat;
     }
+
+    pub fn eql(l: Self, r: Self) bool {
+        var col: usize = 0;
+        while (col < 4) : (col += 1) {
+            var row: usize = 0;
+            while (row < 4) : (row += 1) {
+                if (l.m[row][col] != r.m[row][col]) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
 };
 
 test "init" {
@@ -354,4 +367,25 @@ test "scale" {
         .{ 0, 0, -1, 0 },
         .{ 0, 0, 0, 1 },
     });
+}
+
+test "eql" {
+    var a = Mat4{ .m = .{
+        .{ 1, 0, 0, 5 },
+        .{ 0, 1, 0, 3 },
+        .{ 0, 0, 1, 2 },
+        .{ 0, 0, 0, 1 },
+    } };
+
+    var b = Mat4{ .m = .{
+        .{ 5, 0, 0, 10 },
+        .{ 0, 0.5, 0, 6 },
+        .{ 0, 0, 0.5, 4 },
+        .{ 0, 0, 0, 5 },
+    } };
+
+    try testing.expect(a.eql(a));
+    try testing.expect(b.eql(b));
+    try testing.expect(!a.eql(b));
+    try testing.expect(!b.eql(a));
 }

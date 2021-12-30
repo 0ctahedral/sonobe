@@ -31,6 +31,10 @@ pub const Quat = struct {
         return Quat{};
     }
 
+    pub fn eql(l: Self, r: Self) bool {
+        return (l.w == r.w and l.x == r.x and l.y == r.y and l.z == r.z);
+    }
+
     pub fn add(l: Self, r: Self) Self {
         return Self.new(
             l.w + r.w,
@@ -350,4 +354,25 @@ test "slerp" {
     try testing.expectApproxEqAbs(v.x, c.x, eps_value);
     try testing.expectApproxEqAbs(v.y, c.y, eps_value);
     try testing.expectApproxEqAbs(v.z, c.z, eps_value);
+}
+
+test "eql" {
+    const p = Quat{
+        .w = 1,
+        .x = 3,
+        .y = -4,
+        .z = -5,
+    };
+
+    const q = Quat{
+        .w = 0,
+        .x = 5,
+        .y = 4,
+        .z = 0,
+    };
+
+    try testing.expect(p.eql(p));
+    try testing.expect(q.eql(q));
+    try testing.expect(!q.eql(p));
+    try testing.expect(!p.eql(q));
 }
