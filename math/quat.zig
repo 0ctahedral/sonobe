@@ -31,6 +31,25 @@ pub const Quat = struct {
         return Quat{};
     }
 
+    pub fn add(l: Self, r: Self) Self {
+        return Self.new(
+            l.w + r.w,
+            l.x + r.x,
+            l.y + r.y,
+            l.z + r.z,
+        );
+    }
+
+    /// multiply a quaternion by a scalar
+    pub fn scale(q: Self, s: f32) Self {
+        return Self.new(
+            q.w * s,
+            q.x * s,
+            q.y * s,
+            q.z * s,
+        );
+    }
+
     pub fn norm(q: Self) Self {
         const d = math.sqrt(q.w * q.w + q.x * q.x + q.y * q.y + q.z * q.z);
         return Self.new(q.w / d, q.x / d, q.y / d, q.z / d);
@@ -38,7 +57,7 @@ pub const Quat = struct {
 
     /// creates a new unit quaternion given an axis and angle
     /// axis does not have to be normalized as we do that here
-    pub fn fromAngleAxis(vec: Vec3, angle: f32) Self {
+    pub fn fromAxisAngle(vec: Vec3, angle: f32) Self {
         const sin = math.sin(angle / 2);
         const a = vec.norm().scale(sin);
         return Self.new(math.cos(angle / 2), a.x, a.y, a.z);
@@ -66,6 +85,7 @@ pub const Quat = struct {
 
     /// inverts a quaternion
     /// Assumes that the quaternion is normalized
+    /// and thus just uses the conjugate
     pub fn inv(q: Self) Self {
         const n = q.norm();
         return Self.new(n.w, -n.x, -n.y, -n.z);
@@ -114,13 +134,35 @@ pub const Quat = struct {
         return mat;
     }
 
+    /// linerar interpolation between two Quaternions
+    /// returns a normalized output since the calculation does not
+    /// preserve length
     pub fn lerp(l: Self, r: Self, t: f32) Self {
         return Self.new(
             util.lerp(l.w, r.w, t),
             util.lerp(l.x, r.x, t),
             util.lerp(l.y, r.y, t),
             util.lerp(l.z, r.z, t),
-        );
+        ).norm();
+    }
+
+    /// spherical linear interpolation between two Quaternions
+    /// assumes that both have been normalized
+    pub fn slerp(l: Self, r: Self, t: f32) Self {
+        var ret: Self = Self.identity();
+        // dot product of the two
+        // TODO: should this be its own fuction?
+        var dot = l.x * r.x + l.y * r.y + l.z * r.z + l.w * r.w;
+        if (dot < 0.0) {
+            dot *= -1.0;
+        }
+        const theta = math.acos(dot);
+
+        ret = l.scale(math.sin((1 - t) * theta))
+            .add(r.scale(math.sin(t * theta)))
+            .scale(math.sin(theta));
+
+        return ret;
     }
 };
 
@@ -210,23 +252,29 @@ test "inv" {
     try testing.expectApproxEqAbs(i.z, -n.z, 0.001);
 }
 
-test "fromAngleAxis" {
-    const q = Quat.fromAngleAxis(Vec3.new(0, 1, 0), math.pi);
+test "fromAxisAngle" {
+    const q = Quat.fromAxisAngle(Vec3.new(0, 1, 0), math.pi);
 
     try testing.expectApproxEqAbs(q.w, 0, 0.001);
     try testing.expectApproxEqAbs(q.x, 0, 0.001);
     try testing.expectApproxEqAbs(q.y, 1, 0.001);
     try testing.expectApproxEqAbs(q.z, 0, 0.001);
 
-    const p = Quat.fromAngleAxis(Vec3.new(0, 1, 1), math.pi / 3.0);
+    const p = Quat.fromAxisAngle(Vec3.new(0, 1, 1), math.pi / 3.0);
     try testing.expectApproxEqAbs(p.w, 0.8660, 0.001);
     try testing.expectApproxEqAbs(p.x, 0, 0.001);
     try testing.expectApproxEqAbs(p.y, 0.3535533, 0.001);
     try testing.expectApproxEqAbs(p.z, 0.3535533, 0.001);
+
+    const v = Quat.fromAxisAngle(Vec3.new(1, 0, 0), math.pi / 2.0);
+    try testing.expectApproxEqAbs(v.w, 0.7071, 0.001);
+    try testing.expectApproxEqAbs(v.x, 0.7071, 0.001);
+    try testing.expectApproxEqAbs(v.y, 0.0, 0.001);
+    try testing.expectApproxEqAbs(v.z, 0.0, 0.001);
 }
 
 test "rotate" {
-    const q = Quat.fromAngleAxis(Vec3.new(0, 0, 1), math.pi / 2.0);
+    const q = Quat.fromAxisAngle(Vec3.new(0, 0, 1), math.pi / 2.0);
     const r = q.rotate(Vec3.new(1, 0, 0));
     try testing.expectApproxEqAbs(r.x, 0, 0.001);
     try testing.expectApproxEqAbs(r.y, 1, 0.001);
@@ -239,7 +287,7 @@ test "rotate" {
 }
 
 test "toMat4" {
-    const q = Quat.fromAngleAxis(Vec3.new(1, 0, 0), math.pi);
+    const q = Quat.fromAxisAngle(Vec3.new(1, 0, 0), math.pi);
     const rotx = q.toMat4().m;
 
     // from mat4 rotate test
@@ -275,9 +323,31 @@ test "lerp" {
     };
 
     const l = Quat.lerp(p, q, 0.5);
-
-    try testing.expectApproxEqAbs(l.w, 0.5, 0.001);
-    try testing.expectApproxEqAbs(l.x, 4.0, 0.001);
+    // normalized
+    try testing.expectApproxEqAbs(l.w, 0.105409, 0.001);
+    try testing.expectApproxEqAbs(l.x, 0.843274, 0.001);
     try testing.expectApproxEqAbs(l.y, 0, 0.001);
-    try testing.expectApproxEqAbs(l.z, -2.5, 0.001);
+    try testing.expectApproxEqAbs(l.z, -0.527046, 0.001);
+}
+
+test "slerp" {
+    const eps_value = comptime std.math.epsilon(f32);
+    // 0 degrees on x axis
+    const a = Quat.fromAxisAngle(Vec3.new(1, 0, 0), 0);
+    // 180 degrees on x axis
+    const b = Quat.fromAxisAngle(Vec3.new(1, 0, 0), math.pi);
+    // 90 degrees on x axis
+    const c = Quat.fromAxisAngle(Vec3.new(1, 0, 0), math.pi / 2.0);
+
+    var s = Quat.slerp(a, b, 1.0);
+    try testing.expectApproxEqAbs(s.w, b.w, eps_value);
+    try testing.expectApproxEqAbs(s.x, b.x, eps_value);
+    try testing.expectApproxEqAbs(s.y, b.y, eps_value);
+    try testing.expectApproxEqAbs(s.z, b.z, eps_value);
+
+    const v = Quat.slerp(a, b, 0.50);
+    try testing.expectApproxEqAbs(v.w, c.w, eps_value);
+    try testing.expectApproxEqAbs(v.x, c.x, eps_value);
+    try testing.expectApproxEqAbs(v.y, c.y, eps_value);
+    try testing.expectApproxEqAbs(v.z, c.z, eps_value);
 }
