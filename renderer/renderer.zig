@@ -98,6 +98,7 @@ var vki: InstanceDispatch = undefined;
 var vkd: DeviceDispatch = undefined;
 
 var instance: vk.Instance = undefined;
+var surface: vk.SurfaceKHR = undefined;
 var messenger: vk.DebugUtilsMessengerEXT = undefined;
 
 const Self = @This();
@@ -160,6 +161,12 @@ pub fn init(allocator: Allocator, app_name: [*:0]const u8, window: glfw.Window) 
         null,
     );
 
+    // TODO: move this to system
+    if ((try glfw.createWindowSurface(instance, window, null, &surface)) != @enumToInt(vk.Result.success)) {
+        return error.SurfaceInitFailed;
+    }
+    errdefer vki.destroySurfaceKHR(instance, surface, null);
+
     // create a device
     // load dispatch functions which require device
 }
@@ -181,7 +188,7 @@ fn vk_debug(
 // shutdown the renderer
 pub fn deinit() void {
     //vkd.destroyDevice(device, null);
-    //vki.destroySurfaceKHR(instance, surface, null);
+    vki.destroySurfaceKHR(instance, surface, null);
 
     vki.destroyDebugUtilsMessengerEXT(instance, messenger, null);
     vki.destroyInstance(instance, null);
