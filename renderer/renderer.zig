@@ -1,4 +1,5 @@
 const std = @import("std");
+const builtin = @import("builtin");
 const vk = @import("vulkan");
 const glfw = @import("glfw");
 const Allocator = std.mem.Allocator;
@@ -8,6 +9,7 @@ const BaseDispatch = vk.BaseWrapper(&.{
 });
 
 const InstanceDispatch = vk.InstanceWrapper(&.{
+    .createDebugUtilsMessengerEXT,
     .destroyInstance,
     .createDevice,
     .destroySurfaceKHR,
@@ -76,6 +78,17 @@ const DeviceDispatch = vk.DeviceWrapper(&.{
     .cmdCopyBuffer,
 });
 
+// TODO: get these from the system
+const required_exts = [_][*:0]const u8{
+    vk.extension_info.ext_debug_utils.name,
+    "VK_KHR_surface",
+    switch (builtin.target.os.tag) {
+        .macos => "VK_EXT_metal_surface",
+        .linux => "VK_KHR_xcb_surface",
+        else => unreachable,
+    },
+};
+
 var vkb: BaseDispatch = undefined;
 var vki: InstanceDispatch = undefined;
 var vkd: DeviceDispatch = undefined;
@@ -104,16 +117,14 @@ pub fn init(allocator: Allocator, app_name: [*:0]const u8, window: glfw.Window) 
         .api_version = vk.API_VERSION_1_2,
     };
 
-    const glfw_exts = try glfw.getRequiredInstanceExtensions();
-
     // create an instance
     instance = try vkb.createInstance(&.{
         .flags = .{},
         .p_application_info = &app_info,
         .enabled_layer_count = 0,
         .pp_enabled_layer_names = undefined,
-        .enabled_extension_count = @intCast(u32, glfw_exts.len),
-        .pp_enabled_extension_names = @ptrCast([*]const [*:0]const u8, &glfw_exts[0]),
+        .enabled_extension_count = @intCast(u32, required_exts.len),
+        .pp_enabled_extension_names = @ptrCast([*]const [*:0]const u8, &required_exts),
     }, null);
 
     // load dispatch functions which require instance
