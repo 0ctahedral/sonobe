@@ -1,5 +1,5 @@
 const std = @import("std");
-const renderer = @import("renderer.zig");
+const Renderer = @import("renderer.zig");
 const vk = @import("vulkan");
 const glfw = @import("glfw");
 
@@ -17,6 +17,12 @@ pub fn main() !void {
         .client_api = .no_api,
     });
     defer window.destroy();
+
+    const allocator = std.heap.page_allocator;
+
+    // setup renderer
+    try Renderer.init(allocator, app_name, window);
+    defer Renderer.deinit();
 
     while (!window.shouldClose()) {
         try glfw.pollEvents();
