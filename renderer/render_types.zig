@@ -1,5 +1,6 @@
 const vk = @import("vulkan");
 
+/// Keeps the state of the renderer and dispatch functions
 pub const Context = struct {
     vkb: BaseDispatch = undefined,
     vki: InstanceDispatch = undefined,
@@ -22,13 +23,14 @@ pub const InstanceDispatch = vk.InstanceWrapper(&.{
     .destroySurfaceKHR,
     .enumeratePhysicalDevices,
     .getPhysicalDeviceProperties,
+    .getPhysicalDeviceMemoryProperties,
+    .getPhysicalDeviceFeatures,
     .enumerateDeviceExtensionProperties,
     .getPhysicalDeviceSurfaceFormatsKHR,
     .getPhysicalDeviceSurfacePresentModesKHR,
     .getPhysicalDeviceSurfaceCapabilitiesKHR,
     .getPhysicalDeviceQueueFamilyProperties,
     .getPhysicalDeviceSurfaceSupportKHR,
-    .getPhysicalDeviceMemoryProperties,
     .getDeviceProcAddr,
 });
 

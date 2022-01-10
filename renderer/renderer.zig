@@ -9,6 +9,8 @@ const vk = @import("vulkan");
 const glfw = @import("glfw");
 const Allocator = std.mem.Allocator;
 
+const Device = @import("device.zig").Device;
+
 // TODO: get these from the system
 const required_exts = [_][*:0]const u8{
     vk.extension_info.ext_debug_utils.name,
@@ -25,8 +27,6 @@ const required_layers = [_][*:0]const u8{"VK_LAYER_KHRONOS_validation"};
 
 // setup the context
 var context: Context = .{};
-
-const Self = @This();
 
 // initialize the renderer
 pub fn init(allocator: Allocator, app_name: [*:0]const u8, window: glfw.Window) !void {
@@ -94,6 +94,7 @@ pub fn init(allocator: Allocator, app_name: [*:0]const u8, window: glfw.Window) 
 
     // create a device
     // load dispatch functions which require device
+    _ = try Device.init(context.instance, context.vki, context.surface, allocator);
 }
 
 fn vk_debug(
@@ -118,5 +119,3 @@ pub fn deinit() void {
     context.vki.destroyDebugUtilsMessengerEXT(context.instance, context.messenger, null);
     context.vki.destroyInstance(context.instance, null);
 }
-
-
