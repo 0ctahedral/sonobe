@@ -1,83 +1,13 @@
+const render_types = @import("render_types.zig");
+const Context = render_types.Context;
+const BaseDispatch = render_types.BaseDispatch;
+const InstanceDispatch = render_types.InstanceDispatch;
+const DeviceDispatch = render_types.DeviceDispatch;
 const std = @import("std");
 const builtin = @import("builtin");
 const vk = @import("vulkan");
 const glfw = @import("glfw");
 const Allocator = std.mem.Allocator;
-
-const BaseDispatch = vk.BaseWrapper(&.{
-    .createInstance,
-});
-
-const InstanceDispatch = vk.InstanceWrapper(&.{
-    .destroyInstance,
-    .createDebugUtilsMessengerEXT,
-    .destroyDebugUtilsMessengerEXT,
-    .createDevice,
-    .destroySurfaceKHR,
-    .enumeratePhysicalDevices,
-    .getPhysicalDeviceProperties,
-    .enumerateDeviceExtensionProperties,
-    .getPhysicalDeviceSurfaceFormatsKHR,
-    .getPhysicalDeviceSurfacePresentModesKHR,
-    .getPhysicalDeviceSurfaceCapabilitiesKHR,
-    .getPhysicalDeviceQueueFamilyProperties,
-    .getPhysicalDeviceSurfaceSupportKHR,
-    .getPhysicalDeviceMemoryProperties,
-    .getDeviceProcAddr,
-});
-
-const DeviceDispatch = vk.DeviceWrapper(&.{
-    .destroyDevice,
-    .getDeviceQueue,
-    .createSemaphore,
-    .createFence,
-    .createImageView,
-    .destroyImageView,
-    .destroySemaphore,
-    .destroyFence,
-    .getSwapchainImagesKHR,
-    .createSwapchainKHR,
-    .destroySwapchainKHR,
-    .acquireNextImageKHR,
-    .deviceWaitIdle,
-    .waitForFences,
-    .resetFences,
-    .queueSubmit,
-    .queuePresentKHR,
-    .createCommandPool,
-    .destroyCommandPool,
-    .allocateCommandBuffers,
-    .freeCommandBuffers,
-    .queueWaitIdle,
-    .createShaderModule,
-    .destroyShaderModule,
-    .createPipelineLayout,
-    .destroyPipelineLayout,
-    .createRenderPass,
-    .destroyRenderPass,
-    .createGraphicsPipelines,
-    .destroyPipeline,
-    .createFramebuffer,
-    .destroyFramebuffer,
-    .beginCommandBuffer,
-    .endCommandBuffer,
-    .allocateMemory,
-    .freeMemory,
-    .createBuffer,
-    .destroyBuffer,
-    .getBufferMemoryRequirements,
-    .mapMemory,
-    .unmapMemory,
-    .bindBufferMemory,
-    .cmdBeginRenderPass,
-    .cmdEndRenderPass,
-    .cmdBindPipeline,
-    .cmdDraw,
-    .cmdSetViewport,
-    .cmdSetScissor,
-    .cmdBindVertexBuffers,
-    .cmdCopyBuffer,
-});
 
 // TODO: get these from the system
 const required_exts = [_][*:0]const u8{
@@ -93,13 +23,8 @@ const required_exts = [_][*:0]const u8{
 // TODO: set this in a config
 const required_layers = [_][*:0]const u8{"VK_LAYER_KHRONOS_validation"};
 
-var vkb: BaseDispatch = undefined;
-var vki: InstanceDispatch = undefined;
-var vkd: DeviceDispatch = undefined;
-
-var instance: vk.Instance = undefined;
-var surface: vk.SurfaceKHR = undefined;
-var messenger: vk.DebugUtilsMessengerEXT = undefined;
+// setup the context
+var context: Context = .{};
 
 const Self = @This();
 
@@ -110,7 +35,7 @@ pub fn init(allocator: Allocator, app_name: [*:0]const u8, window: glfw.Window) 
     const vk_proc = @ptrCast(fn (instance: vk.Instance, procname: [*:0]const u8) callconv(.C) vk.PfnVoidFunction, glfw.getInstanceProcAddress);
 
     // load the base dispatch functions
-    vkb = try BaseDispatch.load(vk_proc);
+    context.vkb = try BaseDispatch.load(vk_proc);
 
     _ = window;
     _ = allocator;
@@ -126,7 +51,7 @@ pub fn init(allocator: Allocator, app_name: [*:0]const u8, window: glfw.Window) 
     // TODO: query validation layers
 
     // create an instance
-    instance = try vkb.createInstance(&.{
+    context.instance = try context.vkb.createInstance(&.{
         .flags = .{},
         .p_application_info = &app_info,
         .enabled_layer_count = required_layers.len,
@@ -136,12 +61,12 @@ pub fn init(allocator: Allocator, app_name: [*:0]const u8, window: glfw.Window) 
     }, null);
 
     // load dispatch functions which require instance
-    vki = try InstanceDispatch.load(instance, vk_proc);
-    errdefer vki.destroyInstance(instance, null);
+    context.vki = try InstanceDispatch.load(context.instance, vk_proc);
+    errdefer context.vki.destroyInstance(context.instance, null);
 
     // setup debug msg
-    messenger = try vki.createDebugUtilsMessengerEXT(
-        instance,
+    context.messenger = try context.vki.createDebugUtilsMessengerEXT(
+        context.instance,
         &.{
             .message_severity = .{
                 .warning_bit_ext = true,
@@ -162,10 +87,10 @@ pub fn init(allocator: Allocator, app_name: [*:0]const u8, window: glfw.Window) 
     );
 
     // TODO: move this to system
-    if ((try glfw.createWindowSurface(instance, window, null, &surface)) != @enumToInt(vk.Result.success)) {
+    if ((try glfw.createWindowSurface(context.instance, window, null, &context.surface)) != @enumToInt(vk.Result.success)) {
         return error.SurfaceInitFailed;
     }
-    errdefer vki.destroySurfaceKHR(instance, surface, null);
+    errdefer context.vki.destroySurfaceKHR(context.instance, context.surface, null);
 
     // create a device
     // load dispatch functions which require device
@@ -188,8 +113,10 @@ fn vk_debug(
 // shutdown the renderer
 pub fn deinit() void {
     //vkd.destroyDevice(device, null);
-    vki.destroySurfaceKHR(instance, surface, null);
+    context.vki.destroySurfaceKHR(context.instance, context.surface, null);
 
-    vki.destroyDebugUtilsMessengerEXT(instance, messenger, null);
-    vki.destroyInstance(instance, null);
+    context.vki.destroyDebugUtilsMessengerEXT(context.instance, context.messenger, null);
+    context.vki.destroyInstance(context.instance, null);
 }
+
+
