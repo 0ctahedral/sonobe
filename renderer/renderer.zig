@@ -94,7 +94,7 @@ pub fn init(allocator: Allocator, app_name: [*:0]const u8, window: glfw.Window) 
 
     // create a device
     // load dispatch functions which require device
-    _ = try Device.init(context.instance, context.vki, context.surface, allocator);
+    _ = try Device.init(.{}, context.instance, context.vki, context.surface, allocator);
 }
 
 fn vk_debug(

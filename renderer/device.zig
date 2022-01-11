@@ -2,24 +2,22 @@ const std = @import("std");
 const vk = @import("vulkan");
 const render_types = @import("render_types.zig");
 
-const default_ext = [_][:0]const u8{
-    vk.extension_info.khr_swapchain.name,
-};
-
-// TODO: this will be set somewhere else
+/// the requirements of a device
 const Requirements = struct {
     graphics: bool = true,
     present: bool = true,
     compute: bool = true,
     transfer: bool = true,
 
-    // TODO: make this work?
-    //extensions: [][*:0]const u8 = &default_ext[0..2],
+    extensions: []const [:0]const u8 = &[_][:0]const u8{
+        vk.extension_info.khr_swapchain.name,
+    },
 
     /// idk what this is
     sampler_anisotropy: bool = true,
-    descrete: bool = false,
+    descrete: bool = true,
 };
+
 /// Encapsulates the physical and logical device combination
 /// and the properties thereof
 pub const Device = struct {
@@ -50,21 +48,22 @@ pub const Device = struct {
     /// Creates a device if a suitable one can be found
     /// if not, returns an error
     pub fn init(
+        reqs: Requirements,
         instance: vk.Instance,
         vki: render_types.InstanceDispatch,
         surface: vk.SurfaceKHR,
         allocator: std.mem.Allocator,
     ) !Self {
-        var ret = try selectPhysicalDevice(instance, vki, surface, allocator);
-        _ = ret;
-        return error.NotImplemented;
+        var ret = try selectPhysicalDevice(instance, vki, surface, reqs, allocator);
+        return ret;
     }
 
-    /// sets up the physical part of the device
+    /// finds a physical device based on the requirements given
     fn selectPhysicalDevice(
         instance: vk.Instance,
         vki: render_types.InstanceDispatch,
         surface: vk.SurfaceKHR,
+        reqs: Requirements,
         allocator: std.mem.Allocator,
     ) !Self {
         var ret: Self = undefined;
@@ -77,10 +76,9 @@ pub const Device = struct {
 
         _ = try vki.enumeratePhysicalDevices(instance, &device_count, pdevs.ptr);
 
-        //const reqs = Requirements{};
-        _ = surface;
-
         for (pdevs) |pdev| {
+            var meets_requirements = true;
+
             // get properties
             const props = vki.getPhysicalDeviceProperties(pdev);
             const mem = vki.getPhysicalDeviceMemoryProperties(pdev);
@@ -88,9 +86,10 @@ pub const Device = struct {
 
             std.log.info("looking at device: {s}", .{props.device_name});
 
-            std.log.info("type: {}", .{props.device_type});
-
-            var meets_requirements = true;
+            if (reqs.descrete) {
+                meets_requirements = meets_requirements and
+                    props.device_type == vk.PhysicalDeviceType.discrete_gpu;
+            }
 
             // TODO: check if it supports host visible
             // check extension support
@@ -103,7 +102,8 @@ pub const Device = struct {
 
                 _ = try vki.enumerateDeviceExtensionProperties(pdev, null, &count, extv.ptr);
 
-                for (default_ext) |ext| {
+                // TODO: use provided list from requirements
+                for (reqs.extensions) |ext| {
                     for (extv) |e| {
                         const len = std.mem.indexOfScalar(u8, &e.extension_name, 0).?;
                         const prop_ext_name = e.extension_name[0..len];
@@ -165,10 +165,10 @@ pub const Device = struct {
 
             // TODO: add requirements here
             meets_requirements = meets_requirements and
-                (ret.graphics_idx != null and
-                ret.present_idx != null and
-                ret.compute_idx != null and
-                ret.transfer_idx != null);
+                (ret.graphics_idx != null and reqs.graphics) and
+                (ret.present_idx != null and reqs.present) and
+                (ret.compute_idx != null and reqs.compute) and
+                (ret.transfer_idx != null and reqs.transfer);
 
             std.log.info("graphics_idx: {}", .{ret.graphics_idx});
             std.log.info("present_idx:  {}", .{ret.present_idx});
