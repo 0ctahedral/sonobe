@@ -90,7 +90,7 @@ pub const Device = struct {
 
             std.log.info("type: {}", .{props.device_type});
 
-            var meets_requirements = false;
+            var meets_requirements = true;
 
             // TODO: check if it supports host visible
             // check extension support
@@ -122,7 +122,7 @@ pub const Device = struct {
 
             meets_requirements = meets_requirements and has_required_ext;
 
-            // queue families
+            // get queue families
             {
                 var count: u32 = 0;
                 vki.getPhysicalDeviceQueueFamilyProperties(pdev, &count, null);
@@ -163,8 +163,6 @@ pub const Device = struct {
                 }
             }
 
-            // check for swapchain support
-
             // TODO: add requirements here
             meets_requirements = meets_requirements and
                 (ret.graphics_idx != null and
@@ -176,6 +174,15 @@ pub const Device = struct {
             std.log.info("present_idx:  {}", .{ret.present_idx});
             std.log.info("compute_idx:  {}", .{ret.compute_idx});
             std.log.info("transfer_idx: {}", .{ret.transfer_idx});
+
+            // check for swapchain support
+            var format_count: u32 = undefined;
+            _ = try vki.getPhysicalDeviceSurfaceFormatsKHR(pdev, surface, &format_count, null);
+
+            var present_mode_count: u32 = undefined;
+            _ = try vki.getPhysicalDeviceSurfacePresentModesKHR(pdev, surface, &present_mode_count, null);
+
+            meets_requirements = meets_requirements and format_count > 0 and present_mode_count > 0;
 
             if (meets_requirements) {
                 ret.props = props;
