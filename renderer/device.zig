@@ -31,10 +31,10 @@ pub const Device = struct {
     features: vk.PhysicalDeviceFeatures,
 
     /// indices of the queues
-    graphics_idx: i32,
-    present_idx: i32,
-    compute_idx: i3,
-    transfer_idx: i32,
+    graphics_idx: ?u32 = null,
+    present_idx: ?u32 = null,
+    compute_idx: ?u32 = null,
+    transfer_idx: ?u32 = null,
 
     supports_device_local_host_visible: bool,
 
@@ -67,7 +67,6 @@ pub const Device = struct {
         surface: vk.SurfaceKHR,
         allocator: std.mem.Allocator,
     ) !Self {
-        _ = surface;
         var ret: Self = undefined;
         // loop over devices first and look for suitable one
         var device_count: u32 = undefined;
@@ -79,6 +78,7 @@ pub const Device = struct {
         _ = try vki.enumeratePhysicalDevices(instance, &device_count, pdevs.ptr);
 
         //const reqs = Requirements{};
+        _ = surface;
 
         for (pdevs) |pdev| {
             // get properties
@@ -87,6 +87,8 @@ pub const Device = struct {
             const features = vki.getPhysicalDeviceFeatures(pdev);
 
             std.log.info("looking at device: {s}", .{props.device_name});
+
+            std.log.info("type: {}", .{props.device_type});
 
             var meets_requirements = false;
 
@@ -118,12 +120,62 @@ pub const Device = struct {
                 break :blk true;
             };
 
-            if (!has_required_ext) {
-                continue;
+            meets_requirements = meets_requirements and has_required_ext;
+
+            // queue families
+            {
+                var count: u32 = 0;
+                vki.getPhysicalDeviceQueueFamilyProperties(pdev, &count, null);
+
+                const qpropv = try allocator.alloc(vk.QueueFamilyProperties, count);
+                defer allocator.free(qpropv);
+
+                vki.getPhysicalDeviceQueueFamilyProperties(pdev, &count, qpropv.ptr);
+
+                var min_transfer_score: u8 = 255;
+
+                for (qpropv) |qprop, idx| {
+                    var cur_transfer_score: u8 = 0;
+                    const i = @intCast(u32, idx);
+
+                    if ((ret.graphics_idx == null) and qprop.queue_flags.graphics_bit) {
+                        ret.graphics_idx = i;
+                        cur_transfer_score += 1;
+                    }
+
+                    if ((ret.compute_idx == null) and qprop.queue_flags.compute_bit) {
+                        ret.compute_idx = i;
+                        cur_transfer_score += 1;
+                    }
+
+                    // doing this so that transfer has its own
+                    if (qprop.queue_flags.transfer_bit) {
+                        if (cur_transfer_score <= min_transfer_score) {
+                            min_transfer_score = cur_transfer_score;
+                            ret.transfer_idx = i;
+                        }
+                    }
+
+                    // check if this device supports surfaces
+                    if ((ret.present_idx == null) and (try vki.getPhysicalDeviceSurfaceSupportKHR(pdev, i, surface)) == vk.TRUE) {
+                        ret.present_idx = i;
+                    }
+                }
             }
 
-            // check surface support
-            // queue families
+            // check for swapchain support
+
+            // TODO: add requirements here
+            meets_requirements = meets_requirements and
+                (ret.graphics_idx != null and
+                ret.present_idx != null and
+                ret.compute_idx != null and
+                ret.transfer_idx != null);
+
+            std.log.info("graphics_idx: {}", .{ret.graphics_idx});
+            std.log.info("present_idx:  {}", .{ret.present_idx});
+            std.log.info("compute_idx:  {}", .{ret.compute_idx});
+            std.log.info("transfer_idx: {}", .{ret.transfer_idx});
 
             if (meets_requirements) {
                 ret.props = props;
