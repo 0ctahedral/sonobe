@@ -210,14 +210,16 @@ fn initializeCandidate(vki: InstanceDispatch, candidate: DeviceCandidate) !vk.De
     else
         2;
 
+    std.log.info("using device: {s}", .{candidate.props.device_name});
+
     return try vki.createDevice(candidate.pdev, &.{
         .flags = .{},
         .queue_create_info_count = queue_count,
         .p_queue_create_infos = &qci,
         .enabled_layer_count = 0,
         .pp_enabled_layer_names = undefined,
-        .enabled_extension_count = required_device_extensions.len,
-        .pp_enabled_extension_names = @ptrCast([*]const [*:0]const u8, &required_device_extensions),
+        //.enabled_extension_count = required_device_extensions.len,
+        //.pp_enabled_extension_names = @ptrCast([*]const [*:0]const u8, &required_device_extensions),
         .p_enabled_features = null,
     }, null);
 }

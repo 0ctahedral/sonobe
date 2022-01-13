@@ -18,6 +18,11 @@ const Requirements = struct {
     descrete: bool = true,
 };
 
+const Queue = struct {
+    idx: u32,
+    queue: vk.Queue,
+};
+
 /// Encapsulates the physical and logical device combination
 /// and the properties thereof
 pub const Device = struct {
@@ -28,20 +33,24 @@ pub const Device = struct {
     memory: vk.PhysicalDeviceMemoryProperties,
     features: vk.PhysicalDeviceFeatures,
 
-    /// indices of the queues
-    graphics_idx: ?u32 = null,
-    present_idx: ?u32 = null,
-    compute_idx: ?u32 = null,
-    transfer_idx: ?u32 = null,
+    graphics: ?Queue = null,
+    present: ?Queue = null,
+    transfer: ?Queue = null,
+    compute: ?Queue = null,
 
     supports_device_local_host_visible: bool,
 
     // logical
     logical: vk.Device,
-    graphics_queue: vk.Queue,
-    present_queue: vk.Queue,
-    transfer_queue: vk.Queue,
-    compute_queue: vk.Queue,
+    //graphics_queue: vk.Queue,
+    //present_queue: vk.Queue,
+    //transfer_queue: vk.Queue,
+    //compute_queue: vk.Queue,
+    ///// indices of the queues
+    //graphics_idx: ?u32 = null,
+    //present_idx: ?u32 = null,
+    //compute_idx: ?u32 = null,
+    //transfer_idx: ?u32 = null,
 
     const Self = @This();
 
@@ -55,6 +64,79 @@ pub const Device = struct {
         allocator: std.mem.Allocator,
     ) !Self {
         var ret = try selectPhysicalDevice(instance, vki, surface, reqs, allocator);
+
+        // gather count of queues that share each index
+        var indices = [_]u32{ 0, 0, 0, 0 };
+
+        if (ret.graphics) |q| {
+            indices[q.idx] += 1;
+            std.log.info("graphics idx: {}", .{q.idx});
+        }
+        if (ret.compute) |q| {
+            indices[q.idx] += 1;
+            std.log.info("compute idx: {}", .{q.idx});
+        }
+        if (ret.transfer) |q| {
+            indices[q.idx] += 1;
+            std.log.info("transfer idx: {}", .{q.idx});
+        }
+        if (ret.present) |q| {
+            indices[q.idx] += 1;
+            std.log.info("present idx: {}", .{q.idx});
+        }
+
+        const priority = [_]f32{1};
+        //var qci: [4]vk.DeviceQueueCreateInfo = undefined;
+        //var last: usize = 0;
+        //var n_unique: u32 = 0;
+
+        //for (indices) |n, idx| {
+        //    if (n > 0) {
+        //        n_unique += 1;
+        //        //var i: usize = 0;
+        //        //while (i < n) : (i += 1) {
+        //        qci[last] = .{
+        //            .flags = .{},
+        //            .queue_family_index = @intCast(u32, idx),
+        //            .queue_count = @intCast(u32, 1),
+        //            .p_queue_priorities = &priority,
+        //        };
+        //        last += 1;
+        //        //}
+        //    }
+        //}
+
+        const qci = [_]vk.DeviceQueueCreateInfo{
+            .{
+                .flags = .{},
+                .queue_family_index = ret.graphics.?.idx,
+                .queue_count = 1,
+                .p_queue_priorities = &priority,
+            },
+            .{
+                .flags = .{},
+                .queue_family_index = ret.present.?.idx,
+                .queue_count = 1,
+                .p_queue_priorities = &priority,
+            },
+        };
+
+        ret.logical = try vki.createDevice(ret.physical, &.{
+            .flags = .{},
+            //.queue_create_info_count = n_unique,
+            .queue_create_info_count = 1,
+            .p_queue_create_infos = &qci,
+            // TODO: add features
+            .p_enabled_features = &.{
+                .sampler_anisotropy = vk.TRUE,
+            },
+            .enabled_extension_count = @intCast(u32, reqs.extensions.len),
+            //.enabled_extension_count = 1,
+            .pp_enabled_extension_names = @ptrCast([*]const [*:0]const u8, reqs.extensions),
+            .enabled_layer_count = 0,
+            .pp_enabled_layer_names = undefined,
+        }, null);
+
         return ret;
     }
 
@@ -138,13 +220,21 @@ pub const Device = struct {
                     var cur_transfer_score: u8 = 0;
                     const i = @intCast(u32, idx);
 
-                    if ((ret.graphics_idx == null) and qprop.queue_flags.graphics_bit) {
-                        ret.graphics_idx = i;
+                    if ((ret.graphics == null) and qprop.queue_flags.graphics_bit) {
+                        ret.graphics = .{ .idx = i, .queue = undefined };
                         cur_transfer_score += 1;
                     }
 
-                    if ((ret.compute_idx == null) and qprop.queue_flags.compute_bit) {
-                        ret.compute_idx = i;
+                    // check if this device supports surfaces
+                    if ((ret.present == null) and (try vki.getPhysicalDeviceSurfaceSupportKHR(pdev, i, surface)) == vk.TRUE) {
+                        ret.present = .{ .idx = i, .queue = undefined };
+                        cur_transfer_score += 1;
+                    }
+
+                    if ((ret.compute == null) and qprop.queue_flags.compute_bit) {
+                        if (ret.graphics.?.idx == i) continue;
+                        if (ret.present.?.idx == i) continue;
+                        ret.compute = .{ .idx = i, .queue = undefined };
                         cur_transfer_score += 1;
                     }
 
@@ -152,28 +242,18 @@ pub const Device = struct {
                     if (qprop.queue_flags.transfer_bit) {
                         if (cur_transfer_score <= min_transfer_score) {
                             min_transfer_score = cur_transfer_score;
-                            ret.transfer_idx = i;
+                            ret.transfer = .{ .idx = i, .queue = undefined };
                         }
-                    }
-
-                    // check if this device supports surfaces
-                    if ((ret.present_idx == null) and (try vki.getPhysicalDeviceSurfaceSupportKHR(pdev, i, surface)) == vk.TRUE) {
-                        ret.present_idx = i;
                     }
                 }
             }
 
             // TODO: add requirements here
             meets_requirements = meets_requirements and
-                (ret.graphics_idx != null and reqs.graphics) and
-                (ret.present_idx != null and reqs.present) and
-                (ret.compute_idx != null and reqs.compute) and
-                (ret.transfer_idx != null and reqs.transfer);
-
-            std.log.info("graphics_idx: {}", .{ret.graphics_idx});
-            std.log.info("present_idx:  {}", .{ret.present_idx});
-            std.log.info("compute_idx:  {}", .{ret.compute_idx});
-            std.log.info("transfer_idx: {}", .{ret.transfer_idx});
+                (ret.graphics != null and reqs.graphics) and
+                (ret.present != null and reqs.present) and
+                (ret.compute != null and reqs.compute) and
+                (ret.transfer != null and reqs.transfer);
 
             // check for swapchain support
             var format_count: u32 = undefined;
@@ -188,6 +268,7 @@ pub const Device = struct {
                 ret.props = props;
                 ret.memory = mem;
                 ret.features = features;
+                ret.physical = pdev;
 
                 std.log.info("device {s} meets requirements", .{props.device_name});
                 return ret;
