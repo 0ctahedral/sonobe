@@ -8,6 +8,7 @@ const glfw = @import("glfw");
 const Allocator = std.mem.Allocator;
 
 const Device = @import("device.zig").Device;
+const Swapchain = @import("swapchain.zig").Swapchain;
 
 // TODO: get these from the system
 const required_exts = [_][*:0]const u8{
@@ -29,6 +30,7 @@ const Context = struct {
     surface: vk.SurfaceKHR = undefined,
     messenger: vk.DebugUtilsMessengerEXT = undefined,
     device: Device = undefined,
+    swapchain: Swapchain = undefined,
 };
 
 // TODO: set this in a config
@@ -104,6 +106,8 @@ pub fn init(allocator: Allocator, app_name: [*:0]const u8, window: glfw.Window) 
     // create a device
     // load dispatch functions which require device
     context.device = try Device.init(.{}, context.instance, context.vki, context.surface, allocator);
+
+    context.swapchain = try Swapchain.init(context.vki, context.device, context.surface);
 }
 
 fn vk_debug(
