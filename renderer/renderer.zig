@@ -108,6 +108,9 @@ pub fn init(allocator: Allocator, app_name: [*:0]const u8, window: glfw.Window, 
     context.device = try Device.init(.{}, context.instance, context.vki, context.surface, allocator);
 
     context.swapchain = try Swapchain.init(context.vki, context.device, context.surface, extent);
+
+    // try to recreate for fun
+    try context.swapchain.recreate(context.vki, context.device, context.surface);
 }
 
 fn vk_debug(
@@ -126,6 +129,8 @@ fn vk_debug(
 
 // shutdown the renderer
 pub fn deinit() void {
+    context.swapchain.deinit(context.device);
+
     context.device.deinit();
 
     context.vki.destroySurfaceKHR(context.instance, context.surface, null);
