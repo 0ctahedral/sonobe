@@ -1,6 +1,8 @@
 const std = @import("std");
 const vk = @import("vulkan");
-const render_types = @import("render_types.zig");
+const dispatch_types = @import("dispatch_types.zig");
+const DeviceDispatch = dispatch_types.DeviceDispatch;
+const InstanceDispatch = dispatch_types.InstanceDispatch;
 
 /// the requirements of a device
 const Requirements = struct {
@@ -26,6 +28,9 @@ const Queue = struct {
 /// Encapsulates the physical and logical device combination
 /// and the properties thereof
 pub const Device = struct {
+    /// dispatch for functions which use this device
+    vkd: DeviceDispatch,
+
     physical: vk.PhysicalDevice,
 
     /// properties of a the device
@@ -59,7 +64,7 @@ pub const Device = struct {
     pub fn init(
         reqs: Requirements,
         instance: vk.Instance,
-        vki: render_types.InstanceDispatch,
+        vki: InstanceDispatch,
         surface: vk.SurfaceKHR,
         allocator: std.mem.Allocator,
     ) !Self {
@@ -86,45 +91,27 @@ pub const Device = struct {
         }
 
         const priority = [_]f32{1};
-        //var qci: [4]vk.DeviceQueueCreateInfo = undefined;
-        //var last: usize = 0;
-        //var n_unique: u32 = 0;
+        var qci: [4]vk.DeviceQueueCreateInfo = undefined;
+        var last: usize = 0;
+        var n_unique: u32 = 0;
 
-        //for (indices) |n, idx| {
-        //    if (n > 0) {
-        //        n_unique += 1;
-        //        //var i: usize = 0;
-        //        //while (i < n) : (i += 1) {
-        //        qci[last] = .{
-        //            .flags = .{},
-        //            .queue_family_index = @intCast(u32, idx),
-        //            .queue_count = @intCast(u32, 1),
-        //            .p_queue_priorities = &priority,
-        //        };
-        //        last += 1;
-        //        //}
-        //    }
-        //}
-
-        const qci = [_]vk.DeviceQueueCreateInfo{
-            .{
-                .flags = .{},
-                .queue_family_index = ret.graphics.?.idx,
-                .queue_count = 1,
-                .p_queue_priorities = &priority,
-            },
-            .{
-                .flags = .{},
-                .queue_family_index = ret.present.?.idx,
-                .queue_count = 1,
-                .p_queue_priorities = &priority,
-            },
-        };
+        for (indices) |n, idx| {
+            if (n > 0) {
+                n_unique += 1;
+                qci[last] = .{
+                    .flags = .{},
+                    .queue_family_index = @intCast(u32, idx),
+                    .queue_count = @intCast(u32, 1),
+                    .p_queue_priorities = &priority,
+                };
+                last += 1;
+            }
+        }
 
         ret.logical = try vki.createDevice(ret.physical, &.{
             .flags = .{},
-            //.queue_create_info_count = n_unique,
-            .queue_create_info_count = 1,
+            .queue_create_info_count = n_unique,
+            //.queue_create_info_count = 1,
             .p_queue_create_infos = &qci,
             // TODO: add features
             .p_enabled_features = &.{
@@ -137,13 +124,23 @@ pub const Device = struct {
             .pp_enabled_layer_names = undefined,
         }, null);
 
+        // setup the device dispatch
+        ret.vkd = try DeviceDispatch.load(ret.logical, vki.dispatch.vkGetDeviceProcAddr);
+
+        // setup the queues
+
         return ret;
+    }
+
+    /// destroys the device and associated memory
+    pub fn deinit(self: Self) void {
+       self.vkd.destroyDevice(self.logical, null);
     }
 
     /// finds a physical device based on the requirements given
     fn selectPhysicalDevice(
         instance: vk.Instance,
-        vki: render_types.InstanceDispatch,
+        vki: InstanceDispatch,
         surface: vk.SurfaceKHR,
         reqs: Requirements,
         allocator: std.mem.Allocator,
@@ -278,8 +275,4 @@ pub const Device = struct {
         return error.NoSuitableDevice;
     }
 
-    /// destroys the device and associated memory
-    pub fn deinit(self: Self) void {
-        _ = self;
-    }
 };

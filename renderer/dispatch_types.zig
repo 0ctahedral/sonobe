@@ -1,15 +1,5 @@
 const vk = @import("vulkan");
 
-/// Keeps the state of the renderer and dispatch functions
-pub const Context = struct {
-    vkb: BaseDispatch = undefined,
-    vki: InstanceDispatch = undefined,
-    vkd: DeviceDispatch = undefined,
-
-    instance: vk.Instance = undefined,
-    surface: vk.SurfaceKHR = undefined,
-    messenger: vk.DebugUtilsMessengerEXT = undefined,
-};
 
 pub const BaseDispatch = vk.BaseWrapper(&.{
     .createInstance,

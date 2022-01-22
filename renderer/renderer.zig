@@ -1,8 +1,6 @@
-const render_types = @import("render_types.zig");
-const Context = render_types.Context;
-const BaseDispatch = render_types.BaseDispatch;
-const InstanceDispatch = render_types.InstanceDispatch;
-const DeviceDispatch = render_types.DeviceDispatch;
+const dispatch_types = @import("dispatch_types.zig");
+const BaseDispatch = dispatch_types.BaseDispatch;
+const InstanceDispatch = dispatch_types.InstanceDispatch;
 const std = @import("std");
 const builtin = @import("builtin");
 const vk = @import("vulkan");
@@ -20,6 +18,17 @@ const required_exts = [_][*:0]const u8{
         .linux => "VK_KHR_xcb_surface",
         else => unreachable,
     },
+};
+
+/// Keeps the state of the renderer and dispatch functions
+const Context = struct {
+    vkb: BaseDispatch = undefined,
+    vki: InstanceDispatch = undefined,
+
+    instance: vk.Instance = undefined,
+    surface: vk.SurfaceKHR = undefined,
+    messenger: vk.DebugUtilsMessengerEXT = undefined,
+    device: Device = undefined,
 };
 
 // TODO: set this in a config
@@ -94,7 +103,7 @@ pub fn init(allocator: Allocator, app_name: [*:0]const u8, window: glfw.Window) 
 
     // create a device
     // load dispatch functions which require device
-    _ = try Device.init(.{}, context.instance, context.vki, context.surface, allocator);
+    context.device = try Device.init(.{}, context.instance, context.vki, context.surface, allocator);
 }
 
 fn vk_debug(
@@ -113,7 +122,8 @@ fn vk_debug(
 
 // shutdown the renderer
 pub fn deinit() void {
-    //vkd.destroyDevice(device, null);
+    context.device.deinit();
+
     context.vki.destroySurfaceKHR(context.instance, context.surface, null);
 
     context.vki.destroyDebugUtilsMessengerEXT(context.instance, context.messenger, null);
