@@ -9,6 +9,7 @@ pub const Swapchain = struct {
     surface_format: vk.SurfaceFormatKHR = undefined,
     // defaults to fifo which all devices support
     present_mode: vk.PresentModeKHR = .fifo_khr,
+    extent: vk.Extent2D = undefined,
 
     const Self = @This();
 
@@ -17,6 +18,7 @@ pub const Swapchain = struct {
         vki: InstanceDispatch,
         dev: Device,
         surface: vk.SurfaceKHR,
+        extent: vk.Extent2D
     ) !Self {
 
         var self: Self = .{};
@@ -58,6 +60,28 @@ pub const Swapchain = struct {
         }
 
         std.log.info("chosen present mode: {}", .{self.present_mode});
+
+        // get the actual extent of the window
+        const caps = try vki.getPhysicalDeviceSurfaceCapabilitiesKHR(dev.physical, surface);
+
+        const actual_extent = blk: {
+            if (caps.current_extent.width != 0xFFFF_FFFF) {
+                break :blk caps.current_extent;
+            } else {
+                break :blk vk.Extent2D{
+                    .width = std.math.clamp(extent.width, caps.min_image_extent.width, caps.max_image_extent.width),
+                    .height = std.math.clamp(extent.height, caps.min_image_extent.height, caps.max_image_extent.height),
+                };
+            }
+        };
+        
+        if (actual_extent.width == 0 or actual_extent.height == 0) {
+            return error.InvalidSurfaceDimensions;
+        }
+
+        self.extent = actual_extent;
+
+        std.log.info("given extent: {} actual extent: {}", .{extent, self.extent});
 
         return self;
     }

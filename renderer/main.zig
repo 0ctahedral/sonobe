@@ -21,7 +21,7 @@ pub fn main() !void {
     const allocator = std.heap.page_allocator;
 
     // setup renderer
-    try Renderer.init(allocator, app_name, window);
+    try Renderer.init(allocator, app_name, window, extent);
     defer Renderer.deinit();
 
     while (!window.shouldClose()) {

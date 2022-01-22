@@ -40,7 +40,7 @@ const required_layers = [_][*:0]const u8{"VK_LAYER_KHRONOS_validation"};
 var context: Context = .{};
 
 // initialize the renderer
-pub fn init(allocator: Allocator, app_name: [*:0]const u8, window: glfw.Window) !void {
+pub fn init(allocator: Allocator, app_name: [*:0]const u8, window: glfw.Window, extent: vk.Extent2D) !void {
     // get proc address from glfw window
     // TODO: this should really just be a function passed into the init
     const vk_proc = @ptrCast(fn (instance: vk.Instance, procname: [*:0]const u8) callconv(.C) vk.PfnVoidFunction, glfw.getInstanceProcAddress);
@@ -107,7 +107,7 @@ pub fn init(allocator: Allocator, app_name: [*:0]const u8, window: glfw.Window) 
     // load dispatch functions which require device
     context.device = try Device.init(.{}, context.instance, context.vki, context.surface, allocator);
 
-    context.swapchain = try Swapchain.init(context.vki, context.device, context.surface);
+    context.swapchain = try Swapchain.init(context.vki, context.device, context.surface, extent);
 }
 
 fn vk_debug(
