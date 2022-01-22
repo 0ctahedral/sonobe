@@ -45,17 +45,7 @@ pub const Device = struct {
 
     supports_device_local_host_visible: bool,
 
-    // logical
     logical: vk.Device,
-    //graphics_queue: vk.Queue,
-    //present_queue: vk.Queue,
-    //transfer_queue: vk.Queue,
-    //compute_queue: vk.Queue,
-    ///// indices of the queues
-    //graphics_idx: ?u32 = null,
-    //present_idx: ?u32 = null,
-    //compute_idx: ?u32 = null,
-    //transfer_idx: ?u32 = null,
 
     const Self = @This();
 
@@ -68,24 +58,24 @@ pub const Device = struct {
         surface: vk.SurfaceKHR,
         allocator: std.mem.Allocator,
     ) !Self {
-        var ret = try selectPhysicalDevice(instance, vki, surface, reqs, allocator);
+        var self = try selectPhysicalDevice(instance, vki, surface, reqs, allocator);
 
         // gather count of queues that share each index
         var indices = [_]u32{ 0, 0, 0, 0 };
 
-        if (ret.graphics) |q| {
+        if (self.graphics) |q| {
             indices[q.idx] += 1;
             std.log.info("graphics idx: {}", .{q.idx});
         }
-        if (ret.compute) |q| {
+        if (self.compute) |q| {
             indices[q.idx] += 1;
             std.log.info("compute idx: {}", .{q.idx});
         }
-        if (ret.transfer) |q| {
+        if (self.transfer) |q| {
             indices[q.idx] += 1;
             std.log.info("transfer idx: {}", .{q.idx});
         }
-        if (ret.present) |q| {
+        if (self.present) |q| {
             indices[q.idx] += 1;
             std.log.info("present idx: {}", .{q.idx});
         }
@@ -108,7 +98,7 @@ pub const Device = struct {
             }
         }
 
-        ret.logical = try vki.createDevice(ret.physical, &.{
+        self.logical = try vki.createDevice(self.physical, &.{
             .flags = .{},
             .queue_create_info_count = n_unique,
             //.queue_create_info_count = 1,
@@ -125,11 +115,23 @@ pub const Device = struct {
         }, null);
 
         // setup the device dispatch
-        ret.vkd = try DeviceDispatch.load(ret.logical, vki.dispatch.vkGetDeviceProcAddr);
+        self.vkd = try DeviceDispatch.load(self.logical, vki.dispatch.vkGetDeviceProcAddr);
 
         // setup the queues
+        if (self.graphics) |*q| {
+            q.queue = self.vkd.getDeviceQueue(self.logical, q.idx, 0);
+        }
+        if (self.compute) |*q| {
+            q.queue = self.vkd.getDeviceQueue(self.logical, q.idx, 0);
+        }
+        if (self.transfer) |*q| {
+            q.queue = self.vkd.getDeviceQueue(self.logical, q.idx, 0);
+        }
+        if (self.present) |*q| {
+            q.queue = self.vkd.getDeviceQueue(self.logical, q.idx, 0);
+        }
 
-        return ret;
+        return self;
     }
 
     /// destroys the device and associated memory
