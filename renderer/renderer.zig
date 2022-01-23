@@ -49,7 +49,6 @@ pub fn init(allocator: Allocator, app_name: [*:0]const u8, window: glfw.Window, 
     context.vkb = try BaseDispatch.load(vk_proc);
 
     _ = window;
-    _ = allocator;
 
     const app_info = vk.ApplicationInfo{
         .p_application_name = app_name,
@@ -107,10 +106,10 @@ pub fn init(allocator: Allocator, app_name: [*:0]const u8, window: glfw.Window, 
     // load dispatch functions which require device
     context.device = try Device.init(.{}, context.instance, context.vki, context.surface, allocator);
 
-    context.swapchain = try Swapchain.init(context.vki, context.device, context.surface, extent);
+    context.swapchain = try Swapchain.init(context.vki, context.device, context.surface, extent, allocator);
 
     // try to recreate for fun
-    try context.swapchain.recreate(context.vki, context.device, context.surface);
+    try context.swapchain.recreate(context.vki, context.device, context.surface, allocator);
 }
 
 fn vk_debug(
@@ -128,8 +127,8 @@ fn vk_debug(
 }
 
 // shutdown the renderer
-pub fn deinit() void {
-    context.swapchain.deinit(context.device);
+pub fn deinit(allocator: Allocator) void {
+    context.swapchain.deinit(context.device, allocator);
 
     context.device.deinit();
 

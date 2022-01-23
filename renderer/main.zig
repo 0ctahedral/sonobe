@@ -18,11 +18,12 @@ pub fn main() !void {
     });
     defer window.destroy();
 
-    const allocator = std.heap.page_allocator;
+    //const allocator = std.heap.page_allocator;
+    const allocator = std.testing.allocator;
 
     // setup renderer
     try Renderer.init(allocator, app_name, window, extent);
-    defer Renderer.deinit();
+    defer Renderer.deinit(allocator);
 
     while (!window.shouldClose()) {
         try glfw.pollEvents();
