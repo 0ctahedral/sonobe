@@ -118,7 +118,10 @@ pub fn init(allocator: Allocator, app_name: [*:0]const u8, window: glfw.Window, 
     try context.swapchain.recreate(context.vki, context.device, context.surface, allocator);
 
     // create a renderpass
-    renderpass = try RenderPass.init();
+    renderpass = try RenderPass.init(context.swapchain, context.device, .{
+        .color = true,
+    });
+    errdefer renderpass.deinit(context.device);
 }
 
 fn vk_debug(
@@ -137,6 +140,7 @@ fn vk_debug(
 
 // shutdown the renderer
 pub fn deinit(allocator: Allocator) void {
+    renderpass.deinit(context.device);
     context.swapchain.deinit(context.device, allocator);
 
     context.device.deinit();
