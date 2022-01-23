@@ -9,6 +9,7 @@ const Allocator = std.mem.Allocator;
 
 const Device = @import("device.zig").Device;
 const Swapchain = @import("swapchain.zig").Swapchain;
+const RenderPass = @import("renderpass.zig").RenderPass;
 
 // TODO: get these from the system
 const required_exts = [_][*:0]const u8{
@@ -38,6 +39,8 @@ const required_layers = [_][*:0]const u8{"VK_LAYER_KHRONOS_validation"};
 
 // setup the context
 var context: Context = .{};
+
+var renderpass: RenderPass = undefined;
 
 // initialize the renderer
 pub fn init(allocator: Allocator, app_name: [*:0]const u8, window: glfw.Window, extent: vk.Extent2D) !void {
@@ -95,6 +98,7 @@ pub fn init(allocator: Allocator, app_name: [*:0]const u8, window: glfw.Window, 
         },
         null,
     );
+    errdefer context.vki.destroyDebugUtilsMessengerEXT(context.instance, context.messenger, null);
 
     // TODO: move this to system
     if ((try glfw.createWindowSurface(context.instance, window, null, &context.surface)) != @enumToInt(vk.Result.success)) {
@@ -105,11 +109,16 @@ pub fn init(allocator: Allocator, app_name: [*:0]const u8, window: glfw.Window, 
     // create a device
     // load dispatch functions which require device
     context.device = try Device.init(.{}, context.instance, context.vki, context.surface, allocator);
+    errdefer context.device.deinit();
 
     context.swapchain = try Swapchain.init(context.vki, context.device, context.surface, extent, allocator);
+    errdefer context.swapchain.deinit(context.device, allocator);
 
     // try to recreate for fun
     try context.swapchain.recreate(context.vki, context.device, context.surface, allocator);
+
+    // create a renderpass
+    renderpass = try RenderPass.init();
 }
 
 fn vk_debug(
