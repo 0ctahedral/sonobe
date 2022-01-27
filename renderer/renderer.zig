@@ -136,6 +136,9 @@ pub fn init(allocator: Allocator, app_name: [*:0]const u8, window: glfw.Window, 
         cb.* = try CommandBuffer.init(context.device, context.device.command_pool, true);
     }
 
+    // create framebuffers
+    try recreateFramebuffers();
+
     // create pipeline
 }
 
@@ -155,6 +158,12 @@ fn vk_debug(
 
 // shutdown the renderer
 pub fn deinit(allocator: Allocator) void {
+
+    for (context.swapchain.framebuffers) |fb| {
+        // TODO: this will need another attachment for depth
+        context.device.vkd.destroyFramebuffer(context.device.logical, fb, null);
+    }
+
     for (graphics_buffers) |*cb| {
         cb.deinit(context.device, context.device.command_pool);
     }
@@ -167,4 +176,21 @@ pub fn deinit(allocator: Allocator) void {
 
     context.vki.destroyDebugUtilsMessengerEXT(context.instance, context.messenger, null);
     context.vki.destroyInstance(context.instance, null);
+}
+
+// TODO: fix this, i'm lazy
+// also should probably be in the swapchain??
+pub fn recreateFramebuffers() !void {
+    for (context.swapchain.images) |img, i| {
+        // TODO: this will need another attachment for depth
+        context.swapchain.framebuffers[i] = try context.device.vkd.createFramebuffer(context.device.logical, &.{
+            .flags = .{},
+            .render_pass = renderpass.handle,
+            .attachment_count = 1,
+            .p_attachments = @ptrCast([*]const vk.ImageView, &img.view),
+            .width = context.swapchain.extent.width,
+            .height = context.swapchain.extent.height,
+            .layers = 1,
+        }, null);
+    }
 }

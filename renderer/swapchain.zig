@@ -14,6 +14,7 @@ pub const Swapchain = struct {
     handle: vk.SwapchainKHR = .null_handle,
 
     images: []Image = undefined,
+    framebuffers: []vk.Framebuffer = undefined,
 
     const Self = @This();
 
@@ -126,6 +127,9 @@ pub const Swapchain = struct {
             self.images[i] = try Image.initManaged(dev, img, self.surface_format.format);
         }
 
+        // allocate the framebuffers
+        self.framebuffers = try allocator.alloc(vk.Framebuffer, count);
+
         return self;
     }
 
@@ -134,6 +138,7 @@ pub const Swapchain = struct {
         for (self.images) |img| {
             img.deinit(dev);
         }
+        allocator.free(self.framebuffers);
         allocator.free(self.images);
         dev.vkd.destroySwapchainKHR(dev.logical, self.handle, null);
     }
