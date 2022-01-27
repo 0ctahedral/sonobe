@@ -23,26 +23,17 @@ const required_exts = [_][*:0]const u8{
     },
 };
 
-/// Keeps the state of the renderer and dispatch functions
-const Context = struct {
-    vkb: BaseDispatch = undefined,
-    vki: InstanceDispatch = undefined,
-
-    instance: vk.Instance = undefined,
-    surface: vk.SurfaceKHR = undefined,
-    messenger: vk.DebugUtilsMessengerEXT = undefined,
-    device: Device = undefined,
-    swapchain: Swapchain = undefined,
-};
-
 // TODO: set this in a config
 const required_layers = [_][*:0]const u8{"VK_LAYER_KHRONOS_validation"};
 
-// setup the context
-var context: Context = .{};
-
+var vkb: BaseDispatch = undefined;
+var vki: InstanceDispatch = undefined;
+var instance: vk.Instance = undefined;
+var surface: vk.SurfaceKHR = undefined;
+var messenger: vk.DebugUtilsMessengerEXT = undefined;
+var device: Device = undefined;
+var swapchain: Swapchain = undefined;
 var renderpass: RenderPass = undefined;
-
 var graphics_buffers: []CommandBuffer = undefined;
 
 // initialize the renderer
@@ -52,7 +43,7 @@ pub fn init(allocator: Allocator, app_name: [*:0]const u8, window: glfw.Window, 
     const vk_proc = @ptrCast(fn (instance: vk.Instance, procname: [*:0]const u8) callconv(.C) vk.PfnVoidFunction, glfw.getInstanceProcAddress);
 
     // load the base dispatch functions
-    context.vkb = try BaseDispatch.load(vk_proc);
+    vkb = try BaseDispatch.load(vk_proc);
 
     _ = window;
 
@@ -67,7 +58,7 @@ pub fn init(allocator: Allocator, app_name: [*:0]const u8, window: glfw.Window, 
     // TODO: query validation layers
 
     // create an instance
-    context.instance = try context.vkb.createInstance(&.{
+    instance = try vkb.createInstance(&.{
         .flags = .{},
         .p_application_info = &app_info,
         .enabled_layer_count = required_layers.len,
@@ -77,12 +68,12 @@ pub fn init(allocator: Allocator, app_name: [*:0]const u8, window: glfw.Window, 
     }, null);
 
     // load dispatch functions which require instance
-    context.vki = try InstanceDispatch.load(context.instance, vk_proc);
-    errdefer context.vki.destroyInstance(context.instance, null);
+    vki = try InstanceDispatch.load(instance, vk_proc);
+    errdefer vki.destroyInstance(instance, null);
 
     // setup debug msg
-    context.messenger = try context.vki.createDebugUtilsMessengerEXT(
-        context.instance,
+    messenger = try vki.createDebugUtilsMessengerEXT(
+        instance,
         &.{
             .message_severity = .{
                 .warning_bit_ext = true,
@@ -101,39 +92,39 @@ pub fn init(allocator: Allocator, app_name: [*:0]const u8, window: glfw.Window, 
         },
         null,
     );
-    errdefer context.vki.destroyDebugUtilsMessengerEXT(context.instance, context.messenger, null);
+    errdefer vki.destroyDebugUtilsMessengerEXT(instance, messenger, null);
 
     // TODO: move this to system
-    if ((try glfw.createWindowSurface(context.instance, window, null, &context.surface)) != @enumToInt(vk.Result.success)) {
+    if ((try glfw.createWindowSurface(instance, window, null, &surface)) != @enumToInt(vk.Result.success)) {
         return error.SurfaceInitFailed;
     }
-    errdefer context.vki.destroySurfaceKHR(context.instance, context.surface, null);
+    errdefer vki.destroySurfaceKHR(instance, surface, null);
 
     // create a device
     // load dispatch functions which require device
-    context.device = try Device.init(.{}, context.instance, context.vki, context.surface, allocator);
-    errdefer context.device.deinit();
+    device = try Device.init(.{}, instance, vki, surface, allocator);
+    errdefer device.deinit();
 
-    context.swapchain = try Swapchain.init(context.vki, context.device, context.surface, extent, allocator);
-    errdefer context.swapchain.deinit(context.device, allocator);
+    swapchain = try Swapchain.init(vki, device, surface, extent, allocator);
+    errdefer swapchain.deinit(device, allocator);
 
     // try to recreate for fun
-    try context.swapchain.recreate(context.vki, context.device, context.surface, allocator);
+    try swapchain.recreate(vki, device, surface, allocator);
 
     // create a renderpass
-    renderpass = try RenderPass.init(context.swapchain, context.device, .{
+    renderpass = try RenderPass.init(swapchain, device, .{
         .color = true,
     });
-    errdefer renderpass.deinit(context.device);
+    errdefer renderpass.deinit(device);
 
     // create a command pool
 
     // allocate command buffers
-    graphics_buffers = try allocator.alloc(CommandBuffer, context.swapchain.images.len);
+    graphics_buffers = try allocator.alloc(CommandBuffer, swapchain.images.len);
     errdefer allocator.free(graphics_buffers);
 
     for (graphics_buffers) |*cb| {
-        cb.* = try CommandBuffer.init(context.device, context.device.command_pool, true);
+        cb.* = try CommandBuffer.init(device, device.command_pool, true);
     }
 
     // create framebuffers
@@ -159,37 +150,37 @@ fn vk_debug(
 // shutdown the renderer
 pub fn deinit(allocator: Allocator) void {
 
-    for (context.swapchain.framebuffers) |fb| {
+    for (swapchain.framebuffers) |fb| {
         // TODO: this will need another attachment for depth
-        context.device.vkd.destroyFramebuffer(context.device.logical, fb, null);
+        device.vkd.destroyFramebuffer(device.logical, fb, null);
     }
 
     for (graphics_buffers) |*cb| {
-        cb.deinit(context.device, context.device.command_pool);
+        cb.deinit(device, device.command_pool);
     }
-    renderpass.deinit(context.device);
-    context.swapchain.deinit(context.device, allocator);
+    renderpass.deinit(device);
+    swapchain.deinit(device, allocator);
 
-    context.device.deinit();
+    device.deinit();
 
-    context.vki.destroySurfaceKHR(context.instance, context.surface, null);
+    vki.destroySurfaceKHR(instance, surface, null);
 
-    context.vki.destroyDebugUtilsMessengerEXT(context.instance, context.messenger, null);
-    context.vki.destroyInstance(context.instance, null);
+    vki.destroyDebugUtilsMessengerEXT(instance, messenger, null);
+    vki.destroyInstance(instance, null);
 }
 
 // TODO: fix this, i'm lazy
 // also should probably be in the swapchain??
 pub fn recreateFramebuffers() !void {
-    for (context.swapchain.images) |img, i| {
+    for (swapchain.images) |img, i| {
         // TODO: this will need another attachment for depth
-        context.swapchain.framebuffers[i] = try context.device.vkd.createFramebuffer(context.device.logical, &.{
+        swapchain.framebuffers[i] = try device.vkd.createFramebuffer(device.logical, &.{
             .flags = .{},
             .render_pass = renderpass.handle,
             .attachment_count = 1,
             .p_attachments = @ptrCast([*]const vk.ImageView, &img.view),
-            .width = context.swapchain.extent.width,
-            .height = context.swapchain.extent.height,
+            .width = swapchain.extent.width,
+            .height = swapchain.extent.height,
             .layers = 1,
         }, null);
     }
