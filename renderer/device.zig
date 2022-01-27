@@ -47,6 +47,8 @@ pub const Device = struct {
 
     logical: vk.Device,
 
+    command_pool: vk.CommandPool,
+
     const Self = @This();
 
     /// Creates a device if a suitable one can be found
@@ -131,12 +133,19 @@ pub const Device = struct {
             q.queue = self.vkd.getDeviceQueue(self.logical, q.idx, 0);
         }
 
+        // create the command pool
+        self.command_pool= try self.vkd.createCommandPool(self.logical, &.{
+            .flags = .{ .reset_command_buffer_bit = true },
+            .queue_family_index = self.graphics.?.idx,
+        }, null);
+
         return self;
     }
 
     /// destroys the device and associated memory
     pub fn deinit(self: Self) void {
-       self.vkd.destroyDevice(self.logical, null);
+        self.vkd.destroyCommandPool(self.logical, self.command_pool, null);
+        self.vkd.destroyDevice(self.logical, null);
     }
 
     /// finds a physical device based on the requirements given

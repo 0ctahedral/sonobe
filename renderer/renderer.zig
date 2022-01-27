@@ -10,6 +10,7 @@ const Allocator = std.mem.Allocator;
 const Device = @import("device.zig").Device;
 const Swapchain = @import("swapchain.zig").Swapchain;
 const RenderPass = @import("renderpass.zig").RenderPass;
+const CommandBuffer = @import("commandbuffer.zig").CommandBuffer;
 
 // TODO: get these from the system
 const required_exts = [_][*:0]const u8{
@@ -41,6 +42,8 @@ const required_layers = [_][*:0]const u8{"VK_LAYER_KHRONOS_validation"};
 var context: Context = .{};
 
 var renderpass: RenderPass = undefined;
+
+var graphics_buffers: []CommandBuffer = undefined;
 
 // initialize the renderer
 pub fn init(allocator: Allocator, app_name: [*:0]const u8, window: glfw.Window, extent: vk.Extent2D) !void {
@@ -122,6 +125,18 @@ pub fn init(allocator: Allocator, app_name: [*:0]const u8, window: glfw.Window, 
         .color = true,
     });
     errdefer renderpass.deinit(context.device);
+
+    // create a command pool
+
+    // allocate command buffers
+    graphics_buffers = try allocator.alloc(CommandBuffer, context.swapchain.images.len);
+    errdefer allocator.free(graphics_buffers);
+
+    for (graphics_buffers) |*cb| {
+        cb.* = try CommandBuffer.init(context.device, context.device.command_pool, true);
+    }
+
+    // create pipeline
 }
 
 fn vk_debug(
@@ -140,6 +155,9 @@ fn vk_debug(
 
 // shutdown the renderer
 pub fn deinit(allocator: Allocator) void {
+    for (graphics_buffers) |*cb| {
+        cb.deinit(context.device, context.device.command_pool);
+    }
     renderpass.deinit(context.device);
     context.swapchain.deinit(context.device, allocator);
 

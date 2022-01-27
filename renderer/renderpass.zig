@@ -5,6 +5,7 @@ const std = @import("std");
 const vk = @import("vulkan");
 const Device = @import("device.zig").Device;
 const Swapchain = @import("swapchain.zig").Swapchain;
+const CommandBuffer = @import("commandbuffer.zig").CommandBuffer;
 
 pub const ClearFlags = packed struct {
     color: bool = false,
@@ -104,11 +105,13 @@ pub const RenderPass = struct {
         device.vkd.destroyRenderPass(device.logical, self.handle, null);
     }
 
-    pub fn begin(self: Self) void {
-
+    pub fn begin(self: Self, command_buffer: CommandBuffer) void {
+        _ = self;
+        _ = command_buffer;
     }
 
-    pub fn end(self: Self) void {
-
+    pub fn end(self: Self, command_buffer: CommandBuffer) void {
+        _ = self;
+        _ = command_buffer;
     }
 };
