@@ -3,6 +3,7 @@ const vk = @import("vulkan");
 const dispatch_types = @import("dispatch_types.zig");
 const InstanceDispatch = dispatch_types.InstanceDispatch;
 const Device = @import("device.zig").Device;
+const Queue = @import("device.zig").Queue;
 const Image = @import("image.zig").Image;
 
 pub const Swapchain = struct {
@@ -154,6 +155,66 @@ pub const Swapchain = struct {
         self.* = try create(vki, dev, surface, self.extent, allocator);
     }
 
+    const State = enum {
+        optimal,
+        suboptimal
+    };
+
     /// present an image to the swapchain
-    pub fn present() void {}
+    pub fn present(
+        self: Self,
+        dev: Device,
+        //graphics_queue: Queue,
+        present_queue: Queue,
+        render_complete: vk.Semaphore,
+        idx: u32,
+    ) !State {
+        var state: State = .optimal;
+        // TODO: some error handling here to set the state
+        const result = try dev.vkd.queuePresentKHR(present_queue.handle, &.{
+            .wait_semaphore_count = 1,
+            .p_wait_semaphores = @ptrCast([*]const vk.Semaphore, &render_complete),
+            .swapchain_count = 1,
+            .p_swapchains = @ptrCast([*]const vk.SwapchainKHR, &self.handle),
+            .p_image_indices = @ptrCast([*]const u32, &idx),
+            .p_results = null
+        });
+        //catch |err| switch (err) {
+        //    error.OutOfDateKHR => {state = .suboptimal;},
+        //    else => |narrow| return narrow,
+        //};
+
+        switch (result) {
+            .success => {},
+            .suboptimal_khr => {
+                state = .suboptimal;
+            },
+            else => unreachable
+        }
+
+        return state;
+    }
+
+    pub fn acquireNext(
+        self: Self,
+        dev: Device,
+        semaphore: vk.Semaphore,
+        fence: vk.Fence,
+    ) !u32 {
+        const result = try dev.vkd.acquireNextImageKHR(
+            dev.logical,
+            self.handle,
+            std.math.maxInt(u64),
+            semaphore,
+            fence,
+        );
+
+        switch (result.result) {
+            .success,
+            .suboptimal_khr => {
+                return result.image_index;
+            },
+            else => unreachable
+        }
+    }
 };

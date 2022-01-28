@@ -15,6 +15,7 @@ pub fn main() !void {
 
     const window = try glfw.Window.create(extent.width, extent.height, app_name, null, null, .{
         .client_api = .no_api,
+        .floating = true,
     });
     defer window.destroy();
 
@@ -24,6 +25,11 @@ pub fn main() !void {
     // setup renderer
     try Renderer.init(allocator, app_name, window, extent);
     defer Renderer.deinit(allocator);
+
+
+    // TODO: this will be inside the loop
+        try Renderer.beginFrame();
+        try Renderer.endFrame();
 
     while (!window.shouldClose()) {
         try glfw.pollEvents();

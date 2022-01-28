@@ -20,9 +20,9 @@ const Requirements = struct {
     descrete: bool = true,
 };
 
-const Queue = struct {
+pub const Queue = struct {
     idx: u32,
-    queue: vk.Queue,
+    handle: vk.Queue,
 };
 
 /// Encapsulates the physical and logical device combination
@@ -121,16 +121,16 @@ pub const Device = struct {
 
         // setup the queues
         if (self.graphics) |*q| {
-            q.queue = self.vkd.getDeviceQueue(self.logical, q.idx, 0);
+            q.handle = self.vkd.getDeviceQueue(self.logical, q.idx, 0);
         }
         if (self.compute) |*q| {
-            q.queue = self.vkd.getDeviceQueue(self.logical, q.idx, 0);
+            q.handle = self.vkd.getDeviceQueue(self.logical, q.idx, 0);
         }
         if (self.transfer) |*q| {
-            q.queue = self.vkd.getDeviceQueue(self.logical, q.idx, 0);
+            q.handle = self.vkd.getDeviceQueue(self.logical, q.idx, 0);
         }
         if (self.present) |*q| {
-            q.queue = self.vkd.getDeviceQueue(self.logical, q.idx, 0);
+            q.handle = self.vkd.getDeviceQueue(self.logical, q.idx, 0);
         }
 
         // create the command pool
@@ -229,20 +229,20 @@ pub const Device = struct {
                     const i = @intCast(u32, idx);
 
                     if ((ret.graphics == null) and qprop.queue_flags.graphics_bit) {
-                        ret.graphics = .{ .idx = i, .queue = undefined };
+                        ret.graphics = .{ .idx = i, .handle = undefined };
                         cur_transfer_score += 1;
                     }
 
                     // check if this device supports surfaces
                     if ((ret.present == null) and (try vki.getPhysicalDeviceSurfaceSupportKHR(pdev, i, surface)) == vk.TRUE) {
-                        ret.present = .{ .idx = i, .queue = undefined };
+                        ret.present = .{ .idx = i, .handle = undefined };
                         cur_transfer_score += 1;
                     }
 
                     if ((ret.compute == null) and qprop.queue_flags.compute_bit) {
                         if (ret.graphics.?.idx == i) continue;
                         if (ret.present.?.idx == i) continue;
-                        ret.compute = .{ .idx = i, .queue = undefined };
+                        ret.compute = .{ .idx = i, .handle = undefined };
                         cur_transfer_score += 1;
                     }
 
@@ -250,7 +250,7 @@ pub const Device = struct {
                     if (qprop.queue_flags.transfer_bit) {
                         if (cur_transfer_score <= min_transfer_score) {
                             min_transfer_score = cur_transfer_score;
-                            ret.transfer = .{ .idx = i, .queue = undefined };
+                            ret.transfer = .{ .idx = i, .handle = undefined };
                         }
                     }
                 }

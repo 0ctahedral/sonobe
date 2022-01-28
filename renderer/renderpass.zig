@@ -19,11 +19,10 @@ pub const RenderPass = struct {
 
     /// extents of the render area
     /// aka start and end position
-    //TODO: make this a vec4
-    //render_area: [4]f32,
+    render_area: vk.Rect2D,
 
-    //TODO: make this a vec4
-    //clear_color: [4]f32,
+    // TODO: make this a vec4
+    clear_color: [4]f32,
 
     /// depth value
     //depth: f32,
@@ -33,7 +32,9 @@ pub const RenderPass = struct {
     pub fn init(
         swapchain: Swapchain,
         device: Device,
+        render_area: vk.Rect2D,
         clear_flags: ClearFlags,
+        clear_color: [4]f32,
     ) !Self  {
         // start by making attachments
         // color
@@ -50,7 +51,6 @@ pub const RenderPass = struct {
             // TODO: add next pass option
             .final_layout = .present_src_khr,
         };
-        _ = color_attachment;
 
         const color_attachment_ref = vk.AttachmentReference{
             .attachment = 0,
@@ -78,26 +78,36 @@ pub const RenderPass = struct {
             .p_preserve_attachments = undefined,
         };
 
-        // todo
-        //const dependency = vk.SubpassDependency{
-        //    .src_subpass = .{ .external },
-        //    .dest_subpass = .{},
-        //    .src_stage_mask = .{}
-        //};
-        //
+        // TODO: make configurable
+        const dependency = vk.SubpassDependency{
+            .src_subpass = vk.SUBPASS_EXTERNAL,
+            .dst_subpass = 0,
+            .src_stage_mask = .{ .color_attachment_output_bit = true },
+            .src_access_mask = .{},
+            .dst_stage_mask = .{ .color_attachment_output_bit = true },
+            .dst_access_mask = .{
+                .color_attachment_read_bit = true,
+                .color_attachment_write_bit = true,
+            },
+            .dependency_flags = .{},
+        };
+        
 
         const rp = try device.vkd.createRenderPass(device.logical, &.{
                 .flags = .{},
+                .p_next = null,
                 .attachment_count = 1,
                 .p_attachments = @ptrCast([*]const vk.AttachmentDescription, &color_attachment),
                 .subpass_count = 1,
                 .p_subpasses = @ptrCast([*]const vk.SubpassDescription, &subpass),
-                .dependency_count = 0,
-                .p_dependencies = undefined,
+                .dependency_count = 1,
+                .p_dependencies = @ptrCast([*]const vk.SubpassDependency, &dependency),
             }, null);
 
         return Self{
             .handle = rp,
+            .clear_color = clear_color,
+            .render_area = render_area,
         };
     }
 
@@ -105,13 +115,53 @@ pub const RenderPass = struct {
         device.vkd.destroyRenderPass(device.logical, self.handle, null);
     }
 
-    pub fn begin(self: Self, command_buffer: CommandBuffer) void {
-        _ = self;
-        _ = command_buffer;
+    pub fn begin(
+        self: Self,
+        dev: Device,
+        command_buffer: *CommandBuffer,
+        framebuffer: vk.Framebuffer,
+        // TODO: maybe will make this a memeber
+    ) void {
+
+        // TODO: make this support depth
+        var clear_values: [2]vk.ClearValue = undefined;
+        // color
+        clear_values[0] = vk.ClearValue{
+            .color = .{
+                .float_32 = .{
+                    self.clear_color[0],
+                    self.clear_color[1],
+                    self.clear_color[2],
+                    self.clear_color[3],
+                }
+            }
+        };
+        // depth
+        //clear_values[1] = vk.ClearValue{
+        //    .depth_stencil = .{
+        //        .depth = self.depth,
+        //        .stencil = self.stencil,
+        //    }
+        //};
+        
+        dev.vkd.cmdBeginRenderPass(command_buffer.handle, &.{
+            .render_pass = self.handle,
+            .framebuffer = framebuffer,
+            .render_area = self.render_area,
+            .clear_value_count = 1,
+            .p_clear_values = @ptrCast([*]const vk.ClearValue, &clear_values[0]),
+        }, .@"inline");
+
+        command_buffer.*.state = .in_render_pass;
     }
 
-    pub fn end(self: Self, command_buffer: CommandBuffer) void {
+    pub fn end(
+        self: Self,
+        dev: Device,
+        command_buffer: *CommandBuffer,
+    ) void {
         _ = self;
-        _ = command_buffer;
+        dev.vkd.cmdEndRenderPass(command_buffer.handle);
+        command_buffer.*.state = .recording;
     }
 };

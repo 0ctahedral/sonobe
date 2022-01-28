@@ -36,6 +36,16 @@ var swapchain: Swapchain = undefined;
 var renderpass: RenderPass = undefined;
 var graphics_buffers: []CommandBuffer = undefined;
 
+// TODO: find somewhere for these to live
+var image_avail_semaphores: []vk.Semaphore = undefined;
+var queue_complete_semaphores: []vk.Semaphore = undefined;
+
+var in_flight_fences: []vk.Fence = undefined;
+var images_in_flight: []vk.Fence = undefined;
+
+var current_frame: usize = 0;
+var image_index: usize = 0;
+
 // initialize the renderer
 pub fn init(allocator: Allocator, app_name: [*:0]const u8, window: glfw.Window, extent: vk.Extent2D) !void {
     // get proc address from glfw window
@@ -112,9 +122,13 @@ pub fn init(allocator: Allocator, app_name: [*:0]const u8, window: glfw.Window, 
     try swapchain.recreate(vki, device, surface, allocator);
 
     // create a renderpass
-    renderpass = try RenderPass.init(swapchain, device, .{
-        .color = true,
-    });
+    renderpass = try RenderPass.init(
+        swapchain,
+        device,
+        .{ .offset = .{ .x = 0, .y = 0}, .extent = extent },
+        .{ .color = true, },
+        .{0, 1, 0, 1}
+    );
     errdefer renderpass.deinit(device);
 
     // create a command pool
@@ -129,6 +143,35 @@ pub fn init(allocator: Allocator, app_name: [*:0]const u8, window: glfw.Window, 
 
     // create framebuffers
     try recreateFramebuffers();
+
+    // create sync objects
+    image_avail_semaphores = try allocator.alloc(vk.Semaphore, swapchain.images.len - 1);
+    queue_complete_semaphores = try allocator.alloc(vk.Semaphore, swapchain.images.len - 1);
+    in_flight_fences = try allocator.alloc(vk.Fence, swapchain.images.len - 1);
+
+    images_in_flight = try allocator.alloc(vk.Fence, swapchain.images.len);
+
+    for (image_avail_semaphores) |*s| {
+        s.* = try device.vkd.createSemaphore(device.logical,  &.{ .flags = .{} }, null);
+        errdefer device.vkd.destroySemaphore(device.logical, s, null);
+    }
+
+    for (queue_complete_semaphores) |*s| {
+        s.* = try device.vkd.createSemaphore(device.logical,  &.{ .flags = .{} }, null);
+        errdefer device.vkd.destroySemaphore(device.logical, s, null);
+    }
+
+    for (in_flight_fences) |*f| {
+        // TODO: should this be signaled
+        f.* = try device.vkd.createFence(device.logical, &.{ .flags = .{
+            .signaled_bit = true
+        } }, null);
+        errdefer device.vkd.destroyFence(device.logical, f, null);
+    }
+
+    for (images_in_flight) |*f| {
+        f.* = vk.Fence.null_handle;
+    }
 
     // create pipeline
 }
@@ -149,6 +192,23 @@ fn vk_debug(
 
 // shutdown the renderer
 pub fn deinit(allocator: Allocator) void {
+
+    // wait until rendering is done
+    device.vkd.deviceWaitIdle(device.logical) catch {
+        unreachable;
+    };
+
+    for (image_avail_semaphores) |s| {
+        device.vkd.destroySemaphore(device.logical, s, null);
+    }
+
+    for (queue_complete_semaphores) |s| {
+        device.vkd.destroySemaphore(device.logical, s, null);
+    }
+
+    for (in_flight_fences) |f| {
+        device.vkd.destroyFence(device.logical, f, null);
+    }
 
     for (swapchain.framebuffers) |fb| {
         // TODO: this will need another attachment for depth
@@ -184,4 +244,99 @@ pub fn recreateFramebuffers() !void {
             .layers = 1,
         }, null);
     }
+}
+
+pub fn beginFrame() !void {
+    // TODO: state if we are waiting for swapchain resize
+    // TODO: state if we need to resize
+
+    // wait for current frame
+    _ = try device.vkd.waitForFences(
+        device.logical,
+        1,
+        @ptrCast([*]const vk.Fence, &in_flight_fences[current_frame]),
+        vk.TRUE, std.math.maxInt(u64));
+
+    image_index = try swapchain.acquireNext(device, image_avail_semaphores[current_frame], vk.Fence.null_handle);
+
+    const cb: *CommandBuffer = &graphics_buffers[image_index];
+    cb.reset();
+    try cb.begin(device, .{});
+
+    // set the viewport
+    const viewport = vk.Viewport{
+        .x = 0,
+        .y = @intToFloat(f32, swapchain.extent.height),
+        .width = @intToFloat(f32, swapchain.extent.width),
+        .height = -@intToFloat(f32, swapchain.extent.height),
+        .min_depth = 0,
+        .max_depth = 1
+    };
+    device.vkd.cmdSetViewport(cb.handle, 0, 1, @ptrCast([*]const vk.Viewport, &viewport));
+
+    // set the scissor (region we are clipping)
+    const scissor = vk.Rect2D{
+        .offset = .{ .x = 0, .y = 0 },
+        .extent = swapchain.extent,
+    };
+
+    device.vkd.cmdSetScissor(cb.handle, 0, 1, @ptrCast([*]const vk.Rect2D, &scissor));
+
+
+    renderpass.begin(device, cb, swapchain.framebuffers[image_index]);
+
+    std.log.info("frame started!", .{});
+}
+
+pub fn endFrame() !void {
+    const cb: *CommandBuffer = &graphics_buffers[image_index];
+    renderpass.end(device, cb);
+    try cb.end(device);
+
+
+    // make sure the previous frame isn't using this image
+    if (images_in_flight[image_index] != vk.Fence.null_handle) {
+        _ = try device.vkd.waitForFences(
+            device.logical,
+            1,
+            @ptrCast([*]const vk.Fence, &images_in_flight[image_index]),
+            vk.TRUE, std.math.maxInt(u64));
+    }
+
+    // this one is in flight
+    images_in_flight[image_index] = in_flight_fences[current_frame];
+
+    // reset the fence
+    try device.vkd.resetFences(device.logical, 1, @ptrCast([*]const vk.Fence, &in_flight_fences[current_frame]));
+
+    // submit it
+
+    // waits for the this stage to write
+    const wait_stage = [_]vk.PipelineStageFlags{.{ .color_attachment_output_bit = true }};
+
+    try device.vkd.queueSubmit(device.graphics.?.handle, 1,
+        &[_]vk.SubmitInfo{.{
+            .command_buffer_count = 1,
+            .p_command_buffers = @ptrCast([*]const vk.CommandBuffer, &cb.handle),
+
+            // signaled when queue is complete
+            .signal_semaphore_count = 1,
+            .p_signal_semaphores = @ptrCast([*]const vk.Semaphore, &queue_complete_semaphores[current_frame]),
+
+            // wait for this before we start
+            .wait_semaphore_count = 1,
+            .p_wait_semaphores = @ptrCast([*]const vk.Semaphore, &image_avail_semaphores[current_frame]),
+
+            .p_wait_dst_stage_mask = &wait_stage,
+        }},
+    in_flight_fences[current_frame]);
+
+    cb.updateSubmitted();
+
+    // present that shit
+    // TODO: use the swapchain state 
+    _ = try swapchain.present(device, device.present.?, queue_complete_semaphores[current_frame], @intCast(u32, image_index));
+
+
+    std.log.info("frame ended!", .{});
 }

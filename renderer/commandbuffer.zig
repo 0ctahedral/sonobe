@@ -59,41 +59,49 @@ pub const CommandBuffer = struct {
         self.state = .not_allocated;
     }
 
-    pub fn begin(
-        self: Self,
-        dev: Device,
-        mask: packed struct {
+    const beginmask = packed struct {
             // each recording will be done between uses
             single_use: bool = false,
             // secondary buffer inside pass
             renderpass_continue: bool = false,
             // can be resubmitted while pending
             simultaneous_use: bool = false,
-        },
+        };
+
+    pub fn begin(
+        self: *Self,
+        dev: Device,
+        mask: beginmask,
     ) !void {
+        var flags = vk.CommandBufferUsageFlags{};
+        if (mask.single_use) {
+            flags.one_time_submit_bit = true;
+        }
+        if (mask.renderpass_continue) {
+            flags.render_pass_continue_bit = true;
+        }
+        if (mask.simultaneous_use) {
+            flags.simultaneous_use_bit = true;
+        }
         try dev.vkd.beginCommandBuffer(self.handle, &.{
-            .flags = .{
-                .one_time_submit_bit = mask.single_use,
-                .render_pass_continue_bit = mask.renderpass_continue,
-                .simultaneous_use_bit = mask.simultaneous_use,
-            },
+            .flags = flags,
             .p_inheritance_info = null,
         });
         self.state = .recording;
     }
 
-    pub fn end(self: Self, dev: Device) !void {
+    pub fn end(self: *Self, dev: Device) !void {
         try dev.vkd.endCommandBuffer(self.handle);
         self.state = .recording_ended;
     }
 
     /// update submitted buffer
-    pub fn updateSubmitted(self: Self) !void {
+    pub fn updateSubmitted(self: *Self) void {
         self.state = .submitted;
     }
 
     /// reset buffer
-    pub fn reset(self: Self) !void {
+    pub fn reset(self: *Self) void {
         self.state = .ready;
     }
     
