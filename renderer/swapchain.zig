@@ -167,7 +167,7 @@ pub const Swapchain = struct {
         render_complete: Semaphore,
         idx: u32,
     ) !void {
-        const result = try dev.vkd.queuePresentKHR(present_queue.handle, &.{ .wait_semaphore_count = 1, .p_wait_semaphores = @ptrCast([*]const vk.Semaphore, &render_complete.handle), .swapchain_count = 1, .p_swapchains = @ptrCast([*]const vk.SwapchainKHR, &self.handle), .p_image_indices = @ptrCast([*]const u32, &idx), .p_results = null });
+        const result = try dev.vkd.queuePresentKHR(present_queue.handle, &.{ .wait_semaphore_count = 1, .p_wait_semaphores = render_complete.ptr(), .swapchain_count = 1, .p_swapchains = @ptrCast([*]const vk.SwapchainKHR, &self.handle), .p_image_indices = @ptrCast([*]const u32, &idx), .p_results = null });
 
         switch (result) {
             .success => {},

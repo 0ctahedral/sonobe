@@ -288,7 +288,7 @@ pub fn beginFrame() !bool {
     }
 
     // wait for current frame
-    _ = try device.vkd.waitForFences(device.logical, 1, @ptrCast([*]const vk.Fence, &in_flight_fences[current_frame].handle), vk.TRUE, std.math.maxInt(u64));
+    try in_flight_fences[current_frame].wait(device, std.math.maxInt(u64));
 
     image_index = swapchain.acquireNext(device, image_avail_semaphores[current_frame], Fence{}) catch |err| {
         switch (err) {
@@ -322,7 +322,6 @@ pub fn beginFrame() !bool {
 
     renderpass.begin(device, cb, swapchain.framebuffers[image_index]);
 
-    //std.log.info("frame started!", .{});
     return true;
 }
 
@@ -333,7 +332,7 @@ pub fn endFrame() !void {
 
     // make sure the previous frame isn't using this image
     if (images_in_flight[image_index].handle != vk.Fence.null_handle) {
-        try images_in_flight[image_index].wait(device);
+        try images_in_flight[image_index].wait(device, std.math.maxInt(u64));
     }
 
     // this one is in flight
@@ -353,11 +352,11 @@ pub fn endFrame() !void {
 
         // signaled when queue is complete
         .signal_semaphore_count = 1,
-        .p_signal_semaphores = @ptrCast([*]const vk.Semaphore, &queue_complete_semaphores[current_frame].handle),
+        .p_signal_semaphores = queue_complete_semaphores[current_frame].ptr(),
 
         // wait for this before we start
         .wait_semaphore_count = 1,
-        .p_wait_semaphores = @ptrCast([*]const vk.Semaphore, &image_avail_semaphores[current_frame].handle),
+        .p_wait_semaphores = image_avail_semaphores[current_frame].ptr(),
 
         .p_wait_dst_stage_mask = &wait_stage,
     }}, in_flight_fences[current_frame].handle);
