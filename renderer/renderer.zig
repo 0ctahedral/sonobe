@@ -12,6 +12,7 @@ const Swapchain = @import("swapchain.zig").Swapchain;
 const RenderPass = @import("renderpass.zig").RenderPass;
 const CommandBuffer = @import("commandbuffer.zig").CommandBuffer;
 const Fence = @import("fence.zig").Fence;
+const Semaphore = @import("semaphore.zig").Semaphore;
 
 // TODO: get these from the system
 const required_exts = [_][*:0]const u8{
@@ -38,8 +39,8 @@ var renderpass: RenderPass = undefined;
 var graphics_buffers: []CommandBuffer = undefined;
 
 // TODO: find somewhere for these to live
-var image_avail_semaphores: []vk.Semaphore = undefined;
-var queue_complete_semaphores: []vk.Semaphore = undefined;
+var image_avail_semaphores: []Semaphore = undefined;
+var queue_complete_semaphores: []Semaphore = undefined;
 
 var in_flight_fences: []Fence = undefined;
 var images_in_flight: []Fence = undefined;
@@ -166,20 +167,20 @@ pub fn init(provided_allocator: Allocator, app_name: [*:0]const u8, window: glfw
     try recreateFramebuffers();
 
     // create sync objects
-    image_avail_semaphores = try allocator.alloc(vk.Semaphore, swapchain.images.len - 1);
-    queue_complete_semaphores = try allocator.alloc(vk.Semaphore, swapchain.images.len - 1);
+    image_avail_semaphores = try allocator.alloc(Semaphore, swapchain.images.len - 1);
+    queue_complete_semaphores = try allocator.alloc(Semaphore, swapchain.images.len - 1);
     in_flight_fences = try allocator.alloc(Fence, swapchain.images.len - 1);
 
     images_in_flight = try allocator.alloc(Fence, swapchain.images.len);
 
     for (image_avail_semaphores) |*s| {
-        s.* = try device.vkd.createSemaphore(device.logical, &.{ .flags = .{} }, null);
-        errdefer device.vkd.destroySemaphore(device.logical, s, null);
+        s.* = try Semaphore.init(device);
+        errdefer s.deinit(device);
     }
 
     for (queue_complete_semaphores) |*s| {
-        s.* = try device.vkd.createSemaphore(device.logical, &.{ .flags = .{} }, null);
-        errdefer device.vkd.destroySemaphore(device.logical, s, null);
+        s.* = try Semaphore.init(device);
+        errdefer s.deinit(device);
     }
 
     for (in_flight_fences) |*f| {
@@ -218,11 +219,11 @@ pub fn deinit() void {
     };
 
     for (image_avail_semaphores) |s| {
-        device.vkd.destroySemaphore(device.logical, s, null);
+        s.deinit(device);
     }
 
     for (queue_complete_semaphores) |s| {
-        device.vkd.destroySemaphore(device.logical, s, null);
+        s.deinit(device);
     }
 
     for (in_flight_fences) |f| {
@@ -352,11 +353,11 @@ pub fn endFrame() !void {
 
         // signaled when queue is complete
         .signal_semaphore_count = 1,
-        .p_signal_semaphores = @ptrCast([*]const vk.Semaphore, &queue_complete_semaphores[current_frame]),
+        .p_signal_semaphores = @ptrCast([*]const vk.Semaphore, &queue_complete_semaphores[current_frame].handle),
 
         // wait for this before we start
         .wait_semaphore_count = 1,
-        .p_wait_semaphores = @ptrCast([*]const vk.Semaphore, &image_avail_semaphores[current_frame]),
+        .p_wait_semaphores = @ptrCast([*]const vk.Semaphore, &image_avail_semaphores[current_frame].handle),
 
         .p_wait_dst_stage_mask = &wait_stage,
     }}, in_flight_fences[current_frame].handle);
