@@ -11,6 +11,7 @@ const Device = @import("device.zig").Device;
 const Swapchain = @import("swapchain.zig").Swapchain;
 const RenderPass = @import("renderpass.zig").RenderPass;
 const CommandBuffer = @import("commandbuffer.zig").CommandBuffer;
+const Fence = @import("fence.zig").Fence;
 
 // TODO: get these from the system
 const required_exts = [_][*:0]const u8{
@@ -40,8 +41,8 @@ var graphics_buffers: []CommandBuffer = undefined;
 var image_avail_semaphores: []vk.Semaphore = undefined;
 var queue_complete_semaphores: []vk.Semaphore = undefined;
 
-var in_flight_fences: []vk.Fence = undefined;
-var images_in_flight: []vk.Fence = undefined;
+var in_flight_fences: []Fence = undefined;
+var images_in_flight: []Fence = undefined;
 
 var current_frame: usize = 0;
 var image_index: usize = 0;
@@ -61,7 +62,6 @@ var fb_height: u32 = 0;
 
 // initialize the renderer
 pub fn init(provided_allocator: Allocator, app_name: [*:0]const u8, window: glfw.Window) !void {
-
     allocator = provided_allocator;
 
     // get proc address from glfw window
@@ -79,7 +79,6 @@ pub fn init(provided_allocator: Allocator, app_name: [*:0]const u8, window: glfw
     fb_height = if (cached_height != 0) cached_height else 600;
     cached_width = 0;
     cached_height = 0;
-
 
     const app_info = vk.ApplicationInfo{
         .p_application_name = app_name,
@@ -144,16 +143,12 @@ pub fn init(provided_allocator: Allocator, app_name: [*:0]const u8, window: glfw
     errdefer swapchain.deinit(device, allocator);
 
     // create a renderpass
-    renderpass = try RenderPass.init(
-        swapchain,
-        device,
-        .{ .offset = .{ .x = 0, .y = 0}, .extent = .{
-            .width = fb_width,
-            .height = fb_height,
-        } },
-        .{ .color = true, },
-        .{0, 1, 0, 1}
-    );
+    renderpass = try RenderPass.init(swapchain, device, .{ .offset = .{ .x = 0, .y = 0 }, .extent = .{
+        .width = fb_width,
+        .height = fb_height,
+    } }, .{
+        .color = true,
+    }, .{ 0, 1, 0, 1 });
     errdefer renderpass.deinit(device);
 
     // create a command pool
@@ -167,36 +162,34 @@ pub fn init(provided_allocator: Allocator, app_name: [*:0]const u8, window: glfw
     }
 
     // create framebuffers
-    std.log.info("fbw: {} fbh: {}", .{fb_width, fb_width});
+    std.log.info("fbw: {} fbh: {}", .{ fb_width, fb_width });
     try recreateFramebuffers();
 
     // create sync objects
     image_avail_semaphores = try allocator.alloc(vk.Semaphore, swapchain.images.len - 1);
     queue_complete_semaphores = try allocator.alloc(vk.Semaphore, swapchain.images.len - 1);
-    in_flight_fences = try allocator.alloc(vk.Fence, swapchain.images.len - 1);
+    in_flight_fences = try allocator.alloc(Fence, swapchain.images.len - 1);
 
-    images_in_flight = try allocator.alloc(vk.Fence, swapchain.images.len);
+    images_in_flight = try allocator.alloc(Fence, swapchain.images.len);
 
     for (image_avail_semaphores) |*s| {
-        s.* = try device.vkd.createSemaphore(device.logical,  &.{ .flags = .{} }, null);
+        s.* = try device.vkd.createSemaphore(device.logical, &.{ .flags = .{} }, null);
         errdefer device.vkd.destroySemaphore(device.logical, s, null);
     }
 
     for (queue_complete_semaphores) |*s| {
-        s.* = try device.vkd.createSemaphore(device.logical,  &.{ .flags = .{} }, null);
+        s.* = try device.vkd.createSemaphore(device.logical, &.{ .flags = .{} }, null);
         errdefer device.vkd.destroySemaphore(device.logical, s, null);
     }
 
     for (in_flight_fences) |*f| {
         // TODO: should this be signaled
-        f.* = try device.vkd.createFence(device.logical, &.{ .flags = .{
-            .signaled_bit = true
-        } }, null);
-        errdefer device.vkd.destroyFence(device.logical, f, null);
+        f.* = try Fence.init(device, true);
+        errdefer f.deinit(device);
     }
 
     for (images_in_flight) |*f| {
-        f.* = vk.Fence.null_handle;
+        f.* = Fence{};
     }
 
     // create pipeline
@@ -233,7 +226,7 @@ pub fn deinit() void {
     }
 
     for (in_flight_fences) |f| {
-        device.vkd.destroyFence(device.logical, f, null);
+        f.deinit(device);
     }
 
     for (graphics_buffers) |*cb| {
@@ -254,14 +247,13 @@ pub fn resize(w: u32, h: u32) void {
     cached_width = w;
     cached_height = h;
     size_gen += 1;
-    std.log.warn("resize triggered: {}x{}, gen: {}", .{w, h, size_gen});
+    std.log.warn("resize triggered: {}x{}, gen: {}", .{ w, h, size_gen });
 }
 
 // TODO: fix this, i'm lazy
 // also should probably be in the swapchain??
 pub fn recreateFramebuffers() !void {
-
-    std.log.info("fbw: {} fbh: {}", .{fb_width, fb_height});
+    std.log.info("fbw: {} fbh: {}", .{ fb_width, fb_height });
     for (swapchain.images) |img, i| {
         // TODO: this will need another attachment for depth
         swapchain.framebuffers[i] = try device.vkd.createFramebuffer(device.logical, &.{
@@ -295,20 +287,10 @@ pub fn beginFrame() !bool {
     }
 
     // wait for current frame
-    _ = try device.vkd.waitForFences(
-        device.logical,
-        1,
-        @ptrCast([*]const vk.Fence, &in_flight_fences[current_frame]),
-        vk.TRUE, std.math.maxInt(u64));
+    _ = try device.vkd.waitForFences(device.logical, 1, @ptrCast([*]const vk.Fence, &in_flight_fences[current_frame].handle), vk.TRUE, std.math.maxInt(u64));
 
-
-
-    image_index = swapchain.acquireNext(
-        device,
-        image_avail_semaphores[current_frame],
-        vk.Fence.null_handle
-    ) catch |err| {
-        switch(err) {
+    image_index = swapchain.acquireNext(device, image_avail_semaphores[current_frame], Fence{}) catch |err| {
+        switch (err) {
             error.OutOfDateKHR => {
                 std.log.warn("failed to aquire, booting", .{});
                 //_ = try recreateSwapchain();
@@ -323,14 +305,7 @@ pub fn beginFrame() !bool {
     try cb.begin(device, .{});
 
     // set the viewport
-    const viewport = vk.Viewport{
-        .x = 0,
-        .y = @intToFloat(f32, fb_height),
-        .width = @intToFloat(f32, fb_width),
-        .height = -@intToFloat(f32, fb_height),
-        .min_depth = 0,
-        .max_depth = 1
-    };
+    const viewport = vk.Viewport{ .x = 0, .y = @intToFloat(f32, fb_height), .width = @intToFloat(f32, fb_width), .height = -@intToFloat(f32, fb_height), .min_depth = 0, .max_depth = 1 };
     device.vkd.cmdSetViewport(cb.handle, 0, 1, @ptrCast([*]const vk.Viewport, &viewport));
 
     // set the scissor (region we are clipping)
@@ -344,7 +319,6 @@ pub fn beginFrame() !bool {
 
     device.vkd.cmdSetScissor(cb.handle, 0, 1, @ptrCast([*]const vk.Rect2D, &scissor));
 
-
     renderpass.begin(device, cb, swapchain.framebuffers[image_index]);
 
     //std.log.info("frame started!", .{});
@@ -356,52 +330,44 @@ pub fn endFrame() !void {
     renderpass.end(device, cb);
     try cb.end(device);
 
-
     // make sure the previous frame isn't using this image
-    if (images_in_flight[image_index] != vk.Fence.null_handle) {
-        _ = try device.vkd.waitForFences(
-            device.logical,
-            1,
-            @ptrCast([*]const vk.Fence, &images_in_flight[image_index]),
-            vk.TRUE, std.math.maxInt(u64));
+    if (images_in_flight[image_index].handle != vk.Fence.null_handle) {
+        try images_in_flight[image_index].wait(device);
     }
 
     // this one is in flight
     images_in_flight[image_index] = in_flight_fences[current_frame];
 
     // reset the fence
-    try device.vkd.resetFences(device.logical, 1, @ptrCast([*]const vk.Fence, &in_flight_fences[current_frame]));
+    try in_flight_fences[current_frame].reset(device);
 
     // submit it
 
     // waits for the this stage to write
     const wait_stage = [_]vk.PipelineStageFlags{.{ .color_attachment_output_bit = true }};
 
-    try device.vkd.queueSubmit(device.graphics.?.handle, 1,
-        &[_]vk.SubmitInfo{.{
-            .command_buffer_count = 1,
-            .p_command_buffers = @ptrCast([*]const vk.CommandBuffer, &cb.handle),
+    try device.vkd.queueSubmit(device.graphics.?.handle, 1, &[_]vk.SubmitInfo{.{
+        .command_buffer_count = 1,
+        .p_command_buffers = @ptrCast([*]const vk.CommandBuffer, &cb.handle),
 
-            // signaled when queue is complete
-            .signal_semaphore_count = 1,
-            .p_signal_semaphores = @ptrCast([*]const vk.Semaphore, &queue_complete_semaphores[current_frame]),
+        // signaled when queue is complete
+        .signal_semaphore_count = 1,
+        .p_signal_semaphores = @ptrCast([*]const vk.Semaphore, &queue_complete_semaphores[current_frame]),
 
-            // wait for this before we start
-            .wait_semaphore_count = 1,
-            .p_wait_semaphores = @ptrCast([*]const vk.Semaphore, &image_avail_semaphores[current_frame]),
+        // wait for this before we start
+        .wait_semaphore_count = 1,
+        .p_wait_semaphores = @ptrCast([*]const vk.Semaphore, &image_avail_semaphores[current_frame]),
 
-            .p_wait_dst_stage_mask = &wait_stage,
-        }},
-    in_flight_fences[current_frame]);
+        .p_wait_dst_stage_mask = &wait_stage,
+    }}, in_flight_fences[current_frame].handle);
 
     cb.updateSubmitted();
 
     // present that shit
-    // TODO: use the swapchain state 
+    // TODO: use the swapchain state
     swapchain.present(device, device.present.?, queue_complete_semaphores[current_frame], @intCast(u32, image_index)) catch |err| {
-        switch(err) {
-            error.SuboptimalKHR,
-            error.OutOfDateKHR => {
+        switch (err) {
+            error.SuboptimalKHR, error.OutOfDateKHR => {
                 std.log.warn("swapchain out of date in end frame", .{});
                 //_ = try recreateSwapchain();
             },
@@ -413,7 +379,6 @@ pub fn endFrame() !void {
 }
 
 fn recreateSwapchain() !bool {
-
     if (recreating_swapchain) {
         std.log.warn("already recreating", .{});
         return false;
@@ -431,13 +396,10 @@ fn recreateSwapchain() !bool {
 
     // reset images in flight
     for (images_in_flight) |*f| {
-        f.* = vk.Fence.null_handle;
+        f.* = Fence{};
     }
 
-    try swapchain.recreate(vki, device, surface,
-        cached_width,
-        cached_height,
-        allocator);
+    try swapchain.recreate(vki, device, surface, cached_width, cached_height, allocator);
 
     fb_width = cached_width;
     fb_height = cached_height;
@@ -461,10 +423,10 @@ fn recreateSwapchain() !bool {
     }
 
     // reset the renderpass
-    renderpass.render_area = .{ .offset = .{ .x = 0, .y = 0}, .extent = .{
+    renderpass.render_area = .{ .offset = .{ .x = 0, .y = 0 }, .extent = .{
         .width = fb_width,
         .height = fb_height,
-    }};
+    } };
 
     recreating_swapchain = false;
     std.log.info("done recreating swapchain", .{});

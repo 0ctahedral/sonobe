@@ -5,6 +5,7 @@ const InstanceDispatch = dispatch_types.InstanceDispatch;
 const Device = @import("device.zig").Device;
 const Queue = @import("device.zig").Queue;
 const Image = @import("image.zig").Image;
+const Fence = @import("fence.zig").Fence;
 
 pub const Swapchain = struct {
     surface_format: vk.SurfaceFormatKHR = undefined,
@@ -35,10 +36,7 @@ pub const Swapchain = struct {
     fn create(vki: InstanceDispatch, dev: Device, surface: vk.SurfaceKHR, w: u32, h: u32, allocator: std.mem.Allocator) !Self {
         var self: Self = .{};
 
-        var extent = vk.Extent2D {
-            .width = w,
-            .height = h
-        };
+        var extent = vk.Extent2D{ .width = w, .height = h };
 
         // find the format
         const preferred_format = vk.SurfaceFormatKHR{
@@ -154,22 +152,12 @@ pub const Swapchain = struct {
         dev.vkd.destroySwapchainKHR(dev.logical, self.handle, null);
     }
 
-    pub fn recreate(
-        self: *Self,
-        vki: InstanceDispatch,
-        dev: Device,
-        surface: vk.SurfaceKHR,
-        w: u32, h: u32,
-        allocator: std.mem.Allocator
-    ) !void {
+    pub fn recreate(self: *Self, vki: InstanceDispatch, dev: Device, surface: vk.SurfaceKHR, w: u32, h: u32, allocator: std.mem.Allocator) !void {
         self.destroy(dev);
         self.* = try create(vki, dev, surface, w, h, allocator);
     }
 
-    const State = enum {
-        optimal,
-        suboptimal
-    };
+    const State = enum { optimal, suboptimal };
 
     /// present an image to the swapchain
     pub fn present(
@@ -181,14 +169,7 @@ pub const Swapchain = struct {
         idx: u32,
     ) !void {
         // TODO: some error handling here to set the state
-        const result = try dev.vkd.queuePresentKHR(present_queue.handle, &.{
-            .wait_semaphore_count = 1,
-            .p_wait_semaphores = @ptrCast([*]const vk.Semaphore, &render_complete),
-            .swapchain_count = 1,
-            .p_swapchains = @ptrCast([*]const vk.SwapchainKHR, &self.handle),
-            .p_image_indices = @ptrCast([*]const u32, &idx),
-            .p_results = null
-        });
+        const result = try dev.vkd.queuePresentKHR(present_queue.handle, &.{ .wait_semaphore_count = 1, .p_wait_semaphores = @ptrCast([*]const vk.Semaphore, &render_complete), .swapchain_count = 1, .p_swapchains = @ptrCast([*]const vk.SwapchainKHR, &self.handle), .p_image_indices = @ptrCast([*]const u32, &idx), .p_results = null });
         //catch |err| switch (err) {
         //    error.OutOfDateKHR => {state = .suboptimal;},
         //    else => |narrow| return narrow,
@@ -199,23 +180,22 @@ pub const Swapchain = struct {
             .suboptimal_khr => {
                 return error.SuboptimalKHR;
             },
-            else => unreachable
+            else => unreachable,
         }
-
     }
 
     pub fn acquireNext(
         self: Self,
         dev: Device,
         semaphore: vk.Semaphore,
-        fence: vk.Fence,
+        fence: Fence,
     ) !u32 {
         const result = try dev.vkd.acquireNextImageKHR(
             dev.logical,
             self.handle,
             std.math.maxInt(u64),
             semaphore,
-            fence,
+            fence.handle,
         );
 
         switch (result.result) {
@@ -226,7 +206,7 @@ pub const Swapchain = struct {
                 std.log.warn("im warning you dawg", .{});
                 return result.image_index;
             },
-            else => unreachable
+            else => unreachable,
         }
     }
 };
