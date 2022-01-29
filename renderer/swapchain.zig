@@ -10,7 +10,7 @@ pub const Swapchain = struct {
     surface_format: vk.SurfaceFormatKHR = undefined,
     // defaults to fifo which all devices support
     present_mode: vk.PresentModeKHR = .fifo_khr,
-    extent: vk.Extent2D = undefined,
+    //extent: vk.Extent2D = undefined,
 
     handle: vk.SwapchainKHR = .null_handle,
 
@@ -20,18 +20,25 @@ pub const Swapchain = struct {
     const Self = @This();
 
     /// initialize/create a swapchian object
-    pub fn init(vki: InstanceDispatch, dev: Device, surface: vk.SurfaceKHR, extent: vk.Extent2D, allocator: std.mem.Allocator) !Self {
-        return try create(vki, dev, surface, extent, allocator);
+    pub fn init(vki: InstanceDispatch, dev: Device, surface: vk.SurfaceKHR, w: u32, h: u32, allocator: std.mem.Allocator) !Self {
+        return try create(vki, dev, surface, w, h, allocator);
     }
 
     /// shutdown a swapchian object
     pub fn deinit(self: Self, dev: Device, allocator: std.mem.Allocator) void {
-        self.destroy(dev, allocator);
+        self.destroy(dev);
+        allocator.free(self.framebuffers);
+        allocator.free(self.images);
     }
 
     /// create our swapchain
-    fn create(vki: InstanceDispatch, dev: Device, surface: vk.SurfaceKHR, extent: vk.Extent2D, allocator: std.mem.Allocator) !Self {
+    fn create(vki: InstanceDispatch, dev: Device, surface: vk.SurfaceKHR, w: u32, h: u32, allocator: std.mem.Allocator) !Self {
         var self: Self = .{};
+
+        var extent = vk.Extent2D {
+            .width = w,
+            .height = h
+        };
 
         // find the format
         const preferred_format = vk.SurfaceFormatKHR{
@@ -51,7 +58,7 @@ pub const Swapchain = struct {
             }
         }
 
-        std.log.info("chosen surface format: {}", .{self.surface_format});
+        //std.log.info("chosen surface format: {}", .{self.surface_format});
 
         // find present mode
         var present_modes: [32]vk.PresentModeKHR = undefined;
@@ -65,34 +72,31 @@ pub const Swapchain = struct {
             }
         }
 
-        std.log.info("chosen present mode: {}", .{self.present_mode});
+        //std.log.info("chosen present mode: {}", .{self.present_mode});
 
         // get the actual extent of the window
         const caps = try vki.getPhysicalDeviceSurfaceCapabilitiesKHR(dev.physical, surface);
 
-        const actual_extent =
-            if (caps.current_extent.width != 0xFFFF_FFFF)
-            caps.current_extent
-        else
-            vk.Extent2D{
-                .width = std.math.clamp(extent.width, caps.min_image_extent.width, caps.max_image_extent.width),
-                .height = std.math.clamp(extent.height, caps.min_image_extent.height, caps.max_image_extent.height),
-            };
+        if (caps.current_extent.width != 0xFFFF_FFFF) {
+            extent = caps.current_extent;
+        }
+        extent.width = std.math.clamp(extent.width, caps.min_image_extent.width, caps.max_image_extent.width);
+        extent.height = std.math.clamp(extent.height, caps.min_image_extent.height, caps.max_image_extent.height);
 
-        if (actual_extent.width == 0 or actual_extent.height == 0) {
+        if (extent.width == 0 or extent.height == 0) {
             return error.InvalidSurfaceDimensions;
         }
 
-        self.extent = actual_extent;
+        //self.extent = actual_extent;
 
-        std.log.info("given extent: {} actual extent: {}", .{ extent, self.extent });
+        //std.log.info("given extent: {} actual extent: {}", .{ extent, self.extent });
 
         // get the image count
         var image_count = caps.min_image_count + 1;
         if (caps.max_image_count > 0) {
             image_count = std.math.min(image_count, caps.max_image_count);
         }
-        std.log.info("image count: {}", .{image_count});
+        //std.log.info("image count: {}", .{image_count});
 
         const qfi = [_]u32{ dev.graphics.?.idx, dev.present.?.idx };
         const sharing_mode: vk.SharingMode = if (dev.graphics.?.idx == dev.present.?.idx) .exclusive else .concurrent;
@@ -104,7 +108,7 @@ pub const Swapchain = struct {
             .min_image_count = image_count,
             .image_format = self.surface_format.format,
             .image_color_space = self.surface_format.color_space,
-            .image_extent = self.extent,
+            .image_extent = extent,
             // multiple for vr?
             .image_array_layers = 1,
             .image_usage = .{ .color_attachment_bit = true },
@@ -135,12 +139,18 @@ pub const Swapchain = struct {
     }
 
     /// destroy our swapchain
-    fn destroy(self: Self, dev: Device, allocator: std.mem.Allocator) void {
+    fn destroy(self: Self, dev: Device) void {
+        dev.vkd.deviceWaitIdle(dev.logical) catch {
+            unreachable;
+        };
+
+        for (self.framebuffers) |fb| {
+            // TODO: this will need another attachment for depth
+            dev.vkd.destroyFramebuffer(dev.logical, fb, null);
+        }
         for (self.images) |img| {
             img.deinit(dev);
         }
-        allocator.free(self.framebuffers);
-        allocator.free(self.images);
         dev.vkd.destroySwapchainKHR(dev.logical, self.handle, null);
     }
 
@@ -149,10 +159,11 @@ pub const Swapchain = struct {
         vki: InstanceDispatch,
         dev: Device,
         surface: vk.SurfaceKHR,
+        w: u32, h: u32,
         allocator: std.mem.Allocator
     ) !void {
-        self.destroy(dev, allocator);
-        self.* = try create(vki, dev, surface, self.extent, allocator);
+        self.destroy(dev);
+        self.* = try create(vki, dev, surface, w, h, allocator);
     }
 
     const State = enum {
@@ -168,8 +179,7 @@ pub const Swapchain = struct {
         present_queue: Queue,
         render_complete: vk.Semaphore,
         idx: u32,
-    ) !State {
-        var state: State = .optimal;
+    ) !void {
         // TODO: some error handling here to set the state
         const result = try dev.vkd.queuePresentKHR(present_queue.handle, &.{
             .wait_semaphore_count = 1,
@@ -187,12 +197,11 @@ pub const Swapchain = struct {
         switch (result) {
             .success => {},
             .suboptimal_khr => {
-                state = .suboptimal;
+                return error.SuboptimalKHR;
             },
             else => unreachable
         }
 
-        return state;
     }
 
     pub fn acquireNext(
@@ -210,8 +219,11 @@ pub const Swapchain = struct {
         );
 
         switch (result.result) {
-            .success,
+            .success => {
+                return result.image_index;
+            },
             .suboptimal_khr => {
+                std.log.warn("im warning you dawg", .{});
                 return result.image_index;
             },
             else => unreachable

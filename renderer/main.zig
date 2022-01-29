@@ -5,6 +5,12 @@ const glfw = @import("glfw");
 
 const app_name = "octal: triangle test";
 
+fn cb(g: glfw.Window, w: i32, h: i32) void {
+    _ = g;
+    std.log.info("w: {}, h: {}", .{w, h});
+    Renderer.resize(@intCast(u32, w), @intCast(u32, h));
+}
+
 pub fn main() !void {
     // open the window
     // TODO: replace this with system function
@@ -23,15 +29,16 @@ pub fn main() !void {
     const allocator = std.testing.allocator;
 
     // setup renderer
-    try Renderer.init(allocator, app_name, window, extent);
-    defer Renderer.deinit(allocator);
+    try Renderer.init(allocator, app_name, window);
+    defer Renderer.deinit();
 
+    window.setSizeCallback(cb);
 
-    // TODO: this will be inside the loop
-        try Renderer.beginFrame();
-        try Renderer.endFrame();
 
     while (!window.shouldClose()) {
         try glfw.pollEvents();
+        if (try Renderer.beginFrame()) {
+            try Renderer.endFrame();
+        }
     }
 }
