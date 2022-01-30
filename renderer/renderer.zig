@@ -13,6 +13,8 @@ const RenderPass = @import("renderpass.zig").RenderPass;
 const CommandBuffer = @import("commandbuffer.zig").CommandBuffer;
 const Fence = @import("fence.zig").Fence;
 const Semaphore = @import("semaphore.zig").Semaphore;
+const Shader = @import("shader.zig").Shader;
+const Pipeline = @import("pipeline.zig").Pipeline;
 
 // TODO: get these from the system
 const required_exts = [_][*:0]const u8{
@@ -61,9 +63,12 @@ var cached_height: u32 = 0;
 var fb_width: u32 = 0;
 var fb_height: u32 = 0;
 
+var shader: Shader = undefined;
+
 // initialize the renderer
 pub fn init(provided_allocator: Allocator, app_name: [*:0]const u8, window: glfw.Window) !void {
     allocator = provided_allocator;
+
 
     // get proc address from glfw window
     // TODO: this should really just be a function passed into the init
@@ -88,8 +93,6 @@ pub fn init(provided_allocator: Allocator, app_name: [*:0]const u8, window: glfw
         .engine_version = vk.makeApiVersion(0, 0, 0, 0),
         .api_version = vk.API_VERSION_1_2,
     };
-
-    // TODO: query validation layers
 
     // create an instance
     instance = try vkb.createInstance(&.{
@@ -194,6 +197,8 @@ pub fn init(provided_allocator: Allocator, app_name: [*:0]const u8, window: glfw
     }
 
     // create pipeline
+    // create shader
+    shader = try Shader.init(device, allocator);
 }
 
 fn vk_debug(
@@ -212,6 +217,8 @@ fn vk_debug(
 
 // shutdown the renderer
 pub fn deinit() void {
+
+    shader.deinit(device);
 
     // wait until rendering is done
     device.vkd.deviceWaitIdle(device.logical) catch {

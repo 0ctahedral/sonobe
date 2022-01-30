@@ -3,7 +3,7 @@ const vk = @import("vulkan");
 const glfw = @import("glfw");
 const resources = @import("resources");
 const GraphicsContext = @import("graphics_context.zig").GraphicsContext;
-const Swapchain = @import("swapchain.zig").Swapchain;
+const Swapchain = @import("swapchain-old.zig").Swapchain;
 const Allocator = std.mem.Allocator;
 
 const app_name = "mach-glfw + vulkan-zig = triangle";

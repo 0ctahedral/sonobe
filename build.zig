@@ -34,10 +34,10 @@ pub fn build(b: *Builder) void {
     rend_exe.install();
 
     // shader resources, to be compiled using glslc
-    const res = zigvulkan.ResourceGenStep.init(b, "resources.zig");
-    res.addShader("triangle_vert", "renderer/shaders/triangle.vert");
-    res.addShader("triangle_frag", "renderer/shaders/triangle.frag");
-    rend_exe.addPackage(res.package);
+    //const res = zigvulkan.ResourceGenStep.init(b, "resources.zig");
+    //res.addShader("triangle_vert", "renderer/shaders/triangle.vert");
+    //res.addShader("triangle_frag", "renderer/shaders/triangle.frag");
+    //rend_exe.addPackage(res.package);
 
     const rend_exe_step = b.step("render", "build and run renderer test");
     rend_exe_step.dependOn(&rend_exe.run().step);
