@@ -16,6 +16,7 @@ const Semaphore = @import("semaphore.zig").Semaphore;
 const Shader = @import("shader.zig").Shader;
 const Pipeline = @import("pipeline.zig").Pipeline;
 const Vertex = @import("pipeline.zig").Vertex;
+const Buffer = @import("buffer.zig").Buffer;
 
 // TODO: get these from the system
 const required_exts = [_][*:0]const u8{
@@ -67,6 +68,9 @@ var fb_height: u32 = 0;
 var shader: Shader = undefined;
 
 var pipeline: Pipeline = undefined;
+
+var vert_buf: Buffer = undefined;
+var ind_buf: Buffer = undefined;
 
 // initialize the renderer
 pub fn init(provided_allocator: Allocator, app_name: [*:0]const u8, window: glfw.Window) !void {
@@ -205,6 +209,8 @@ pub fn init(provided_allocator: Allocator, app_name: [*:0]const u8, window: glfw
 
     // create pipeline
     try createPipeline();
+    // create some buffers
+    try createBuffers();
 }
 
 // TODO: find a home for this
@@ -256,6 +262,9 @@ fn vk_debug(
 
 // shutdown the renderer
 pub fn deinit() void {
+
+    vert_buf.deinit(device);
+    ind_buf.deinit(device);
 
     pipeline.deinit(device);
 
@@ -480,4 +489,33 @@ fn recreateSwapchain() !bool {
     std.log.info("done recreating swapchain", .{});
 
     return true;
+}
+
+// TODO: move this?
+fn createBuffers() !void {
+    const vertex_buf_size = @sizeOf(Vertex) * 1024 * 1024;
+    vert_buf = try Buffer.init(
+        device,
+        vertex_buf_size,
+        .{
+            .vertex_buffer_bit = true,
+            .transfer_src_bit = true,
+            .transfer_dst_bit = true,
+        },
+        .{ .device_local_bit = true },
+        true
+    );
+
+    const index_buf_size = @sizeOf(u32) * 1024 * 1024;
+    ind_buf = try Buffer.init(
+        device,
+        index_buf_size,
+        .{
+            .index_buffer_bit = true,
+            .transfer_src_bit = true,
+            .transfer_dst_bit = true,
+        },
+        .{ .device_local_bit = true },
+        true
+    );
 }
