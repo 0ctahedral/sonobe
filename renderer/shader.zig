@@ -8,17 +8,12 @@ const BUILTIN_SHADER_NAME_OBJ = "builtin";
 /// TODO: this might need to be more of an interface
 pub const Shader = struct {
 
-    const Stage = struct {
-        handle: vk.ShaderModule,
-        //module_ci: vk.ShaderModuleCreateInfo,
-        stage_ci: vk.PipelineShaderStageCreateInfo,
-    };
 
     const Self = @This();
 
     // vertex and fragment
-    stages: [2]Stage = undefined,
-
+    handles: [2]vk.ShaderModule = undefined,
+    stage_ci: [2]vk.PipelineShaderStageCreateInfo = undefined,
 
     pub fn init(
         dev: Device,
@@ -38,23 +33,22 @@ pub const Shader = struct {
         };
 
         // create a shader module for each stage
-        for (self.stages) |*st, i| {
+        for (self.handles) |*h, i| {
             const data = try loadShader(stage_names[i], allocator);
 
-            st.*.handle = try dev.vkd.createShaderModule(dev.logical, &.{
+            h.* = try dev.vkd.createShaderModule(dev.logical, &.{
                 .flags = .{},
                 .code_size = data.len,
                 .p_code = @ptrCast([*]const u32, @alignCast(4, data)),
             }, null);
 
-            st.*.stage_ci = vk.PipelineShaderStageCreateInfo{
+            self.stage_ci[i] = vk.PipelineShaderStageCreateInfo{
                 .flags = .{},
                 .stage = stage_types[i],
-                .module = st.handle,
+                .module = h.*,
                 .p_name = "main",
                 .p_specialization_info = null,
             };
-
 
             allocator.free(data);
         }
@@ -84,8 +78,8 @@ pub const Shader = struct {
         self: Self,
         dev: Device,
     ) void {
-        for (self.stages) |st| {
-            dev.vkd.destroyShaderModule(dev.logical, st.handle, null);
+        for (self.handles) |h| {
+            dev.vkd.destroyShaderModule(dev.logical, h, null);
         }
     }
 };

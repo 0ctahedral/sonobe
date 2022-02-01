@@ -32,6 +32,10 @@ pub fn build(b: *Builder) void {
     rend_exe.addPackagePath("glfw", "deps/mach-glfw/src/main.zig");
     glfw.link(b, rend_exe, .{});
     rend_exe.install();
+    rend_exe.addPackage(.{
+        .name = "mmath",
+        .path = .{ .path = "./math/math.zig" },
+    });
 
     // shader resources, to be compiled using glslc
     //const res = zigvulkan.ResourceGenStep.init(b, "resources.zig");

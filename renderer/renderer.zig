@@ -15,6 +15,7 @@ const Fence = @import("fence.zig").Fence;
 const Semaphore = @import("semaphore.zig").Semaphore;
 const Shader = @import("shader.zig").Shader;
 const Pipeline = @import("pipeline.zig").Pipeline;
+const Vertex = @import("pipeline.zig").Vertex;
 
 // TODO: get these from the system
 const required_exts = [_][*:0]const u8{
@@ -64,6 +65,8 @@ var fb_width: u32 = 0;
 var fb_height: u32 = 0;
 
 var shader: Shader = undefined;
+
+var pipeline: Pipeline = undefined;
 
 // initialize the renderer
 pub fn init(provided_allocator: Allocator, app_name: [*:0]const u8, window: glfw.Window) !void {
@@ -152,7 +155,7 @@ pub fn init(provided_allocator: Allocator, app_name: [*:0]const u8, window: glfw
         .height = fb_height,
     } }, .{
         .color = true,
-    }, .{ 0, 1, 0, 1 });
+    }, .{ 0, 0, 0.1, 1 });
     errdefer renderpass.deinit(device);
 
     // create a command pool
@@ -196,9 +199,45 @@ pub fn init(provided_allocator: Allocator, app_name: [*:0]const u8, window: glfw
         f.* = Fence{};
     }
 
-    // create pipeline
+
     // create shader
     shader = try Shader.init(device, allocator);
+
+    // create pipeline
+    try createPipeline();
+}
+
+// TODO: find a home for this
+fn createPipeline() !void {
+    const viewport = vk.Viewport{ .x = 0, .y = @intToFloat(f32, fb_height), .width = @intToFloat(f32, fb_width), .height = -@intToFloat(f32, fb_height), .min_depth = 0, .max_depth = 1 };
+
+    const scissor = vk.Rect2D{
+        .offset = .{ .x = 0, .y = 0 },
+        .extent = .{
+            .width = fb_width,
+            .height = fb_height,
+        },
+    };
+
+    const vertex_attribute_description = [_]vk.VertexInputAttributeDescription{
+        .{
+            .binding = 0,
+            .location = 0,
+            .format = .r32g32_sfloat,
+            .offset = @offsetOf(Vertex, "pos"),
+        },
+    };
+
+    pipeline = try Pipeline.init(
+        device,
+        renderpass,
+        &vertex_attribute_description,
+        &[_]vk.DescriptorSetLayout{},
+        &shader.stage_ci,
+        viewport,
+        scissor,
+        false
+    );
 }
 
 fn vk_debug(
@@ -217,6 +256,8 @@ fn vk_debug(
 
 // shutdown the renderer
 pub fn deinit() void {
+
+    pipeline.deinit(device);
 
     shader.deinit(device);
 

@@ -218,8 +218,8 @@ fn initializeCandidate(vki: InstanceDispatch, candidate: DeviceCandidate) !vk.De
         .p_queue_create_infos = &qci,
         .enabled_layer_count = 0,
         .pp_enabled_layer_names = undefined,
-        //.enabled_extension_count = required_device_extensions.len,
-        //.pp_enabled_extension_names = @ptrCast([*]const [*:0]const u8, &required_device_extensions),
+        .enabled_extension_count = required_device_extensions.len,
+        .pp_enabled_extension_names = @ptrCast([*]const [*:0]const u8, &required_device_extensions),
         .p_enabled_features = null,
     }, null);
 }
