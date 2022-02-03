@@ -8,6 +8,7 @@ const glfw = @import("glfw");
 const Allocator = std.mem.Allocator;
 
 const Device = @import("device.zig").Device;
+const Queue = @import("device.zig").Queue;
 const Swapchain = @import("swapchain.zig").Swapchain;
 const RenderPass = @import("renderpass.zig").RenderPass;
 const CommandBuffer = @import("commandbuffer.zig").CommandBuffer;
@@ -16,6 +17,7 @@ const Semaphore = @import("semaphore.zig").Semaphore;
 const Shader = @import("shader.zig").Shader;
 const Pipeline = @import("pipeline.zig").Pipeline;
 const Vertex = @import("pipeline.zig").Vertex;
+const Vec3 = @import("mmath").Vec3;
 const Buffer = @import("buffer.zig").Buffer;
 
 // TODO: get these from the system
@@ -31,6 +33,14 @@ const required_exts = [_][*:0]const u8{
 
 // TODO: set this in a config
 const required_layers = [_][*:0]const u8{"VK_LAYER_KHRONOS_validation"};
+
+var verts = [_]Vertex {
+    .{ .pos = Vec3.new(0, -0.5, 0) },
+    .{ .pos = Vec3.new(0.5, 0.5, 0) },
+    .{ .pos = Vec3.new(0, 0.5, 0) },
+};
+
+var inds = [_]u32{ 0, 1, 2 };
 
 var vkb: BaseDispatch = undefined;
 var vki: InstanceDispatch = undefined;
@@ -211,39 +221,11 @@ pub fn init(provided_allocator: Allocator, app_name: [*:0]const u8, window: glfw
     try createPipeline();
     // create some buffers
     try createBuffers();
-}
 
-// TODO: find a home for this
-fn createPipeline() !void {
-    const viewport = vk.Viewport{ .x = 0, .y = @intToFloat(f32, fb_height), .width = @intToFloat(f32, fb_width), .height = -@intToFloat(f32, fb_height), .min_depth = 0, .max_depth = 1 };
-
-    const scissor = vk.Rect2D{
-        .offset = .{ .x = 0, .y = 0 },
-        .extent = .{
-            .width = fb_width,
-            .height = fb_height,
-        },
-    };
-
-    const vertex_attribute_description = [_]vk.VertexInputAttributeDescription{
-        .{
-            .binding = 0,
-            .location = 0,
-            .format = .r32g32_sfloat,
-            .offset = @offsetOf(Vertex, "pos"),
-        },
-    };
-
-    pipeline = try Pipeline.init(
-        device,
-        renderpass,
-        &vertex_attribute_description,
-        &[_]vk.DescriptorSetLayout{},
-        &shader.stage_ci,
-        viewport,
-        scissor,
-        false
-    );
+    // load to em
+    // TODO: move this elsewhere
+    try loadDataToGPU(device.command_pool, device.graphics.?, 0, vert_buf, @sizeOf(Vertex) * verts.len, @ptrCast([*]u8, &verts));
+    try loadDataToGPU(device.command_pool, device.graphics.?, 0, ind_buf, @sizeOf(u32) * inds.len, @ptrCast([*]u8, &inds));
 }
 
 fn vk_debug(
@@ -378,6 +360,7 @@ pub fn beginFrame() !bool {
     device.vkd.cmdSetScissor(cb.handle, 0, 1, @ptrCast([*]const vk.Rect2D, &scissor));
 
     renderpass.begin(device, cb, swapchain.framebuffers[image_index]);
+
 
     return true;
 }
@@ -518,4 +501,55 @@ fn createBuffers() !void {
         .{ .device_local_bit = true },
         true
     );
+}
+
+// TODO: find a home for this
+fn createPipeline() !void {
+    const viewport = vk.Viewport{ .x = 0, .y = @intToFloat(f32, fb_height), .width = @intToFloat(f32, fb_width), .height = -@intToFloat(f32, fb_height), .min_depth = 0, .max_depth = 1 };
+
+    const scissor = vk.Rect2D{
+        .offset = .{ .x = 0, .y = 0 },
+        .extent = .{
+            .width = fb_width,
+            .height = fb_height,
+        },
+    };
+
+    const vertex_attribute_description = [_]vk.VertexInputAttributeDescription{
+        .{
+            .binding = 0,
+            .location = 0,
+            .format = .r32g32_sfloat,
+            .offset = @offsetOf(Vertex, "pos"),
+        },
+    };
+
+    pipeline = try Pipeline.init(
+        device,
+        renderpass,
+        &vertex_attribute_description,
+        &[_]vk.DescriptorSetLayout{},
+        &shader.stage_ci,
+        viewport,
+        scissor,
+        false
+    );
+}
+
+/// creates a tmp buffer to load to and stuff
+fn loadDataToGPU(
+        pool: vk.CommandPool,
+        queue: Queue,
+        offset: usize,
+        src: Buffer,
+        size: usize,
+        data: [*]u8,
+    ) !void {
+    const flags = vk.MemoryPropertyFlags{ .host_visible_bit = true, .host_coherent_bit = true };
+    var staging = try Buffer.init(device, size, .{.transfer_src_bit = true}, flags, true);
+    defer staging.deinit(device);
+
+    try staging.load(device, 0, size, data);
+
+    try Buffer.copyTo(src, staging, device, pool, queue, offset, 0, size);
 }

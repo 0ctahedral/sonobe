@@ -93,19 +93,17 @@ pub const Buffer = struct {
         self.locked = false;
     }
 
-// TODO
-//    pub fn load(
-//        self: Self,
-//        dev: Device,
-//        offset: usize,
-//        size: usize,
-//        flags: u32,
-//        data: *anyopaque,
-//    ) !void {
-//        var ptr = try dev.vkd.mapMemory(dev.logical, self.mem, offset, size, flags);
-//        std.mem.copy();
-//        dev.vkd.unmapMemory(dev.logical, self.mem);
-//    }
+    pub fn load(
+        self: Self,
+        dev: Device,
+        offset: usize,
+        size: usize,
+        data: [*]u8,
+    ) !void {
+        var ptr = @ptrCast([*]u8, try dev.vkd.mapMemory(dev.logical, self.mem, offset, size, .{}));
+        std.mem.copy(u8, ptr[0..size], data[0..size]);
+        dev.vkd.unmapMemory(dev.logical, self.mem);
+    }
 
     pub fn bind(self: Self, dev: Device) !void {
         try dev.vkd.bindBufferMemory(dev.logical, self.handle, self.mem, 0);
@@ -115,7 +113,7 @@ pub const Buffer = struct {
     pub fn resize(
         self: *Self,
         dev: Device,
-        pool: vk.CommndPool,
+        pool: vk.CommandPool,
         queue: Queue,
         new_size: usize,
     ) !void {
@@ -130,7 +128,7 @@ pub const Buffer = struct {
 
         try new_buf.bind(dev);
 
-        copyTo(self, new_buf, dev, pool, .null_handle, queue.handle, 0, 0, self.size);
+        try copyTo(self, new_buf, dev, pool, .null_handle, queue.handle, 0, 0, self.size);
 
         
         try dev.vkd.deviceWaitIdle(dev.logical);
@@ -143,23 +141,24 @@ pub const Buffer = struct {
         src: Self,
         dest: Self,
         dev: Device,
-        pool: vk.CommndPool,
+        pool: vk.CommandPool,
         //fence: Fence,
         queue: Queue,
         src_offset: usize,
         dest_offset: usize,
         size: usize,
-    ) void {
-        try dev.vkd.queueWaitIdle(dev.logical, queue);
-        var tmp_buf = CommandBuffer.beginSingleUse(dev, pool);
-        defer tmp_buf.deinit();
+    ) !void {
+        try dev.vkd.queueWaitIdle(queue.handle);
+        var tmp_buf = try CommandBuffer.beginSingleUse(dev, pool);
+        defer tmp_buf.deinit(dev, pool);
 
-        dev.vkd.cmdCopyBuffer(tmp_buf.handle, src.handle, dest.handle, 
-            1, &.{
+        const bc = [_]vk.BufferCopy{.{
                 .src_offset = src_offset,
                 .dst_offset = dest_offset,
                 .size = size,
-        });
+        }};
+
+        dev.vkd.cmdCopyBuffer(tmp_buf.handle, src.handle, dest.handle, 1, &bc);
     }
 
 };

@@ -286,22 +286,14 @@ pub const Device = struct {
         return error.NoSuitableDevice;
     }
 
-    pub fn findMemoryIndex(self: Self, type_bits: u32, mem_flags: vk.MemoryPropertyFlags) ?u32 {
-        _ = type_bits;
-        // TODO: idk if this is right
-        var i: usize = 0;
-        while (i < self.memory.memory_type_count) : (i += 1) {
-            if (
-                self.memory.memory_types[i].property_flags.device_local_bit ==
-                mem_flags.device_local_bit or
-                self.memory.memory_types[i].property_flags.host_visible_bit ==
-                mem_flags.host_visible_bit or
-                self.memory.memory_types[i].property_flags.host_coherent_bit ==
-                mem_flags.host_coherent_bit
-            ) {
-                return @intCast(u32, i);
+    pub fn findMemoryIndex(self: Self, type_bits: u32, flags: vk.MemoryPropertyFlags) ?u32 {
+
+        for (self.memory.memory_types[0..self.memory.memory_type_count]) |mem_type, i| {
+            if (type_bits & (@as(u32, 1) << @truncate(u5, i)) != 0 and mem_type.property_flags.contains(flags)) {
+                return @truncate(u32, i);
             }
         }
+
         return null;
     }
 

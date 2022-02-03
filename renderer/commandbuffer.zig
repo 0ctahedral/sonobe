@@ -111,8 +111,8 @@ pub const CommandBuffer = struct {
         dev: Device,
         pool: vk.CommandPool,
     ) !Self {
-        const self = try init(dev, pool, true);
-        self.begin(dev, .{ .single_use = true });
+        var self = try init(dev, pool, true);
+        try self.begin(dev, .{ .single_use = true });
         return self;
     }
 
