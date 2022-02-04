@@ -8,14 +8,7 @@ const Device = @import("device.zig").Device;
 pub const CommandBuffer = struct {
 
     //TODO: check state
-    const State = enum {
-        ready,
-        recording,
-        in_render_pass,
-        recording_ended,
-        submitted,
-        not_allocated
-    };
+    const State = enum { ready, recording, in_render_pass, recording_ended, submitted, not_allocated };
 
     handle: vk.CommandBuffer = vk.CommandBuffer.null_handle,
 
@@ -30,43 +23,30 @@ pub const CommandBuffer = struct {
         is_primary: bool,
     ) !Self {
         var self = Self{};
-        try dev.vkd.allocateCommandBuffers(
-            dev.logical,
-            &.{
-                .command_pool = pool,
-                .level = if (is_primary) vk.CommandBufferLevel.primary else vk.CommandBufferLevel.secondary,
-                .command_buffer_count = 1,
-            },
-            @ptrCast([*]vk.CommandBuffer, &self.handle)
-        );
+        try dev.vkd.allocateCommandBuffers(dev.logical, &.{
+            .command_pool = pool,
+            .level = if (is_primary) vk.CommandBufferLevel.primary else vk.CommandBufferLevel.secondary,
+            .command_buffer_count = 1,
+        }, @ptrCast([*]vk.CommandBuffer, &self.handle));
         self.state = .ready;
         return self;
     }
 
     /// free command buffer back to the pool
-    pub fn deinit(
-        self: *Self,
-        dev: Device,
-        pool: vk.CommandPool
-    ) void {
-        dev.vkd.freeCommandBuffers(
-            dev.logical,
-            pool,
-            1,
-            @ptrCast([*]vk.CommandBuffer, &self.handle)
-        );
+    pub fn deinit(self: *Self, dev: Device, pool: vk.CommandPool) void {
+        dev.vkd.freeCommandBuffers(dev.logical, pool, 1, @ptrCast([*]vk.CommandBuffer, &self.handle));
         self.handle = vk.CommandBuffer.null_handle;
         self.state = .not_allocated;
     }
 
     const beginmask = packed struct {
-            // each recording will be done between uses
-            single_use: bool = false,
-            // secondary buffer inside pass
-            renderpass_continue: bool = false,
-            // can be resubmitted while pending
-            simultaneous_use: bool = false,
-        };
+        // each recording will be done between uses
+        single_use: bool = false,
+        // secondary buffer inside pass
+        renderpass_continue: bool = false,
+        // can be resubmitted while pending
+        simultaneous_use: bool = false,
+    };
 
     pub fn begin(
         self: *Self,
@@ -104,7 +84,6 @@ pub const CommandBuffer = struct {
     pub fn reset(self: *Self) void {
         self.state = .ready;
     }
-    
 
     /// for single use
     pub fn beginSingleUse(
@@ -117,13 +96,13 @@ pub const CommandBuffer = struct {
     }
 
     pub fn endSingleUse(
-        self: Self,
+        self: *Self,
         dev: Device,
         pool: vk.CommandPool,
         queue: vk.Queue,
     ) !void {
-        self.end(dev);
-        try dev.vkd.queueSubmit(queue, 1, &.{
+        try self.end(dev);
+        const si = vk.SubmitInfo{
             .wait_semaphore_count = 0,
             .p_wait_semaphores = undefined,
             .p_wait_dst_stage_mask = undefined,
@@ -131,7 +110,8 @@ pub const CommandBuffer = struct {
             .p_command_buffers = @ptrCast([*]const vk.CommandBuffer, &self.handle),
             .signal_semaphore_count = 0,
             .p_signal_semaphores = undefined,
-        });
+        };
+        try dev.vkd.queueSubmit(queue, 1, @ptrCast([*]const vk.SubmitInfo, &si), .null_handle);
 
         // not using a fence so we wait
         try dev.vkd.queueWaitIdle(queue);

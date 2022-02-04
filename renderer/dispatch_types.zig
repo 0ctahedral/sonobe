@@ -1,6 +1,5 @@
 const vk = @import("vulkan");
 
-
 pub const BaseDispatch = vk.BaseWrapper(&.{
     .createInstance,
 });
@@ -71,8 +70,10 @@ pub const DeviceDispatch = vk.DeviceWrapper(&.{
     .cmdEndRenderPass,
     .cmdBindPipeline,
     .cmdDraw,
+    .cmdDrawIndexed,
     .cmdSetViewport,
     .cmdSetScissor,
     .cmdBindVertexBuffers,
+    .cmdBindIndexBuffer,
     .cmdCopyBuffer,
 });

@@ -34,7 +34,7 @@ const required_exts = [_][*:0]const u8{
 // TODO: set this in a config
 const required_layers = [_][*:0]const u8{"VK_LAYER_KHRONOS_validation"};
 
-var verts = [_]Vertex {
+var verts = [_]Vertex{
     .{ .pos = Vec3.new(0, -0.5, 0) },
     .{ .pos = Vec3.new(0.5, 0.5, 0) },
     .{ .pos = Vec3.new(0, 0.5, 0) },
@@ -85,7 +85,6 @@ var ind_buf: Buffer = undefined;
 // initialize the renderer
 pub fn init(provided_allocator: Allocator, app_name: [*:0]const u8, window: glfw.Window) !void {
     allocator = provided_allocator;
-
 
     // get proc address from glfw window
     // TODO: this should really just be a function passed into the init
@@ -213,7 +212,6 @@ pub fn init(provided_allocator: Allocator, app_name: [*:0]const u8, window: glfw
         f.* = Fence{};
     }
 
-
     // create shader
     shader = try Shader.init(device, allocator);
 
@@ -222,10 +220,29 @@ pub fn init(provided_allocator: Allocator, app_name: [*:0]const u8, window: glfw
     // create some buffers
     try createBuffers();
 
-    // load to em
-    // TODO: move this elsewhere
-    try loadDataToGPU(device.command_pool, device.graphics.?, 0, vert_buf, @sizeOf(Vertex) * verts.len, @ptrCast([*]u8, &verts));
-    try loadDataToGPU(device.command_pool, device.graphics.?, 0, ind_buf, @sizeOf(u32) * inds.len, @ptrCast([*]u8, &inds));
+    // upload the vertices
+    {
+        const size = @sizeOf(Vertex) * verts.len;
+        const flags = vk.MemoryPropertyFlags{ .host_visible_bit = true, .host_coherent_bit = true };
+        std.log.info("size: {d}", .{size});
+        var staging = try Buffer.init(device, size, .{ .transfer_dst_bit = true }, flags, true);
+        defer staging.deinit(device);
+
+        try staging.load(device, Vertex, &verts, 0);
+
+        try Buffer.copyTo(vert_buf, staging, device, device.command_pool, device.graphics.?, 0, 0, size);
+    }
+    //{
+    //    const size = @sizeOf(u32) * inds.len;
+    //    const flags = vk.MemoryPropertyFlags{ .host_visible_bit = true, .host_coherent_bit = true };
+    //    var staging = try Buffer.init(device, size, .{ .transfer_dst_bit = true }, flags, true);
+    //    defer staging.deinit(device);
+
+    //    try staging.load(device, u32, &inds, 0);
+
+    //    try Buffer.copyTo(ind_buf, staging, device, device.command_pool, device.graphics.?, 0, 0, size);
+    //}
+    //try loadDataToGPU(device.command_pool, device.graphics.?, 0, ind_buf, @sizeOf(u32) * inds.len, @ptrCast([*]u8, &inds));
 }
 
 fn vk_debug(
@@ -244,7 +261,6 @@ fn vk_debug(
 
 // shutdown the renderer
 pub fn deinit() void {
-
     vert_buf.deinit(device);
     ind_buf.deinit(device);
 
@@ -333,14 +349,13 @@ pub fn beginFrame() !bool {
         switch (err) {
             error.OutOfDateKHR => {
                 std.log.warn("failed to aquire, booting", .{});
-                //_ = try recreateSwapchain();
                 return false;
             },
             else => |narrow| return narrow,
         }
     };
 
-    const cb: *CommandBuffer = &graphics_buffers[image_index];
+    var cb: *CommandBuffer = &graphics_buffers[image_index];
     cb.reset();
     try cb.begin(device, .{});
 
@@ -361,6 +376,15 @@ pub fn beginFrame() !bool {
 
     renderpass.begin(device, cb, swapchain.framebuffers[image_index]);
 
+    device.vkd.cmdBindPipeline(cb.handle, .graphics, pipeline.handle);
+    const offset = [_]vk.DeviceSize{0};
+    device.vkd.cmdBindVertexBuffers(cb.handle, 0, 1, @ptrCast([*]const vk.Buffer, &vert_buf.handle), &offset);
+
+    //device.vkd.cmdBindIndexBuffer(cb.handle, ind_buf.handle, 0, .uint32);
+
+    // Issue the draw.
+    //device.vkd.cmdDrawIndexed(cb.handle, 3, 1, 0, 0, 0);
+    device.vkd.cmdDraw(cb.handle, 3, 1, 0, 0);
 
     return true;
 }
@@ -404,12 +428,10 @@ pub fn endFrame() !void {
     cb.updateSubmitted();
 
     // present that shit
-    // TODO: use the swapchain state
     swapchain.present(device, device.present.?, queue_complete_semaphores[current_frame], @intCast(u32, image_index)) catch |err| {
         switch (err) {
             error.SuboptimalKHR, error.OutOfDateKHR => {
                 std.log.warn("swapchain out of date in end frame", .{});
-                //_ = try recreateSwapchain();
             },
             else => |narrow| return narrow,
         }
@@ -477,30 +499,18 @@ fn recreateSwapchain() !bool {
 // TODO: move this?
 fn createBuffers() !void {
     const vertex_buf_size = @sizeOf(Vertex) * 1024 * 1024;
-    vert_buf = try Buffer.init(
-        device,
-        vertex_buf_size,
-        .{
-            .vertex_buffer_bit = true,
-            .transfer_src_bit = true,
-            .transfer_dst_bit = true,
-        },
-        .{ .device_local_bit = true },
-        true
-    );
+    vert_buf = try Buffer.init(device, vertex_buf_size, .{
+        .vertex_buffer_bit = true,
+        .transfer_src_bit = true,
+        //.transfer_dst_bit = true,
+    }, .{ .device_local_bit = true }, true);
 
     const index_buf_size = @sizeOf(u32) * 1024 * 1024;
-    ind_buf = try Buffer.init(
-        device,
-        index_buf_size,
-        .{
-            .index_buffer_bit = true,
-            .transfer_src_bit = true,
-            .transfer_dst_bit = true,
-        },
-        .{ .device_local_bit = true },
-        true
-    );
+    ind_buf = try Buffer.init(device, index_buf_size, .{
+        .index_buffer_bit = true,
+        .transfer_src_bit = true,
+        //.transfer_dst_bit = true,
+    }, .{ .device_local_bit = true }, true);
 }
 
 // TODO: find a home for this
@@ -524,32 +534,69 @@ fn createPipeline() !void {
         },
     };
 
-    pipeline = try Pipeline.init(
-        device,
-        renderpass,
-        &vertex_attribute_description,
-        &[_]vk.DescriptorSetLayout{},
-        &shader.stage_ci,
-        viewport,
-        scissor,
-        false
-    );
+    pipeline = try Pipeline.init(device, renderpass, &vertex_attribute_description, &[_]vk.DescriptorSetLayout{}, &shader.stage_ci, viewport, scissor, false);
 }
 
-/// creates a tmp buffer to load to and stuff
-fn loadDataToGPU(
-        pool: vk.CommandPool,
-        queue: Queue,
-        offset: usize,
-        src: Buffer,
-        size: usize,
-        data: [*]u8,
-    ) !void {
-    const flags = vk.MemoryPropertyFlags{ .host_visible_bit = true, .host_coherent_bit = true };
-    var staging = try Buffer.init(device, size, .{.transfer_src_bit = true}, flags, true);
-    defer staging.deinit(device);
-
-    try staging.load(device, 0, size, data);
-
-    try Buffer.copyTo(src, staging, device, pool, queue, offset, 0, size);
-}
+//fn uploadVertices(gc: *const GraphicsContext, pool: vk.CommandPool, buffer: vk.Buffer) !void {
+//    const staging_buffer = try gc.vkd.createBuffer(gc.dev, &.{
+//        .flags = .{},
+//        .size = @sizeOf(@TypeOf(vertices)),
+//        .usage = .{ .transfer_src_bit = true },
+//        .sharing_mode = .exclusive,
+//        .queue_family_index_count = 0,
+//        .p_queue_family_indices = undefined,
+//    }, null);
+//    defer gc.vkd.destroyBuffer(gc.dev, staging_buffer, null);
+//    const mem_reqs = gc.vkd.getBufferMemoryRequirements(gc.dev, staging_buffer);
+//    const staging_memory = try gc.allocate(mem_reqs, .{ .host_visible_bit = true, .host_coherent_bit = true });
+//    defer gc.vkd.freeMemory(gc.dev, staging_memory, null);
+//    try gc.vkd.bindBufferMemory(gc.dev, staging_buffer, staging_memory, 0);
+//
+//    {
+//        const data = try gc.vkd.mapMemory(gc.dev, staging_memory, 0, vk.WHOLE_SIZE, .{});
+//        defer gc.vkd.unmapMemory(gc.dev, staging_memory);
+//
+//        const gpu_vertices = @ptrCast([*]Vertex, @alignCast(@alignOf(Vertex), data));
+//        for (vertices) |vertex, i| {
+//            gpu_vertices[i] = vertex;
+//        }
+//    }
+//
+//    try copyBuffer(gc, pool, buffer, staging_buffer, @sizeOf(@TypeOf(vertices)));
+//}
+//
+//fn copyBuffer(gc: *const GraphicsContext, pool: vk.CommandPool, dst: vk.Buffer, src: vk.Buffer, size: vk.DeviceSize) !void {
+//    var cmdbuf: vk.CommandBuffer = undefined;
+//    try gc.vkd.allocateCommandBuffers(gc.dev, &.{
+//        .command_pool = pool,
+//        .level = .primary,
+//        .command_buffer_count = 1,
+//    }, @ptrCast([*]vk.CommandBuffer, &cmdbuf));
+//    defer gc.vkd.freeCommandBuffers(gc.dev, pool, 1, @ptrCast([*]const vk.CommandBuffer, &cmdbuf));
+//
+//    try gc.vkd.beginCommandBuffer(cmdbuf, &.{
+//        .flags = .{ .one_time_submit_bit = true },
+//        .p_inheritance_info = null,
+//    });
+//
+//    const region = vk.BufferCopy{
+//        .src_offset = 0,
+//        .dst_offset = 0,
+//        .size = size,
+//    };
+//    gc.vkd.cmdCopyBuffer(cmdbuf, src, dst, 1, @ptrCast([*]const vk.BufferCopy, &region));
+//
+//    try gc.vkd.endCommandBuffer(cmdbuf);
+//
+//    const si = vk.SubmitInfo{
+//        .wait_semaphore_count = 0,
+//        .p_wait_semaphores = undefined,
+//        .p_wait_dst_stage_mask = undefined,
+//        .command_buffer_count = 1,
+//        .p_command_buffers = @ptrCast([*]const vk.CommandBuffer, &cmdbuf),
+//        .signal_semaphore_count = 0,
+//        .p_signal_semaphores = undefined,
+//    };
+//    try gc.vkd.queueSubmit(gc.graphics_queue.handle, 1, @ptrCast([*]const vk.SubmitInfo, &si), .null_handle);
+//    try gc.vkd.queueWaitIdle(gc.graphics_queue.handle);
+//}

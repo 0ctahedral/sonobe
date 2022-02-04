@@ -16,7 +16,6 @@ pub const ClearFlags = packed struct {
 pub const RenderPass = struct {
     handle: vk.RenderPass,
 
-
     /// extents of the render area
     /// aka start and end position
     render_area: vk.Rect2D,
@@ -35,7 +34,7 @@ pub const RenderPass = struct {
         render_area: vk.Rect2D,
         clear_flags: ClearFlags,
         clear_color: [4]f32,
-    ) !Self  {
+    ) !Self {
         // start by making attachments
         // color
         const color_attachment = vk.AttachmentDescription{
@@ -58,7 +57,7 @@ pub const RenderPass = struct {
         };
 
         // TODO: depth
-        
+
         const subpass = vk.SubpassDescription{
             .flags = .{},
             .pipeline_bind_point = .graphics,
@@ -91,18 +90,17 @@ pub const RenderPass = struct {
             },
             .dependency_flags = .{},
         };
-        
 
         const rp = try device.vkd.createRenderPass(device.logical, &.{
-                .flags = .{},
-                .p_next = null,
-                .attachment_count = 1,
-                .p_attachments = @ptrCast([*]const vk.AttachmentDescription, &color_attachment),
-                .subpass_count = 1,
-                .p_subpasses = @ptrCast([*]const vk.SubpassDescription, &subpass),
-                .dependency_count = 1,
-                .p_dependencies = @ptrCast([*]const vk.SubpassDependency, &dependency),
-            }, null);
+            .flags = .{},
+            .p_next = null,
+            .attachment_count = 1,
+            .p_attachments = @ptrCast([*]const vk.AttachmentDescription, &color_attachment),
+            .subpass_count = 1,
+            .p_subpasses = @ptrCast([*]const vk.SubpassDescription, &subpass),
+            .dependency_count = 1,
+            .p_dependencies = @ptrCast([*]const vk.SubpassDependency, &dependency),
+        }, null);
 
         return Self{
             .handle = rp,
@@ -126,16 +124,12 @@ pub const RenderPass = struct {
         // TODO: make this support depth
         var clear_values: [2]vk.ClearValue = undefined;
         // color
-        clear_values[0] = vk.ClearValue{
-            .color = .{
-                .float_32 = .{
-                    self.clear_color[0],
-                    self.clear_color[1],
-                    self.clear_color[2],
-                    self.clear_color[3],
-                }
-            }
-        };
+        clear_values[0] = vk.ClearValue{ .color = .{ .float_32 = .{
+            self.clear_color[0],
+            self.clear_color[1],
+            self.clear_color[2],
+            self.clear_color[3],
+        } } };
         // depth
         //clear_values[1] = vk.ClearValue{
         //    .depth_stencil = .{
@@ -143,7 +137,7 @@ pub const RenderPass = struct {
         //        .stencil = self.stencil,
         //    }
         //};
-        
+
         dev.vkd.cmdBeginRenderPass(command_buffer.handle, &.{
             .render_pass = self.handle,
             .framebuffer = framebuffer,
