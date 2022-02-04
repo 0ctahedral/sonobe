@@ -47,11 +47,7 @@ pub const Buffer = struct {
         const reqs = dev.vkd.getBufferMemoryRequirements(dev.logical, self.handle);
 
         // get memory index TODO: move to device?
-        if (dev.findMemoryIndex(reqs.memory_type_bits, mem_flags)) |idx| {
-            self.index = idx;
-        } else {
-            return error.CantFindMemType;
-        }
+        self.index = try dev.findMemoryIndex(reqs.memory_type_bits, mem_flags);
 
         self.mem = try dev.vkd.allocateMemory(dev.logical, &.{
             .allocation_size = reqs.size,
@@ -143,27 +139,23 @@ pub const Buffer = struct {
     }
 
     pub fn copyTo(
-        src: Self,
-        dest: Self,
         dev: Device,
         pool: vk.CommandPool,
-        //fence: Fence,
         queue: Queue,
+        src: Self,
         src_offset: usize,
+        dest: Self,
         dest_offset: usize,
         size: usize,
     ) !void {
-        try dev.vkd.queueWaitIdle(queue.handle);
-        var tmp_buf = try CommandBuffer.beginSingleUse(dev, pool);
-
-        const bc = [_]vk.BufferCopy{.{
+        var cmdbuf = try CommandBuffer.beginSingleUse(dev, pool);
+        const region = vk.BufferCopy{
             .src_offset = src_offset,
             .dst_offset = dest_offset,
             .size = size,
-        }};
+        };
+        dev.vkd.cmdCopyBuffer(cmdbuf.handle, src.handle, dest.handle, 1, @ptrCast([*]const vk.BufferCopy, &region));
 
-        dev.vkd.cmdCopyBuffer(tmp_buf.handle, src.handle, dest.handle, 1, &bc);
-
-        try tmp_buf.endSingleUse(dev, pool, queue.handle);
+        try cmdbuf.endSingleUse(dev, pool, queue.handle);
     }
 };

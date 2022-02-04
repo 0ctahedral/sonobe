@@ -286,7 +286,7 @@ pub const Device = struct {
         return error.NoSuitableDevice;
     }
 
-    pub fn findMemoryIndex(self: Self, type_bits: u32, flags: vk.MemoryPropertyFlags) ?u32 {
+    pub fn findMemoryIndex(self: Self, type_bits: u32, flags: vk.MemoryPropertyFlags) !u32 {
 
         for (self.memory.memory_types[0..self.memory.memory_type_count]) |mem_type, i| {
             if (type_bits & (@as(u32, 1) << @truncate(u5, i)) != 0 and mem_type.property_flags.contains(flags)) {
@@ -294,7 +294,7 @@ pub const Device = struct {
             }
         }
 
-        return null;
+        return error.CannotFindMemoryIndex;
     }
 
 };

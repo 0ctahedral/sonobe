@@ -221,17 +221,19 @@ pub fn init(provided_allocator: Allocator, app_name: [*:0]const u8, window: glfw
     try createBuffers();
 
     // upload the vertices
-    {
-        const size = @sizeOf(Vertex) * verts.len;
-        const flags = vk.MemoryPropertyFlags{ .host_visible_bit = true, .host_coherent_bit = true };
-        std.log.info("size: {d}", .{size});
-        var staging = try Buffer.init(device, size, .{ .transfer_dst_bit = true }, flags, true);
-        defer staging.deinit(device);
+    try upload(device.command_pool, vert_buf, Vertex, &verts);
+    try upload(device.command_pool, ind_buf, u32, &inds);
+    //{
+    //    const size = @sizeOf(Vertex) * verts.len;
+    //    const flags = vk.MemoryPropertyFlags{ .host_visible_bit = true, .host_coherent_bit = true };
+    //    std.log.info("size: {d}", .{size});
+    //    var staging = try Buffer.init(device, size, .{ .transfer_dst_bit = true }, flags, true);
+    //    defer staging.deinit(device);
 
-        try staging.load(device, Vertex, &verts, 0);
+    //    try staging.load(device, Vertex, &verts, 0);
 
-        try Buffer.copyTo(vert_buf, staging, device, device.command_pool, device.graphics.?, 0, 0, size);
-    }
+    //    try Buffer.copyTo(vert_buf, staging, device, device.command_pool, device.graphics.?, 0, 0, size);
+    //}
     //{
     //    const size = @sizeOf(u32) * inds.len;
     //    const flags = vk.MemoryPropertyFlags{ .host_visible_bit = true, .host_coherent_bit = true };
@@ -261,17 +263,18 @@ fn vk_debug(
 
 // shutdown the renderer
 pub fn deinit() void {
+
+    // wait until rendering is done
+    device.vkd.deviceWaitIdle(device.logical) catch {
+        unreachable;
+    };
+
     vert_buf.deinit(device);
     ind_buf.deinit(device);
 
     pipeline.deinit(device);
 
     shader.deinit(device);
-
-    // wait until rendering is done
-    device.vkd.deviceWaitIdle(device.logical) catch {
-        unreachable;
-    };
 
     for (image_avail_semaphores) |s| {
         s.deinit(device);
@@ -288,6 +291,7 @@ pub fn deinit() void {
     for (graphics_buffers) |*cb| {
         cb.deinit(device, device.command_pool);
     }
+
     renderpass.deinit(device);
     swapchain.deinit(device, allocator);
 
@@ -379,12 +383,9 @@ pub fn beginFrame() !bool {
     device.vkd.cmdBindPipeline(cb.handle, .graphics, pipeline.handle);
     const offset = [_]vk.DeviceSize{0};
     device.vkd.cmdBindVertexBuffers(cb.handle, 0, 1, @ptrCast([*]const vk.Buffer, &vert_buf.handle), &offset);
+    device.vkd.cmdBindIndexBuffer(cb.handle, ind_buf.handle, 0, .uint32);
 
-    //device.vkd.cmdBindIndexBuffer(cb.handle, ind_buf.handle, 0, .uint32);
-
-    // Issue the draw.
-    //device.vkd.cmdDrawIndexed(cb.handle, 3, 1, 0, 0, 0);
-    device.vkd.cmdDraw(cb.handle, 3, 1, 0, 0);
+    device.vkd.cmdDrawIndexed(cb.handle, inds.len, 1, 0, 0, 0);
 
     return true;
 }
@@ -502,14 +503,14 @@ fn createBuffers() !void {
     vert_buf = try Buffer.init(device, vertex_buf_size, .{
         .vertex_buffer_bit = true,
         .transfer_src_bit = true,
-        //.transfer_dst_bit = true,
+        .transfer_dst_bit = true,
     }, .{ .device_local_bit = true }, true);
 
     const index_buf_size = @sizeOf(u32) * 1024 * 1024;
     ind_buf = try Buffer.init(device, index_buf_size, .{
         .index_buffer_bit = true,
         .transfer_src_bit = true,
-        //.transfer_dst_bit = true,
+        .transfer_dst_bit = true,
     }, .{ .device_local_bit = true }, true);
 }
 
@@ -537,66 +538,26 @@ fn createPipeline() !void {
     pipeline = try Pipeline.init(device, renderpass, &vertex_attribute_description, &[_]vk.DescriptorSetLayout{}, &shader.stage_ci, viewport, scissor, false);
 }
 
-//fn uploadVertices(gc: *const GraphicsContext, pool: vk.CommandPool, buffer: vk.Buffer) !void {
-//    const staging_buffer = try gc.vkd.createBuffer(gc.dev, &.{
-//        .flags = .{},
-//        .size = @sizeOf(@TypeOf(vertices)),
-//        .usage = .{ .transfer_src_bit = true },
-//        .sharing_mode = .exclusive,
-//        .queue_family_index_count = 0,
-//        .p_queue_family_indices = undefined,
-//    }, null);
-//    defer gc.vkd.destroyBuffer(gc.dev, staging_buffer, null);
-//    const mem_reqs = gc.vkd.getBufferMemoryRequirements(gc.dev, staging_buffer);
-//    const staging_memory = try gc.allocate(mem_reqs, .{ .host_visible_bit = true, .host_coherent_bit = true });
-//    defer gc.vkd.freeMemory(gc.dev, staging_memory, null);
-//    try gc.vkd.bindBufferMemory(gc.dev, staging_buffer, staging_memory, 0);
-//
-//    {
-//        const data = try gc.vkd.mapMemory(gc.dev, staging_memory, 0, vk.WHOLE_SIZE, .{});
-//        defer gc.vkd.unmapMemory(gc.dev, staging_memory);
-//
-//        const gpu_vertices = @ptrCast([*]Vertex, @alignCast(@alignOf(Vertex), data));
-//        for (vertices) |vertex, i| {
-//            gpu_vertices[i] = vertex;
-//        }
-//    }
-//
-//    try copyBuffer(gc, pool, buffer, staging_buffer, @sizeOf(@TypeOf(vertices)));
-//}
-//
-//fn copyBuffer(gc: *const GraphicsContext, pool: vk.CommandPool, dst: vk.Buffer, src: vk.Buffer, size: vk.DeviceSize) !void {
-//    var cmdbuf: vk.CommandBuffer = undefined;
-//    try gc.vkd.allocateCommandBuffers(gc.dev, &.{
-//        .command_pool = pool,
-//        .level = .primary,
-//        .command_buffer_count = 1,
-//    }, @ptrCast([*]vk.CommandBuffer, &cmdbuf));
-//    defer gc.vkd.freeCommandBuffers(gc.dev, pool, 1, @ptrCast([*]const vk.CommandBuffer, &cmdbuf));
-//
-//    try gc.vkd.beginCommandBuffer(cmdbuf, &.{
-//        .flags = .{ .one_time_submit_bit = true },
-//        .p_inheritance_info = null,
-//    });
-//
-//    const region = vk.BufferCopy{
-//        .src_offset = 0,
-//        .dst_offset = 0,
-//        .size = size,
-//    };
-//    gc.vkd.cmdCopyBuffer(cmdbuf, src, dst, 1, @ptrCast([*]const vk.BufferCopy, &region));
-//
-//    try gc.vkd.endCommandBuffer(cmdbuf);
-//
-//    const si = vk.SubmitInfo{
-//        .wait_semaphore_count = 0,
-//        .p_wait_semaphores = undefined,
-//        .p_wait_dst_stage_mask = undefined,
-//        .command_buffer_count = 1,
-//        .p_command_buffers = @ptrCast([*]const vk.CommandBuffer, &cmdbuf),
-//        .signal_semaphore_count = 0,
-//        .p_signal_semaphores = undefined,
-//    };
-//    try gc.vkd.queueSubmit(gc.graphics_queue.handle, 1, @ptrCast([*]const vk.SubmitInfo, &si), .null_handle);
-//    try gc.vkd.queueWaitIdle(gc.graphics_queue.handle);
-//}
+fn upload(pool: vk.CommandPool, buffer: Buffer, comptime T: type, items: []T) !void {
+    const size = @sizeOf(T) * items.len;
+    const staging_buffer = try Buffer.init(
+        device,
+        size,
+        .{ .transfer_src_bit = true },
+        .{ .host_visible_bit = true, .host_coherent_bit = true },
+        true,
+    );
+    defer staging_buffer.deinit(device);
+
+    try staging_buffer.load(device, T, items, 0);
+
+    try Buffer.copyTo(
+        device,
+        pool,
+        device.graphics.?,
+        staging_buffer, 0,
+        buffer, 0,
+        size
+    );
+
+}
