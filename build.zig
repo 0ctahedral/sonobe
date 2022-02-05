@@ -37,11 +37,24 @@ pub fn build(b: *Builder) void {
         .path = .{ .path = "./math/math.zig" },
     });
 
-    // shader resources, to be compiled using glslc
-    //const res = zigvulkan.ResourceGenStep.init(b, "resources.zig");
-    //res.addShader("triangle_vert", "renderer/shaders/triangle.vert");
-    //res.addShader("triangle_frag", "renderer/shaders/triangle.frag");
-    //rend_exe.addPackage(res.package);
+    const compile_vert = b.addSystemCommand(&[_][]const u8{
+        "glslc",
+        "-fshader-stage=vert",
+        "assets/builtin.vert.glsl",
+        "-o",
+        "assets/builtin.vert.spv",
+    });
+
+    const compile_frag = b.addSystemCommand(&[_][]const u8{
+        "glslc",
+        "-fshader-stage=frag",
+        "assets/builtin.frag.glsl",
+        "-o",
+        "assets/builtin.frag.spv",
+    });
+
+    rend_exe.step.dependOn(&compile_vert.step);
+    rend_exe.step.dependOn(&compile_frag.step);
 
     const rend_exe_step = b.step("render", "build and run renderer test");
     rend_exe_step.dependOn(&rend_exe.run().step);
