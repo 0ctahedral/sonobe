@@ -6,7 +6,7 @@ pub const Vertex = struct {
     //TODO: make a generator for binding descriptions
 
     pos: Vec3,
-    color: Vec3 = .{.x = 0.0, .y = 1.0, .z = 0.0 },
+    color: Vec3,
 
     pub const binding_description = vk.VertexInputBindingDescription{
         .binding = 0,

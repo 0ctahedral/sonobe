@@ -35,10 +35,15 @@ const required_exts = [_][*:0]const u8{
 const required_layers = [_][*:0]const u8{"VK_LAYER_KHRONOS_validation"};
 
 var verts = [_]Vertex{
-    .{ .pos = Vec3.new(-0.5, -0.5, 0)},
-    .{ .pos = Vec3.new(0.5, 0.5, 0)  },
-    .{ .pos = Vec3.new(-0.5, 0.5, 0) },
-    .{ .pos = Vec3.new(0.5, -0.5, 0) },
+    // 2---1
+    // |  /|
+    // | / |
+    // |/  |
+    // 0---3
+    .{ .pos = Vec3.new(-0.5, -0.5, 0), .color = Vec3.new(0.0, 0.0, 0.0) },
+    .{ .pos = Vec3.new( 0.5,  0.5, 0), .color = Vec3.new(1.0, 1.0, 0.0)  },
+    .{ .pos = Vec3.new(-0.5,  0.5, 0), .color = Vec3.new(0.0, 1.0, 0.0)  },
+    .{ .pos = Vec3.new( 0.5, -0.5, 0), .color = Vec3.new(1.0, 0.0, 0.0)  },
 };
 
 var inds = [_]u32{ 0, 1, 2, 0, 3, 1 };
