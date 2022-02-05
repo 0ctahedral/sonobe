@@ -6,22 +6,23 @@ const Device = @import("device.zig").Device;
 
 pub const Image = struct {
     handle: vk.Image,
-    view: vk.ImageView,
+    view: vk.ImageView = undefined,
 
     /// is this image's handle managed elsewhere?
-    managed: bool,
+    managed: bool = true,
 
     const Self = @This();
     /// image from a managed resource (swapchain)
     /// creates an image view and copies the vkImage in
-    pub fn initManaged(
+    pub fn createView(
+        self: *Self,
         device: Device,
-        image: vk.Image,
-        format: vk.Format
-    ) !Self {
-        const view = try device.vkd.createImageView(device.logical, &.{
+        format: vk.Format,
+        aspect_mask: vk.ImageAspectFlags,
+    ) !void {
+        const info = vk.ImageViewCreateInfo{
             .flags = .{},
-            .image = image,
+            .image = self.handle,
             .view_type = .@"2d",
             .format = format,
             // TODO: set with config
@@ -33,24 +34,34 @@ pub const Image = struct {
             },
             // TODO: set with config
             .subresource_range = .{
-                .aspect_mask = .{ .color_bit = true },
+                .aspect_mask = aspect_mask,
                 .level_count = 1,
                 .base_mip_level = 0,
                 .layer_count = 1,
                 .base_array_layer = 0,
             },
-        },
-        null
-        );
-
-        return Self{
-            .handle = image,
-            .view = view,
-            .managed = true,
         };
+        self.view = try device.vkd.createImageView(device.logical, &info, null);
     }
 
-    pub fn deinit(self: Self, device: Device) void {
+    //pub fn init(
+    //    device: Device,
+    //    img_type: vk.ImageType,
+    //    extend: vk.Extent2D,
+    //    format: vk.Format,
+    //    tiling: vk.ImageTiling,
+    //    usage: vk.ImageUsageFlags,
+    //    mem_flags: vk.MemoryPropertyFlags,
+    //    aspect_mask: vk.ImageAspectFlags,
+    //) Self {
+    //    return Self{
+    //        .handle = image,
+    //        .view = view,
+    //        .managed = false,
+    //    };
+    //}
+
+    pub fn deinit(self: *Self, device: Device) void {
         device.vkd.destroyImageView(device.logical, self.view, null);
         // TODO: add image destruction if not managed
         //if (!self.managed) { }

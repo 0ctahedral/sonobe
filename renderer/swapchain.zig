@@ -19,6 +19,8 @@ pub const Swapchain = struct {
     images: []Image = undefined,
     framebuffers: []vk.Framebuffer = undefined,
 
+    depth: Image = undefined,
+
     const Self = @This();
 
     /// initialize/create a swapchian object
@@ -27,7 +29,7 @@ pub const Swapchain = struct {
     }
 
     /// shutdown a swapchian object
-    pub fn deinit(self: Self, dev: Device, allocator: std.mem.Allocator) void {
+    pub fn deinit(self: *Self, dev: Device, allocator: std.mem.Allocator) void {
         self.destroy(dev);
         allocator.free(self.framebuffers);
         allocator.free(self.images);
@@ -128,17 +130,25 @@ pub const Swapchain = struct {
         self.images = try allocator.alloc(Image, count);
 
         for (imgs[0..count]) |img, i| {
-            self.images[i] = try Image.initManaged(dev, img, self.surface_format.format);
+            //self.images[i] = try Image.initManaged(dev, img, self.surface_format.format, .{ .color_bit = true });
+            self.images[i] = Image{
+                .handle = img,
+            };
+
+            try self.images[i].createView(dev, self.surface_format.format, .{ .color_bit = true });
         }
 
         // allocate the framebuffers
         self.framebuffers = try allocator.alloc(vk.Framebuffer, count);
 
+        // create the depth image
+        //self.depth = Image.init();
+
         return self;
     }
 
     /// destroy our swapchain
-    fn destroy(self: Self, dev: Device) void {
+    fn destroy(self: *Self, dev: Device) void {
         dev.vkd.deviceWaitIdle(dev.logical) catch {
             unreachable;
         };
@@ -147,9 +157,10 @@ pub const Swapchain = struct {
             // TODO: this will need another attachment for depth
             dev.vkd.destroyFramebuffer(dev.logical, fb, null);
         }
-        for (self.images) |img| {
+        for (self.images) |*img| {
             img.deinit(dev);
         }
+        //self.depth.deinit();
         dev.vkd.destroySwapchainKHR(dev.logical, self.handle, null);
     }
 
