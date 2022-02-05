@@ -16,7 +16,7 @@ const Fence = @import("fence.zig").Fence;
 const Semaphore = @import("semaphore.zig").Semaphore;
 const Shader = @import("shader.zig").Shader;
 const Pipeline = @import("pipeline.zig").Pipeline;
-const Vertex = @import("pipeline.zig").Vertex;
+const Vertex = @import("mesh.zig").Vertex;
 const Vec3 = @import("mmath").Vec3;
 const Buffer = @import("buffer.zig").Buffer;
 
@@ -35,12 +35,13 @@ const required_exts = [_][*:0]const u8{
 const required_layers = [_][*:0]const u8{"VK_LAYER_KHRONOS_validation"};
 
 var verts = [_]Vertex{
-    .{ .pos = Vec3.new(0, -0.5, 0) },
-    .{ .pos = Vec3.new(0.5, 0.5, 0) },
-    .{ .pos = Vec3.new(0, 0.5, 0) },
+    .{ .pos = Vec3.new(-0.5, -0.5, 0)},
+    .{ .pos = Vec3.new(0.5, 0.5, 0)  },
+    .{ .pos = Vec3.new(-0.5, 0.5, 0) },
+    .{ .pos = Vec3.new(0.5, -0.5, 0) },
 };
 
-var inds = [_]u32{ 0, 1, 2 };
+var inds = [_]u32{ 0, 1, 2, 0, 3, 1 };
 
 var vkb: BaseDispatch = undefined;
 var vki: InstanceDispatch = undefined;
@@ -526,16 +527,7 @@ fn createPipeline() !void {
         },
     };
 
-    const vertex_attribute_description = [_]vk.VertexInputAttributeDescription{
-        .{
-            .binding = 0,
-            .location = 0,
-            .format = .r32g32_sfloat,
-            .offset = @offsetOf(Vertex, "pos"),
-        },
-    };
-
-    pipeline = try Pipeline.init(device, renderpass, &vertex_attribute_description, &[_]vk.DescriptorSetLayout{}, &shader.stage_ci, viewport, scissor, false);
+    pipeline = try Pipeline.init(device, renderpass, &[_]vk.DescriptorSetLayout{}, &shader.stage_ci, viewport, scissor, false);
 }
 
 fn upload(pool: vk.CommandPool, buffer: Buffer, comptime T: type, items: []T) !void {

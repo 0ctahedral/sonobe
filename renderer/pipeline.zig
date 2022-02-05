@@ -3,12 +3,7 @@ const vk = @import("vulkan");
 const Device = @import("device.zig").Device;
 const RenderPass = @import("renderpass.zig").RenderPass;
 const CommandBuffer = @import("commandbuffer.zig").CommandBuffer;
-const Vec3 = @import("mmath").Vec3;
-
-
-pub const Vertex = struct {
-    pos: Vec3,
-};
+const Vertex = @import("mesh.zig").Vertex;
 
 pub const Pipeline = struct {
     const Self = @This();
@@ -19,7 +14,6 @@ pub const Pipeline = struct {
     pub fn init(
         dev: Device,
         renderpass: RenderPass,
-        attrs: []const vk.VertexInputAttributeDescription,
         descriptor_set_layouts: []const vk.DescriptorSetLayout,
         stages: []const vk.PipelineShaderStageCreateInfo,
         viewport: vk.Viewport,
@@ -101,20 +95,12 @@ pub const Pipeline = struct {
             .p_dynamic_states = &dynamic_state,
         };
 
-        // TODO: add this to vertex type and generate on the fly
-        const vertex_binding_description = vk.VertexInputBindingDescription{
-            .binding = 0,
-            .stride = @sizeOf(Vertex),
-            // one info per vertex
-            .input_rate = .vertex,
-        };
-
         const vertex_input_ci = vk.PipelineVertexInputStateCreateInfo{
             .flags = .{},
             .vertex_binding_description_count = 1,
-            .p_vertex_binding_descriptions = @ptrCast([*]const vk.VertexInputBindingDescription, &vertex_binding_description),
-            .vertex_attribute_description_count = @intCast(u32, attrs.len),
-            .p_vertex_attribute_descriptions = attrs.ptr,
+            .p_vertex_binding_descriptions = @ptrCast([*]const vk.VertexInputBindingDescription, &Vertex.binding_description),
+            .vertex_attribute_description_count = @intCast(u32, Vertex.attribute_description.len),
+            .p_vertex_attribute_descriptions = &Vertex.attribute_description,
         };
 
 
