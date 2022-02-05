@@ -9,7 +9,7 @@ const CommandBuffer = @import("commandbuffer.zig").CommandBuffer;
 pub const Buffer = struct {
     handle: vk.Buffer,
     usage: vk.BufferUsageFlags,
-    mem: vk.DeviceMemory,
+    mem: vk.DeviceMemory = .null_handle,
 
     locked: bool = false,
 

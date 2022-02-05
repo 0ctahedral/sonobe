@@ -174,7 +174,9 @@ pub fn init(provided_allocator: Allocator, app_name: [*:0]const u8, window: glfw
         .height = fb_height,
     } }, .{
         .color = true,
-    }, .{ 0, 0, 0.1, 1 });
+        .depth = true,
+        .stencil = true,
+    }, .{ 0, 0, 0.1, 1 }, 1.0, 0);
     errdefer renderpass.deinit(device);
 
     // create a command pool
@@ -321,12 +323,15 @@ pub fn resize(w: u32, h: u32) void {
 pub fn recreateFramebuffers() !void {
     std.log.info("fbw: {} fbh: {}", .{ fb_width, fb_height });
     for (swapchain.images) |img, i| {
-        // TODO: this will need another attachment for depth
+        const attachments = [_]vk.ImageView{
+            img.view, swapchain.depth.view
+        };
+
         swapchain.framebuffers[i] = try device.vkd.createFramebuffer(device.logical, &.{
             .flags = .{},
             .render_pass = renderpass.handle,
-            .attachment_count = 1,
-            .p_attachments = @ptrCast([*]const vk.ImageView, &img.view),
+            .attachment_count = attachments.len,
+            .p_attachments = @ptrCast([*]const vk.ImageView, &attachments),
             .width = fb_width,
             .height = fb_height,
             .layers = 1,

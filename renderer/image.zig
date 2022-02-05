@@ -8,8 +8,7 @@ pub const Image = struct {
     handle: vk.Image,
     view: vk.ImageView = undefined,
 
-    /// is this image's handle managed elsewhere?
-    managed: bool = true,
+    mem: vk.DeviceMemory = .null_handle,
 
     const Self = @This();
     /// image from a managed resource (swapchain)
@@ -44,26 +43,71 @@ pub const Image = struct {
         self.view = try device.vkd.createImageView(device.logical, &info, null);
     }
 
-    //pub fn init(
-    //    device: Device,
-    //    img_type: vk.ImageType,
-    //    extend: vk.Extent2D,
-    //    format: vk.Format,
-    //    tiling: vk.ImageTiling,
-    //    usage: vk.ImageUsageFlags,
-    //    mem_flags: vk.MemoryPropertyFlags,
-    //    aspect_mask: vk.ImageAspectFlags,
-    //) Self {
-    //    return Self{
-    //        .handle = image,
-    //        .view = view,
-    //        .managed = false,
-    //    };
-    //}
+    pub fn init(
+        device: Device,
+        img_type: vk.ImageType,
+        extent: vk.Extent2D,
+        format: vk.Format,
+        tiling: vk.ImageTiling,
+        usage: vk.ImageUsageFlags,
+        mem_flags: vk.MemoryPropertyFlags,
+        aspect_mask: vk.ImageAspectFlags,
+    ) !Self {
+        var self: Self = undefined;
+
+        const info = vk.ImageCreateInfo{
+            .image_type = img_type,
+            .flags = .{},
+            .extent = .{
+                .width = extent.width,
+                .height = extent.height,
+                // TODO: configurable
+                .depth = 1,
+            },
+            // TODO: mip mapping
+            .mip_levels = 4,
+            .array_layers = 1,
+            .format = format,
+            .tiling = tiling,
+            .initial_layout = .@"undefined",
+            .usage = usage,
+            .samples = .{ .@"1_bit" = true },
+            .sharing_mode = .exclusive,
+            .queue_family_index_count = 0,
+            .p_queue_family_indices = undefined,
+
+        };
+
+
+        self.handle = try device.vkd.createImage(device.logical, &info, null);
+
+        // get the memory requirements
+        const mem_reqs = device.vkd.getImageMemoryRequirements(device.logical, self.handle);
+        const mem_idx = try device.findMemoryIndex(mem_reqs.memory_type_bits, mem_flags);
+
+        // allocate memory
+        self.mem = try device.vkd.allocateMemory(device.logical, &.{
+            .allocation_size = mem_reqs.size,
+            .memory_type_index = mem_idx,
+        }, null);
+
+        // bind memory
+        try device.vkd.bindImageMemory(device.logical, self.handle, self.mem, 0);
+
+        try self.createView(device, format, aspect_mask);
+
+        return self;
+    }
 
     pub fn deinit(self: *Self, device: Device) void {
         device.vkd.destroyImageView(device.logical, self.view, null);
-        // TODO: add image destruction if not managed
-        //if (!self.managed) { }
+        self.view = .null_handle;
+        // if this has memory then we know it is an image we created
+        if (self.mem != .null_handle) {
+            device.vkd.freeMemory(device.logical, self.mem, null);
+            self.mem = .null_handle;
+            device.vkd.destroyImage(device.logical, self.handle, null);
+            self.handle = .null_handle;
+        }
     }
 };

@@ -20,6 +20,7 @@ pub const InstanceDispatch = vk.InstanceWrapper(&.{
     .getPhysicalDeviceSurfaceCapabilitiesKHR,
     .getPhysicalDeviceQueueFamilyProperties,
     .getPhysicalDeviceSurfaceSupportKHR,
+    .getPhysicalDeviceFormatProperties,
     .getDeviceProcAddr,
 });
 
@@ -28,6 +29,10 @@ pub const DeviceDispatch = vk.DeviceWrapper(&.{
     .getDeviceQueue,
     .createSemaphore,
     .createFence,
+    .createImage,
+    .destroyImage,
+    .getImageMemoryRequirements,
+    .bindImageMemory,
     .createImageView,
     .destroyImageView,
     .destroySemaphore,

@@ -49,6 +49,8 @@ pub const Device = struct {
 
     command_pool: vk.CommandPool,
 
+    depth_format: vk.Format,
+
     const Self = @This();
 
     /// Creates a device if a suitable one can be found
@@ -61,6 +63,9 @@ pub const Device = struct {
         allocator: std.mem.Allocator,
     ) !Self {
         var self = try selectPhysicalDevice(instance, vki, surface, reqs, allocator);
+
+        // get depth format
+        try self.getDepthFormat(vki);
 
         // gather count of queues that share each index
         var indices = [_]u32{ 0, 0, 0, 0 };
@@ -295,6 +300,30 @@ pub const Device = struct {
         }
 
         return error.CannotFindMemoryIndex;
+    }
+
+    fn getDepthFormat(self: *Self, vki: InstanceDispatch) !void {
+        const candidates = [_]vk.Format {
+            .d32_sfloat,
+            .d32_sfloat_s8_uint,
+            .d24_unorm_s8_uint
+        };
+
+        for (candidates) |fmt| {
+            const props = vki.getPhysicalDeviceFormatProperties(self.physical, fmt);
+
+
+            if (props.linear_tiling_features.depth_stencil_attachment_bit) {
+                self.depth_format = fmt;
+                return;
+            }
+            if (props.optimal_tiling_features.depth_stencil_attachment_bit) {
+                self.depth_format = fmt;
+                return;
+            }
+        }
+
+        return error.CannotFindDepthFormat;
     }
 
 };

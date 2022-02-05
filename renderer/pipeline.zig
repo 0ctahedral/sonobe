@@ -54,16 +54,18 @@ pub const Pipeline = struct {
             .alpha_to_one_enable = vk.FALSE,
         };
 
-        // TODO: depth
-        //const depth_stencil = vk.PipelineDepthStencilStateCreateInfo{
-        //    .depth_test_enable = vk.TRUE,
-        //    .depth_write_enable = vk.TRUE,
-        //    .depth_compare_op = .compare_op_less,
-        //    .depth_bounds_test_enable = vk.FALSE,
-        //    .stencil_test_enable = vk.FALSE,
-        //};
-        //
-        
+        const depth_stencil_ci = vk.PipelineDepthStencilStateCreateInfo{
+            .flags = .{},
+            .depth_test_enable = vk.TRUE,
+            .depth_write_enable = vk.TRUE,
+            .depth_compare_op = .less,
+            .depth_bounds_test_enable = vk.FALSE,
+            .stencil_test_enable = vk.FALSE,
+            .front = undefined,
+            .back = undefined,
+            .min_depth_bounds = 0,
+            .max_depth_bounds = 1,
+        };
 
         const color_blend_state = vk.PipelineColorBlendAttachmentState{
             .blend_enable = vk.FALSE,
@@ -129,7 +131,7 @@ pub const Pipeline = struct {
             .p_viewport_state = &viewport_state,
             .p_rasterization_state = &rasterization_ci,
             .p_multisample_state = &multi_sample_ci,
-            .p_depth_stencil_state = null,
+            .p_depth_stencil_state = &depth_stencil_ci,
             .p_color_blend_state = &color_blend_state_ci,
             .p_dynamic_state = &dynamic_state_ci,
             .layout = self.layout,

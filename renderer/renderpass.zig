@@ -24,7 +24,8 @@ pub const RenderPass = struct {
     clear_color: [4]f32,
 
     /// depth value
-    //depth: f32,
+    depth: f32,
+    stencil: u32,
 
     const Self = @This();
 
@@ -34,6 +35,8 @@ pub const RenderPass = struct {
         render_area: vk.Rect2D,
         clear_flags: ClearFlags,
         clear_color: [4]f32,
+        depth: f32,
+        stencil: u32,
     ) !Self {
         // start by making attachments
         // color
@@ -56,7 +59,24 @@ pub const RenderPass = struct {
             .layout = .color_attachment_optimal,
         };
 
-        // TODO: depth
+        const depth_attachment = vk.AttachmentDescription{
+            .flags = .{},
+            .format = device.depth_format,
+            .samples = .{ .@"1_bit" = true },
+            .load_op = if (clear_flags.depth) .clear else .load,
+            .store_op = .store,
+            .stencil_load_op = .dont_care,
+            .stencil_store_op = .dont_care,
+            // TODO: add prev pass option
+            .initial_layout = .@"undefined",
+            // TODO: add next pass option
+            .final_layout = .depth_stencil_attachment_optimal,
+        };
+
+        const depth_attachment_ref = vk.AttachmentReference{
+            .attachment = 1,
+            .layout = .depth_stencil_attachment_optimal,
+        };
 
         const subpass = vk.SubpassDescription{
             .flags = .{},
@@ -68,9 +88,8 @@ pub const RenderPass = struct {
             .color_attachment_count = 1,
             .p_color_attachments = @ptrCast([*]const vk.AttachmentReference, &color_attachment_ref),
 
-            // TODO
             .p_resolve_attachments = null,
-            .p_depth_stencil_attachment = null,
+            .p_depth_stencil_attachment = &depth_attachment_ref,
 
             // attachments not used in this subpass but in others
             .preserve_attachment_count = 0,
@@ -91,11 +110,16 @@ pub const RenderPass = struct {
             .dependency_flags = .{},
         };
 
+        const attachment_descriptions = [_]vk.AttachmentDescription{
+            color_attachment,
+            depth_attachment,
+        };
+
         const rp = try device.vkd.createRenderPass(device.logical, &.{
             .flags = .{},
             .p_next = null,
-            .attachment_count = 1,
-            .p_attachments = @ptrCast([*]const vk.AttachmentDescription, &color_attachment),
+            .attachment_count = attachment_descriptions.len,
+            .p_attachments = @ptrCast([*]const vk.AttachmentDescription, &attachment_descriptions),
             .subpass_count = 1,
             .p_subpasses = @ptrCast([*]const vk.SubpassDescription, &subpass),
             .dependency_count = 1,
@@ -105,6 +129,8 @@ pub const RenderPass = struct {
         return Self{
             .handle = rp,
             .clear_color = clear_color,
+            .depth = depth,
+            .stencil = stencil,
             .render_area = render_area,
         };
     }
@@ -121,7 +147,6 @@ pub const RenderPass = struct {
         // TODO: maybe will make this a memeber
     ) void {
 
-        // TODO: make this support depth
         var clear_values: [2]vk.ClearValue = undefined;
         // color
         clear_values[0] = vk.ClearValue{ .color = .{ .float_32 = .{
@@ -131,18 +156,18 @@ pub const RenderPass = struct {
             self.clear_color[3],
         } } };
         // depth
-        //clear_values[1] = vk.ClearValue{
-        //    .depth_stencil = .{
-        //        .depth = self.depth,
-        //        .stencil = self.stencil,
-        //    }
-        //};
+        clear_values[1] = vk.ClearValue{
+            .depth_stencil = .{
+                .depth = self.depth,
+                .stencil = self.stencil,
+            }
+        };
 
         dev.vkd.cmdBeginRenderPass(command_buffer.handle, &.{
             .render_pass = self.handle,
             .framebuffer = framebuffer,
             .render_area = self.render_area,
-            .clear_value_count = 1,
+            .clear_value_count = clear_values.len,
             .p_clear_values = @ptrCast([*]const vk.ClearValue, &clear_values[0]),
         }, .@"inline");
 

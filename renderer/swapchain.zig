@@ -142,7 +142,16 @@ pub const Swapchain = struct {
         self.framebuffers = try allocator.alloc(vk.Framebuffer, count);
 
         // create the depth image
-        //self.depth = Image.init();
+        self.depth = try Image.init(
+            dev,
+            .@"2d",
+            extent,
+            dev.depth_format,
+            .optimal,
+            .{ .depth_stencil_attachment_bit = true },
+            .{ .device_local_bit = true },
+            .{ .depth_bit = true }
+        );
 
         return self;
     }
@@ -154,13 +163,12 @@ pub const Swapchain = struct {
         };
 
         for (self.framebuffers) |fb| {
-            // TODO: this will need another attachment for depth
             dev.vkd.destroyFramebuffer(dev.logical, fb, null);
         }
         for (self.images) |*img| {
             img.deinit(dev);
         }
-        //self.depth.deinit();
+        self.depth.deinit(dev);
         dev.vkd.destroySwapchainKHR(dev.logical, self.handle, null);
     }
 
