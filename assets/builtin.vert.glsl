@@ -2,13 +2,13 @@
 #extension GL_ARB_separate_shader_objects : enable
 
 layout(location = 0) in vec3 a_pos;
-layout(location = 1) in vec3 a_color;
 
-layout(location = 0) out vec3 v_pos;
-layout(location = 1) out vec3 v_color;
+layout (set = 0, binding = 0) uniform global_uniform_object {
+  mat4 projection;
+  mat4 view;
+} global_ubo;
 
 void main() {
-    gl_Position = vec4(a_pos, 1.0);    
-    v_pos = a_pos;    
-    v_color = a_color;
+    gl_Position = global_ubo.projection * global_ubo.view * vec4(a_pos, 1.0);    
+    //gl_Position = global_ubo.projection * global_ubo.view * model * vec4(a_pos, 1.0);    
 }

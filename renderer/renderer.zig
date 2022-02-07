@@ -40,10 +40,15 @@ var verts = [_]Vertex{
     // | / |
     // |/  |
     // 0---3
-    .{ .pos = Vec3.new(-0.5, -0.5, 0), .color = Vec3.new(0.0, 0.0, 0.0) },
-    .{ .pos = Vec3.new( 0.5,  0.5, 0), .color = Vec3.new(1.0, 1.0, 0.0)  },
-    .{ .pos = Vec3.new(-0.5,  0.5, 0), .color = Vec3.new(0.0, 1.0, 0.0)  },
-    .{ .pos = Vec3.new( 0.5, -0.5, 0), .color = Vec3.new(1.0, 0.0, 0.0)  },
+  //  .{ .pos = Vec3.new(-0.5, -0.5, 0), .color = Vec3.new(0.0, 0.0, 0.0) },
+  //  .{ .pos = Vec3.new( 0.5,  0.5, 0), .color = Vec3.new(1.0, 1.0, 0.0)  },
+  //  .{ .pos = Vec3.new(-0.5,  0.5, 0), .color = Vec3.new(0.0, 1.0, 0.0)  },
+  //  .{ .pos = Vec3.new( 0.5, -0.5, 0), .color = Vec3.new(1.0, 0.0, 0.0)  },
+
+    .{ .pos = Vec3.new(-0.5, -0.5, 0) },
+    .{ .pos = Vec3.new( 0.5,  0.5, 0) },
+    .{ .pos = Vec3.new(-0.5,  0.5, 0) },
+    .{ .pos = Vec3.new( 0.5, -0.5, 0) },
 };
 
 var inds = [_]u32{ 0, 1, 2, 0, 3, 1 };
@@ -231,28 +236,6 @@ pub fn init(provided_allocator: Allocator, app_name: [*:0]const u8, window: glfw
     // upload the vertices
     try upload(device.command_pool, vert_buf, Vertex, &verts);
     try upload(device.command_pool, ind_buf, u32, &inds);
-    //{
-    //    const size = @sizeOf(Vertex) * verts.len;
-    //    const flags = vk.MemoryPropertyFlags{ .host_visible_bit = true, .host_coherent_bit = true };
-    //    std.log.info("size: {d}", .{size});
-    //    var staging = try Buffer.init(device, size, .{ .transfer_dst_bit = true }, flags, true);
-    //    defer staging.deinit(device);
-
-    //    try staging.load(device, Vertex, &verts, 0);
-
-    //    try Buffer.copyTo(vert_buf, staging, device, device.command_pool, device.graphics.?, 0, 0, size);
-    //}
-    //{
-    //    const size = @sizeOf(u32) * inds.len;
-    //    const flags = vk.MemoryPropertyFlags{ .host_visible_bit = true, .host_coherent_bit = true };
-    //    var staging = try Buffer.init(device, size, .{ .transfer_dst_bit = true }, flags, true);
-    //    defer staging.deinit(device);
-
-    //    try staging.load(device, u32, &inds, 0);
-
-    //    try Buffer.copyTo(ind_buf, staging, device, device.command_pool, device.graphics.?, 0, 0, size);
-    //}
-    //try loadDataToGPU(device.command_pool, device.graphics.?, 0, ind_buf, @sizeOf(u32) * inds.len, @ptrCast([*]u8, &inds));
 }
 
 fn vk_debug(
@@ -267,6 +250,10 @@ fn vk_debug(
     _ = p_user_data;
     std.log.info("{s}", .{p_callback_data.?.*.p_message});
     return vk.FALSE;
+}
+
+pub fn updateUniform(obj: Shader.GlobalUniformObject) void {
+    shader.global_uniform_obj = obj;
 }
 
 // shutdown the renderer
@@ -392,6 +379,10 @@ pub fn beginFrame() !bool {
     renderpass.begin(device, cb, swapchain.framebuffers[image_index]);
 
     device.vkd.cmdBindPipeline(cb.handle, .graphics, pipeline.handle);
+
+    try shader.updateGlobalState(device, cb, pipeline, image_index);
+
+
     const offset = [_]vk.DeviceSize{0};
     device.vkd.cmdBindVertexBuffers(cb.handle, 0, 1, @ptrCast([*]const vk.Buffer, &vert_buf.handle), &offset);
     device.vkd.cmdBindIndexBuffer(cb.handle, ind_buf.handle, 0, .uint32);
@@ -537,7 +528,9 @@ fn createPipeline() !void {
         },
     };
 
-    pipeline = try Pipeline.init(device, renderpass, &[_]vk.DescriptorSetLayout{}, &shader.stage_ci, viewport, scissor, false);
+    pipeline = try Pipeline.init(device, renderpass, &[_]vk.DescriptorSetLayout{
+        shader.global_descriptor_layout
+    }, &shader.stage_ci, viewport, scissor, false);
 }
 
 fn upload(pool: vk.CommandPool, buffer: Buffer, comptime T: type, items: []T) !void {

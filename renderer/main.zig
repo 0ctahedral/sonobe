@@ -2,12 +2,18 @@ const std = @import("std");
 const Renderer = @import("renderer.zig");
 const vk = @import("vulkan");
 const glfw = @import("glfw");
+const mmath = @import("mmath");
 
 const app_name = "octal: triangle test";
+
+var width: i32 = 0;
+var height: i32 = 0;
 
 fn cb(g: glfw.Window, w: i32, h: i32) void {
     _ = g;
     std.log.info("w: {}, h: {}", .{w, h});
+    width = w;
+    height = h;
     Renderer.resize(@intCast(u32, w), @intCast(u32, h));
 }
 
@@ -37,7 +43,19 @@ pub fn main() !void {
 
     while (!window.shouldClose()) {
         try glfw.pollEvents();
+        const pos = try window.getCursorPos();
         if (try Renderer.beginFrame()) {
+            const newx: f32 = 1 - @intToFloat(f32, width)/@floatCast(f32, pos.xpos);
+            const newy: f32 = 1 - @intToFloat(f32, height)/@floatCast(f32, pos.ypos);
+            //std.log.debug("x: {d:.2}, y: {d:.2} ", .{newx, newy});
+            std.log.debug("x: {d:.2}, y: {d:.2} ", .{pos.xpos, pos.ypos});
+            Renderer.updateUniform(
+                .{
+                    .view = mmath.Mat4.translate(
+                        mmath.Vec3.new(newx, newy, 0)
+                    ),
+                }
+            );
             try Renderer.endFrame();
         }
     }

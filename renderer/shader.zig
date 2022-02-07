@@ -2,11 +2,22 @@
 const std = @import("std");
 const vk = @import("vulkan");
 const Device = @import("device.zig").Device;
+const Buffer = @import("buffer.zig").Buffer;
+const CommandBuffer = @import("commandbuffer.zig").CommandBuffer;
+const Pipeline = @import("pipeline.zig").Pipeline;
+const mmath = @import("mmath");
+const Mat4 = mmath.Mat4;
+const Vec3 = mmath.Vec3;
 
 const BUILTIN_SHADER_NAME_OBJ = "builtin";
 
 /// TODO: this might need to be more of an interface
 pub const Shader = struct {
+
+    pub const GlobalUniformObject = struct {
+        projection: Mat4 = Mat4.identity(),
+        view: Mat4 = Mat4.translate(Vec3.new(-0.5, 0, 0)),
+    };
 
 
     const Self = @This();
@@ -14,6 +25,18 @@ pub const Shader = struct {
     // vertex and fragment
     handles: [2]vk.ShaderModule = undefined,
     stage_ci: [2]vk.PipelineShaderStageCreateInfo = undefined,
+
+    // TODO: these might go somewhere else
+
+    global_descriptor_pool: vk.DescriptorPool = undefined,
+    
+    global_descriptor_sets: [3]vk.DescriptorSet = undefined,
+
+    global_descriptor_layout: vk.DescriptorSetLayout = undefined,
+
+    global_uniform_obj: GlobalUniformObject = .{},
+
+    global_uniform_buffer: Buffer = undefined,
 
     pub fn init(
         dev: Device,
@@ -53,6 +76,66 @@ pub const Shader = struct {
             allocator.free(data);
         }
 
+
+        const bindings = [_]vk.DescriptorSetLayoutBinding {
+            .{
+                .binding = 0,
+                .descriptor_type = .uniform_buffer,
+                .descriptor_count = 1,
+                .stage_flags = .{ .vertex_bit = true },
+                .p_immutable_samplers = null,
+            }
+        };
+
+         self.global_descriptor_layout = try dev.vkd.createDescriptorSetLayout(
+             dev.logical,
+             &.{
+                 .flags = .{},
+                 .binding_count = bindings.len,
+                 .p_bindings = &bindings,
+             }, null);
+
+        const sizes = [_]vk.DescriptorPoolSize{.{
+            .@"type" = .uniform_buffer,
+            .descriptor_count = self.global_descriptor_sets.len,
+        }};
+
+        self.global_descriptor_pool = try dev.vkd.createDescriptorPool(
+        dev.logical,
+        &.{
+            .flags = .{},
+            .max_sets =  self.global_descriptor_sets.len,
+            .pool_size_count = sizes.len,
+            .p_pool_sizes = &sizes,
+        }, null);
+
+        // create the buffer
+        self.global_uniform_buffer = try Buffer.init(
+            dev,
+            @sizeOf(GlobalUniformObject),
+            .{ .transfer_dst_bit = true, .uniform_buffer_bit = true },
+            .{
+                .device_local_bit = true,
+                .host_visible_bit = true,
+                .host_coherent_bit = true,
+            },
+            true
+        );
+        
+        // allocate the sets
+        const layouts = [_]vk.DescriptorSetLayout {
+            self.global_descriptor_layout,
+            self.global_descriptor_layout,
+            self.global_descriptor_layout,
+        };
+
+        try dev.vkd.allocateDescriptorSets(dev.logical, &.{
+            .descriptor_pool = self.global_descriptor_pool,
+            .descriptor_set_count = self.global_descriptor_sets.len,
+            .p_set_layouts = layouts[0..],
+        }, self.global_descriptor_sets[0..]);
+
+
         return self;
     }
 
@@ -74,12 +157,66 @@ pub const Shader = struct {
         return ret;
     }
 
+    pub fn updateGlobalState(
+        self: Self,
+        dev: Device,
+        cmdbuf: *CommandBuffer,
+        pipeline: Pipeline,
+        img_idx: usize,
+    ) !void {
+        dev.vkd.cmdBindDescriptorSets(
+            cmdbuf.handle,
+            .graphics,
+            pipeline.layout,
+            0,
+            1,
+            @ptrCast([*]const vk.DescriptorSet, &self.global_descriptor_sets[img_idx]),
+            0,
+            undefined,
+        );
+
+
+        try self.global_uniform_buffer.load(
+            dev,
+            GlobalUniformObject,
+            &[_]GlobalUniformObject{
+                self.global_uniform_obj
+            }, 0);
+
+        const bi = vk.DescriptorBufferInfo {
+            .buffer = self.global_uniform_buffer.handle,
+            .offset = 0,
+            .range = @sizeOf(GlobalUniformObject),
+        };
+
+        const writes = [_]vk.WriteDescriptorSet{ .{
+            .dst_set = self.global_descriptor_sets[img_idx],
+            .dst_binding = 0,
+            .dst_array_element = 0,
+            .descriptor_count = 1,
+            .descriptor_type = .uniform_buffer,
+            .p_image_info = undefined,
+            .p_buffer_info = @ptrCast([*]const vk.DescriptorBufferInfo, &bi),
+            .p_texel_buffer_view = undefined,
+        }};
+
+        dev.vkd.updateDescriptorSets(dev.logical, writes.len, &writes, 0, undefined);
+    }
+
     pub fn deinit(
         self: Self,
         dev: Device,
     ) void {
+
+        self.global_uniform_buffer.deinit(dev);
+
+        dev.vkd.destroyDescriptorPool(dev.logical, self.global_descriptor_pool, null);
+
+        dev.vkd.destroyDescriptorSetLayout(dev.logical, self.global_descriptor_layout, null);
+
         for (self.handles) |h| {
             dev.vkd.destroyShaderModule(dev.logical, h, null);
         }
+
     }
 };
