@@ -68,7 +68,7 @@ pub const Pipeline = struct {
         };
 
         const color_blend_state = vk.PipelineColorBlendAttachmentState{
-            .blend_enable = vk.FALSE,
+            .blend_enable = vk.TRUE,
             .src_color_blend_factor = .src_alpha,
             .dst_color_blend_factor = .one_minus_src_alpha,
             .color_blend_op = .add,
