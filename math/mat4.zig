@@ -127,6 +127,20 @@ pub const Mat4 = struct {
         return ret;
     }
 
+    pub fn ortho(t: f32, b: f32, l: f32, r: f32, n: f32, f: f32) Self {
+        var mat = Self.identity();
+        mat.m[0][0] = 2/(r-l);
+        mat.m[0][3] = -(r+l)/(r-l);
+
+
+        mat.m[1][0] = 2/(t-b);
+        mat.m[1][3] = -(t+b)/(t-b);
+
+        mat.m[2][0] = 2/(f-n);
+        mat.m[2][3] = -(f+n)/(f-n);
+        return mat;
+    }
+
     /// returns a matrix created from a vector translation
     /// aka multiplies a row vector by the idenity
     pub fn translate(v: Vec3) Self {

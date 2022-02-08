@@ -15,8 +15,8 @@ const BUILTIN_SHADER_NAME_OBJ = "builtin";
 pub const Shader = struct {
 
     pub const GlobalUniformObject = struct {
-        projection: Mat4 = Mat4.identity(),
-        view: Mat4 = Mat4.translate(Vec3.new(-0.5, 0, 0)),
+        projection: Mat4 = Mat4.ortho(800, 0, 600, 0, 0.1, 100),
+        view: Mat4 = Mat4.identity(),
     };
 
 

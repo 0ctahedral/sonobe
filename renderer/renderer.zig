@@ -34,24 +34,37 @@ const required_exts = [_][*:0]const u8{
 // TODO: set this in a config
 const required_layers = [_][*:0]const u8{"VK_LAYER_KHRONOS_validation"};
 
-var verts = [_]Vertex{
-    // 2---1
-    // |  /|
-    // | / |
-    // |/  |
-    // 0---3
-  //  .{ .pos = Vec3.new(-0.5, -0.5, 0), .color = Vec3.new(0.0, 0.0, 0.0) },
-  //  .{ .pos = Vec3.new( 0.5,  0.5, 0), .color = Vec3.new(1.0, 1.0, 0.0)  },
-  //  .{ .pos = Vec3.new(-0.5,  0.5, 0), .color = Vec3.new(0.0, 1.0, 0.0)  },
-  //  .{ .pos = Vec3.new( 0.5, -0.5, 0), .color = Vec3.new(1.0, 0.0, 0.0)  },
-
+var quad_verts = [_]Vertex{
     .{ .pos = Vec3.new(-0.5, -0.5, 0) },
-    .{ .pos = Vec3.new( 0.5,  0.5, 0) },
-    .{ .pos = Vec3.new(-0.5,  0.5, 0) },
-    .{ .pos = Vec3.new( 0.5, -0.5, 0) },
+    .{ .pos = Vec3.new(0.5, 0.5, 0) },
+    .{ .pos = Vec3.new(-0.5, 0.5, 0) },
+    .{ .pos = Vec3.new(0.5, -0.5, 0) },
 };
 
-var inds = [_]u32{ 0, 1, 2, 0, 3, 1 };
+var oct_verts = [_]Vertex{
+    .{ .pos = .{ .x=-1.1920928955078125e-07, .y=-1.1920928955078125e-07, .z=-1.0 } },
+    .{ .pos = .{ .x=-1.1920928955078125e-07, .y=-1.0, .z=-1.1920928955078125e-07 } },
+    .{ .pos = .{ .x=-1.0, .y=-1.1920928955078125e-07, .z=-1.1920928955078125e-07 } },
+    .{ .pos = .{ .x=-1.1920928955078125e-07, .y=-1.1920928955078125e-07, .z=1.0 } },
+    .{ .pos = .{ .x=-1.1920928955078125e-07, .y=1.0, .z=-1.1920928955078125e-07 } },
+    .{ .pos = .{ .x=1.0, .y=-1.1920928955078125e-07, .z=-1.1920928955078125e-07 } },
+    .{ .pos = .{ .x=-0.6666668057441711, .y=-0.6666667461395264, .z=-0.6666667461395264 } },
+    .{ .pos = .{ .x=-0.6666668057441711, .y=-0.6666667461395264, .z=0.6666667461395264 } },
+    .{ .pos = .{ .x=-0.6666667461395264, .y=0.6666668057441711, .z=-0.6666667461395264 } },
+    .{ .pos = .{ .x=-0.6666668057441711, .y=0.6666667461395264, .z=0.6666667461395264 } },
+    .{ .pos = .{ .x=0.6666667461395264, .y=-0.6666668057441711, .z=-0.6666667461395264 } },
+    .{ .pos = .{ .x=0.6666668057441711, .y=-0.6666667461395264, .z=0.6666667461395264 } },
+    .{ .pos = .{ .x=0.6666668057441711, .y=0.6666667461395264, .z=-0.6666667461395264 } },
+    .{ .pos = .{ .x=0.6666667461395264, .y=0.6666668057441711, .z=0.6666667461395264 } },
+};
+
+var oct_inds = [_]u32{
+    0, 1, 6, 1, 3, 7, 0, 2, 8, 3, 4, 9, 0, 5, 10, 3, 1, 11, 0, 4, 12, 3, 5, 13,
+    1, 2, 6, 2, 0, 6, 3, 2, 7, 2, 1, 7, 2, 4, 8, 4, 0, 8, 4, 2, 9, 2, 3, 9, 5,
+    1, 10, 1, 0, 10, 1, 5, 11, 5, 3, 11, 4, 5, 12, 5, 0, 12, 5, 4, 13, 4, 3, 13
+};
+
+var quad_inds = [_]u32{ 0, 1, 2, 0, 3, 1 };
 
 var vkb: BaseDispatch = undefined;
 var vki: InstanceDispatch = undefined;
@@ -234,8 +247,8 @@ pub fn init(provided_allocator: Allocator, app_name: [*:0]const u8, window: glfw
     try createBuffers();
 
     // upload the vertices
-    try upload(device.command_pool, vert_buf, Vertex, &verts);
-    try upload(device.command_pool, ind_buf, u32, &inds);
+    try upload(device.command_pool, vert_buf, Vertex, &oct_verts);
+    try upload(device.command_pool, ind_buf, u32, &oct_inds);
 }
 
 fn vk_debug(
@@ -310,9 +323,7 @@ pub fn resize(w: u32, h: u32) void {
 pub fn recreateFramebuffers() !void {
     std.log.info("fbw: {} fbh: {}", .{ fb_width, fb_height });
     for (swapchain.images) |img, i| {
-        const attachments = [_]vk.ImageView{
-            img.view, swapchain.depth.view
-        };
+        const attachments = [_]vk.ImageView{ img.view, swapchain.depth.view };
 
         swapchain.framebuffers[i] = try device.vkd.createFramebuffer(device.logical, &.{
             .flags = .{},
@@ -382,12 +393,11 @@ pub fn beginFrame() !bool {
 
     try shader.updateGlobalState(device, cb, pipeline, image_index);
 
-
     const offset = [_]vk.DeviceSize{0};
     device.vkd.cmdBindVertexBuffers(cb.handle, 0, 1, @ptrCast([*]const vk.Buffer, &vert_buf.handle), &offset);
     device.vkd.cmdBindIndexBuffer(cb.handle, ind_buf.handle, 0, .uint32);
 
-    device.vkd.cmdDrawIndexed(cb.handle, inds.len, 1, 0, 0, 0);
+    device.vkd.cmdDrawIndexed(cb.handle, oct_inds.len, 1, 0, 0, 0);
 
     return true;
 }
@@ -528,9 +538,7 @@ fn createPipeline() !void {
         },
     };
 
-    pipeline = try Pipeline.init(device, renderpass, &[_]vk.DescriptorSetLayout{
-        shader.global_descriptor_layout
-    }, &shader.stage_ci, viewport, scissor, false);
+    pipeline = try Pipeline.init(device, renderpass, &[_]vk.DescriptorSetLayout{shader.global_descriptor_layout}, &shader.stage_ci, viewport, scissor, true);
 }
 
 fn upload(pool: vk.CommandPool, buffer: Buffer, comptime T: type, items: []T) !void {
@@ -546,13 +554,5 @@ fn upload(pool: vk.CommandPool, buffer: Buffer, comptime T: type, items: []T) !v
 
     try staging_buffer.load(device, T, items, 0);
 
-    try Buffer.copyTo(
-        device,
-        pool,
-        device.graphics.?,
-        staging_buffer, 0,
-        buffer, 0,
-        size
-    );
-
+    try Buffer.copyTo(device, pool, device.graphics.?, staging_buffer, 0, buffer, 0, size);
 }

@@ -43,19 +43,18 @@ pub fn main() !void {
 
     while (!window.shouldClose()) {
         try glfw.pollEvents();
-        const pos = try window.getCursorPos();
         if (try Renderer.beginFrame()) {
-            const newx: f32 = 1 - @intToFloat(f32, width)/@floatCast(f32, pos.xpos);
-            const newy: f32 = 1 - @intToFloat(f32, height)/@floatCast(f32, pos.ypos);
-            //std.log.debug("x: {d:.2}, y: {d:.2} ", .{newx, newy});
-            std.log.debug("x: {d:.2}, y: {d:.2} ", .{pos.xpos, pos.ypos});
-            Renderer.updateUniform(
-                .{
-                    .view = mmath.Mat4.translate(
-                        mmath.Vec3.new(newx, newy, 0)
-                    ),
-                }
-            );
+            //const pos = try window.getCursorPos();
+            // const newx: f32 = 1 - @intToFloat(f32, width)/@floatCast(f32, pos.xpos);
+            // const newy: f32 = 1 - @intToFloat(f32, height)/@floatCast(f32, pos.ypos);
+            // std.log.debug("x: {d:.2}, y: {d:.2} ", .{pos.xpos, pos.ypos});
+            //Renderer.updateUniform(
+            //    .{
+            //        .view = mmath.Mat4.translate(
+            //            mmath.Vec3.new(newx, newy, 0)
+            //        ),
+            //    }
+            //);
             try Renderer.endFrame();
         }
     }
