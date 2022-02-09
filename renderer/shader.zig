@@ -30,7 +30,7 @@ pub const Shader = struct {
 
     global_descriptor_pool: vk.DescriptorPool = undefined,
     
-    global_descriptor_sets: [3]vk.DescriptorSet = undefined,
+    global_descriptor_sets: [5]vk.DescriptorSet = undefined,
 
     global_descriptor_layout: vk.DescriptorSetLayout = undefined,
 
@@ -124,6 +124,8 @@ pub const Shader = struct {
         
         // allocate the sets
         const layouts = [_]vk.DescriptorSetLayout {
+            self.global_descriptor_layout,
+            self.global_descriptor_layout,
             self.global_descriptor_layout,
             self.global_descriptor_layout,
             self.global_descriptor_layout,

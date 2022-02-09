@@ -74,37 +74,65 @@ var messenger: vk.DebugUtilsMessengerEXT = undefined;
 var device: Device = undefined;
 var swapchain: Swapchain = undefined;
 var renderpass: RenderPass = undefined;
-var graphics_buffers: []CommandBuffer = undefined;
 
-// TODO: find somewhere for these to live
-var image_avail_semaphores: []Semaphore = undefined;
-var queue_complete_semaphores: []Semaphore = undefined;
+/// monotonically increasing frame number
+var frame_number: usize = 0;
 
-var in_flight_fences: []Fence = undefined;
-var images_in_flight: []Fence = undefined;
-
-var current_frame: usize = 0;
+/// index of the image in the swapchain we are currently
+/// rendering to
 var image_index: usize = 0;
 
+/// Allocator used by the renderer
 var allocator: Allocator = undefined;
 
+/// Are we currently recreating the swapchain
+/// I don't think this is really used yet but might
+/// be useful when we multi thread
 var recreating_swapchain = false;
 
+/// generation of this resize
 var size_gen: usize = 0;
 var last_size_gen: usize = 0;
 
+/// cached dimensions of the framebuffer
 var cached_width: u32 = 0;
 var cached_height: u32 = 0;
 
+/// current dimesnsions of the framebuffer
 var fb_width: u32 = 0;
 var fb_height: u32 = 0;
 
+/// Shader currently used by the pipeline
 var shader: Shader = undefined;
 
+/// pipeline currently being used
 var pipeline: Pipeline = undefined;
 
+/// the GPU side buffers that store the currenlty rendering objects
 var vert_buf: Buffer = undefined;
 var ind_buf: Buffer = undefined;
+
+/// What you need for a single frame
+const FrameData = struct {
+    /// Semaphore signaled when the frame is finished rendering
+    queue_complete_semaphore: Semaphore,
+    /// semaphore signaled when the frame has been presented by the framebuffer
+    image_avail_semaphore: Semaphore,
+    /// fence to wait on for this frame to finish rendering
+    render_fence: Fence,
+
+    // maybe add a command pool?
+    /// Command buffer for this frame
+    cmdbuf: CommandBuffer,
+};
+
+/// The currently rendering frames
+var frames: [2]FrameData = undefined;
+
+/// Returns the framedata of the frame we should be on
+inline fn getCurrentFrame() FrameData {
+    return frames[frame_number % frames.len];
+}
 
 // initialize the renderer
 pub fn init(provided_allocator: Allocator, app_name: [*:0]const u8, window: glfw.Window) !void {
@@ -180,7 +208,13 @@ pub fn init(provided_allocator: Allocator, app_name: [*:0]const u8, window: glfw
 
     // create a device
     // load dispatch functions which require device
-    device = try Device.init(.{}, instance, vki, surface, allocator);
+    device = try Device.init(.{
+        .graphics = true,
+        .present = true,
+        .transfer = false,
+        .discrete = false,
+        .compute = false,
+    }, instance, vki, surface, allocator);
     errdefer device.deinit();
 
     swapchain = try Swapchain.init(vki, device, surface, fb_width, fb_height, allocator);
@@ -197,47 +231,26 @@ pub fn init(provided_allocator: Allocator, app_name: [*:0]const u8, window: glfw
     }, .{ 0, 0, 0.1, 1 }, 1.0, 0);
     errdefer renderpass.deinit(device);
 
-    // create a command pool
-
-    // allocate command buffers
-    graphics_buffers = try allocator.alloc(CommandBuffer, swapchain.images.len);
-    errdefer allocator.free(graphics_buffers);
-
-    for (graphics_buffers) |*cb| {
-        cb.* = try CommandBuffer.init(device, device.command_pool, true);
-    }
-
     // create framebuffers
     std.log.info("fbw: {} fbh: {}", .{ fb_width, fb_width });
     try recreateFramebuffers();
 
-    // create sync objects
-    image_avail_semaphores = try allocator.alloc(Semaphore, swapchain.images.len - 1);
-    queue_complete_semaphores = try allocator.alloc(Semaphore, swapchain.images.len - 1);
-    in_flight_fences = try allocator.alloc(Fence, swapchain.images.len - 1);
+    // create frame objects
+    // TOOD: make this part of the struct?
+    for (frames) |*f| {
+        f.image_avail_semaphore = try Semaphore.init(device);
+        errdefer f.image_avail_semaphore.deinit(device);
 
-    images_in_flight = try allocator.alloc(Fence, swapchain.images.len);
+        f.queue_complete_semaphore = try Semaphore.init(device);
+        errdefer f.queue_complete_semaphore.deinit(device);
 
-    for (image_avail_semaphores) |*s| {
-        s.* = try Semaphore.init(device);
-        errdefer s.deinit(device);
+        f.render_fence = try Fence.init(device, true);
+        errdefer f.render_fence.deinit(device);
+
+        f.cmdbuf = try CommandBuffer.init(device, device.command_pool, true);
+        errdefer f.cmdbuf.deinit(device, device.command_pool);
     }
-
-    for (queue_complete_semaphores) |*s| {
-        s.* = try Semaphore.init(device);
-        errdefer s.deinit(device);
-    }
-
-    for (in_flight_fences) |*f| {
-        // TODO: should this be signaled
-        f.* = try Fence.init(device, true);
-        errdefer f.deinit(device);
-    }
-
-    for (images_in_flight) |*f| {
-        f.* = Fence{};
-    }
-
+    
     // create shader
     shader = try Shader.init(device, allocator);
 
@@ -284,20 +297,11 @@ pub fn deinit() void {
 
     shader.deinit(device);
 
-    for (image_avail_semaphores) |s| {
-        s.deinit(device);
-    }
-
-    for (queue_complete_semaphores) |s| {
-        s.deinit(device);
-    }
-
-    for (in_flight_fences) |f| {
-        f.deinit(device);
-    }
-
-    for (graphics_buffers) |*cb| {
-        cb.deinit(device, device.command_pool);
+    for (frames) |*f| {
+        f.image_avail_semaphore.deinit(device);
+        f.queue_complete_semaphore.deinit(device);
+        f.render_fence.deinit(device);
+        f.cmdbuf.deinit(device, device.command_pool);
     }
 
     renderpass.deinit(device);
@@ -356,9 +360,13 @@ pub fn beginFrame() !bool {
     }
 
     // wait for current frame
-    try in_flight_fences[current_frame].wait(device, std.math.maxInt(u64));
+    //std.log.info("waiting for render fence", .{});
+    try getCurrentFrame().render_fence.wait(device, std.math.maxInt(u64));
+    try getCurrentFrame().render_fence.reset(device);
+    
+    getCurrentFrame().cmdbuf.reset();
 
-    image_index = swapchain.acquireNext(device, image_avail_semaphores[current_frame], Fence{}) catch |err| {
+    image_index = swapchain.acquireNext(device, getCurrentFrame().image_avail_semaphore, Fence{}) catch |err| {
         switch (err) {
             error.OutOfDateKHR => {
                 std.log.warn("failed to aquire, booting", .{});
@@ -368,8 +376,10 @@ pub fn beginFrame() !bool {
         }
     };
 
-    var cb: *CommandBuffer = &graphics_buffers[image_index];
-    cb.reset();
+    //std.log.debug("image idx: {}", .{image_index});
+
+    var cb: *CommandBuffer = &getCurrentFrame().cmdbuf;
+    //cb.reset();
     try cb.begin(device, .{});
 
     // set the viewport
@@ -403,22 +413,9 @@ pub fn beginFrame() !bool {
 }
 
 pub fn endFrame() !void {
-    const cb: *CommandBuffer = &graphics_buffers[image_index];
+    var cb: *CommandBuffer = &getCurrentFrame().cmdbuf;
     renderpass.end(device, cb);
     try cb.end(device);
-
-    // make sure the previous frame isn't using this image
-    if (images_in_flight[image_index].handle != vk.Fence.null_handle) {
-        try images_in_flight[image_index].wait(device, std.math.maxInt(u64));
-    }
-
-    // this one is in flight
-    images_in_flight[image_index] = in_flight_fences[current_frame];
-
-    // reset the fence
-    try in_flight_fences[current_frame].reset(device);
-
-    // submit it
 
     // waits for the this stage to write
     const wait_stage = [_]vk.PipelineStageFlags{.{ .color_attachment_output_bit = true }};
@@ -429,19 +426,19 @@ pub fn endFrame() !void {
 
         // signaled when queue is complete
         .signal_semaphore_count = 1,
-        .p_signal_semaphores = queue_complete_semaphores[current_frame].ptr(),
+        .p_signal_semaphores = getCurrentFrame().queue_complete_semaphore.ptr(),
 
         // wait for this before we start
         .wait_semaphore_count = 1,
-        .p_wait_semaphores = image_avail_semaphores[current_frame].ptr(),
+        .p_wait_semaphores = getCurrentFrame().image_avail_semaphore.ptr(),
 
         .p_wait_dst_stage_mask = &wait_stage,
-    }}, in_flight_fences[current_frame].handle);
+    }}, getCurrentFrame().render_fence.handle);
 
     cb.updateSubmitted();
 
     // present that shit
-    swapchain.present(device, device.present.?, queue_complete_semaphores[current_frame], @intCast(u32, image_index)) catch |err| {
+    swapchain.present(device, device.present.?, getCurrentFrame().queue_complete_semaphore, @intCast(u32, image_index)) catch |err| {
         switch (err) {
             error.SuboptimalKHR, error.OutOfDateKHR => {
                 std.log.warn("swapchain out of date in end frame", .{});
@@ -449,8 +446,6 @@ pub fn endFrame() !void {
             else => |narrow| return narrow,
         }
     };
-
-    current_frame = (current_frame + 1) % (swapchain.images.len - 1);
 }
 
 fn recreateSwapchain() !bool {
@@ -468,11 +463,8 @@ fn recreateSwapchain() !bool {
     std.log.info("recreating swapchain", .{});
 
     try device.vkd.deviceWaitIdle(device.logical);
+    std.log.info("device done waiting", .{});
 
-    // reset images in flight
-    for (images_in_flight) |*f| {
-        f.* = Fence{};
-    }
 
     try swapchain.recreate(vki, device, surface, cached_width, cached_height, allocator);
 
@@ -484,17 +476,19 @@ fn recreateSwapchain() !bool {
 
     last_size_gen = size_gen;
 
-    // destroy the command buffers
-    for (graphics_buffers) |*cb| {
-        cb.deinit(device, device.command_pool);
+    // destroy the sync objects
+    for (frames) |*f| {
+        f.render_fence.deinit(device);
+        f.cmdbuf.deinit(device, device.command_pool);
     }
 
     // create the framebuffers
     try recreateFramebuffers();
 
     // create the command buffers
-    for (graphics_buffers) |*cb| {
-        cb.* = try CommandBuffer.init(device, device.command_pool, true);
+    for (frames) |*f| {
+        f.render_fence = try Fence.init(device, true);
+        f.cmdbuf = try CommandBuffer.init(device, device.command_pool, true);
     }
 
     // reset the renderpass
@@ -505,6 +499,8 @@ fn recreateSwapchain() !bool {
 
     recreating_swapchain = false;
     std.log.info("done recreating swapchain", .{});
+
+    frame_number += 1;
 
     return true;
 }

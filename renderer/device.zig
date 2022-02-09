@@ -17,7 +17,7 @@ const Requirements = struct {
 
     /// idk what this is
     sampler_anisotropy: bool = true,
-    descrete: bool = true,
+    discrete: bool = true,
 };
 
 pub const Queue = struct {
@@ -180,7 +180,7 @@ pub const Device = struct {
 
             std.log.info("looking at device: {s}", .{props.device_name});
 
-            if (reqs.descrete and !(props.device_type == vk.PhysicalDeviceType.discrete_gpu)) {
+            if (reqs.discrete and !(props.device_type == vk.PhysicalDeviceType.discrete_gpu)) {
                 std.log.warn("device {s} does not meet requirement of discrete gpu", .{props.device_name});
                 continue;
             }

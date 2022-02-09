@@ -59,7 +59,6 @@ pub const Swapchain = struct {
             }
         }
 
-        //std.log.info("chosen surface format: {}", .{self.surface_format});
 
         // find present mode
         var present_modes: [32]vk.PresentModeKHR = undefined;
@@ -73,7 +72,7 @@ pub const Swapchain = struct {
             }
         }
 
-        //std.log.info("chosen present mode: {}", .{self.present_mode});
+        std.log.info("chosen present mode: {}", .{self.present_mode});
 
         // get the actual extent of the window
         const caps = try vki.getPhysicalDeviceSurfaceCapabilitiesKHR(dev.physical, surface);
@@ -97,7 +96,7 @@ pub const Swapchain = struct {
         if (caps.max_image_count > 0) {
             image_count = std.math.min(image_count, caps.max_image_count);
         }
-        //std.log.info("image count: {}", .{image_count});
+        image_count = std.math.min(image_count, 3);
 
         const qfi = [_]u32{ dev.graphics.?.idx, dev.present.?.idx };
         const sharing_mode: vk.SharingMode = if (dev.graphics.?.idx == dev.present.?.idx) .exclusive else .concurrent;
@@ -126,11 +125,11 @@ pub const Swapchain = struct {
         // make the images and views
         var imgs: [8]vk.Image = undefined;
         _ = try dev.vkd.getSwapchainImagesKHR(dev.logical, self.handle, &count, null);
+        std.log.info("image count: {}", .{count});
         _ = try dev.vkd.getSwapchainImagesKHR(dev.logical, self.handle, &count, imgs[0..]);
         self.images = try allocator.alloc(Image, count);
 
         for (imgs[0..count]) |img, i| {
-            //self.images[i] = try Image.initManaged(dev, img, self.surface_format.format, .{ .color_bit = true });
             self.images[i] = Image{
                 .handle = img,
             };
