@@ -172,7 +172,6 @@ pub const Device = struct {
         _ = try vki.enumeratePhysicalDevices(instance, &device_count, pdevs.ptr);
 
         for (pdevs) |pdev| {
-            var meets_requirements = true;
 
             // get properties
             const props = vki.getPhysicalDeviceProperties(pdev);
@@ -181,9 +180,9 @@ pub const Device = struct {
 
             std.log.info("looking at device: {s}", .{props.device_name});
 
-            if (reqs.descrete) {
-                meets_requirements = meets_requirements and
-                    props.device_type == vk.PhysicalDeviceType.discrete_gpu;
+            if (reqs.descrete and !(props.device_type == vk.PhysicalDeviceType.discrete_gpu)) {
+                std.log.warn("device {s} does not meet requirement of discrete gpu", .{props.device_name});
+                continue;
             }
 
             // TODO: check if it supports host visible
@@ -215,7 +214,8 @@ pub const Device = struct {
                 break :blk true;
             };
 
-            meets_requirements = meets_requirements and has_required_ext;
+            if (!has_required_ext)
+                continue;
 
             // get queue families
             {
@@ -261,12 +261,22 @@ pub const Device = struct {
                 }
             }
 
-            // TODO: add requirements here
-            meets_requirements = meets_requirements and
-                (ret.graphics != null and reqs.graphics) and
-                (ret.present != null and reqs.present) and
-                (ret.compute != null and reqs.compute) and
-                (ret.transfer != null and reqs.transfer);
+            if (ret.graphics == null and reqs.graphics) {
+                std.log.warn("device {s} does not meet requirement of graphics queue", .{props.device_name});
+                continue;
+            }
+            if (ret.present == null and reqs.present) {
+                std.log.warn("device {s} does not meet requirement of present queue", .{props.device_name});
+                continue;
+            }
+            if (ret.compute == null and reqs.compute) {
+                std.log.warn("device {s} does not meet requirement of compute queue", .{props.device_name});
+                continue;
+            }
+            if (ret.transfer == null and reqs.transfer) {
+                std.log.warn("device {s} does not meet requirement of transfer queue", .{props.device_name});
+                continue;
+            }
 
             // check for swapchain support
             var format_count: u32 = undefined;
@@ -275,17 +285,23 @@ pub const Device = struct {
             var present_mode_count: u32 = undefined;
             _ = try vki.getPhysicalDeviceSurfacePresentModesKHR(pdev, surface, &present_mode_count, null);
 
-            meets_requirements = meets_requirements and format_count > 0 and present_mode_count > 0;
-
-            if (meets_requirements) {
-                ret.props = props;
-                ret.memory = mem;
-                ret.features = features;
-                ret.physical = pdev;
-
-                std.log.info("device {s} meets requirements", .{props.device_name});
-                return ret;
+            if (format_count == 0) {
+                std.log.warn("device {s} does not meet requirement of surface formats", .{props.device_name});
+                continue;
             }
+
+            if (present_mode_count == 0) {
+                std.log.warn("device {s} does not meet requirement of surface present modes", .{props.device_name});
+                continue;
+            }
+
+            ret.props = props;
+            ret.memory = mem;
+            ret.features = features;
+            ret.physical = pdev;
+
+            std.log.info("device {s} meets requirements", .{props.device_name});
+            return ret;
         }
 
         return error.NoSuitableDevice;
