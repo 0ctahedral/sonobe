@@ -15,8 +15,11 @@ const BUILTIN_SHADER_NAME_OBJ = "builtin";
 pub const Shader = struct {
 
     pub const GlobalUniformObject = struct {
-        projection: Mat4 = Mat4.ortho(800, 0, 600, 0, 0.1, 100),
-        view: Mat4 = Mat4.identity(),
+        //projection: Mat4 = Mat4.perspective(mmath.util.rad(45), 800.0/600.0, 0.1, 1000),
+        projection: Mat4 = Mat4.ortho(0, 800.0, 0, 600.0, -100, 100),
+        view: Mat4 = Mat4.identity().inv(),
+        // temporary model mat
+        model: Mat4 = Mat4.translate(.{.x=400, .y=300, .z=0}),
     };
 
 

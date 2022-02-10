@@ -35,10 +35,10 @@ const required_exts = [_][*:0]const u8{
 const required_layers = [_][*:0]const u8{"VK_LAYER_KHRONOS_validation"};
 
 var quad_verts = [_]Vertex{
-    .{ .pos = Vec3.new(-0.5, -0.5, 0) },
-    .{ .pos = Vec3.new(0.5, 0.5, 0) },
-    .{ .pos = Vec3.new(-0.5, 0.5, 0) },
-    .{ .pos = Vec3.new(0.5, -0.5, 0) },
+    .{ .pos = Vec3.new(-0.5, -0.5, 0).scale(20) },
+    .{ .pos = Vec3.new(0.5, 0.5, 0).scale(20) },
+    .{ .pos = Vec3.new(-0.5, 0.5, 0).scale(20) },
+    .{ .pos = Vec3.new(0.5, -0.5, 0).scale(20) },
 };
 
 var oct_verts = [_]Vertex{
@@ -260,8 +260,8 @@ pub fn init(provided_allocator: Allocator, app_name: [*:0]const u8, window: glfw
     try createBuffers();
 
     // upload the vertices
-    try upload(device.command_pool, vert_buf, Vertex, &oct_verts);
-    try upload(device.command_pool, ind_buf, u32, &oct_inds);
+    try upload(device.command_pool, vert_buf, Vertex, &quad_verts);
+    try upload(device.command_pool, ind_buf, u32, &quad_inds);
 }
 
 fn vk_debug(
@@ -407,7 +407,7 @@ pub fn beginFrame() !bool {
     device.vkd.cmdBindVertexBuffers(cb.handle, 0, 1, @ptrCast([*]const vk.Buffer, &vert_buf.handle), &offset);
     device.vkd.cmdBindIndexBuffer(cb.handle, ind_buf.handle, 0, .uint32);
 
-    device.vkd.cmdDrawIndexed(cb.handle, oct_inds.len, 1, 0, 0, 0);
+    device.vkd.cmdDrawIndexed(cb.handle, quad_inds.len, 1, 0, 0, 0);
 
     return true;
 }
@@ -534,7 +534,7 @@ fn createPipeline() !void {
         },
     };
 
-    pipeline = try Pipeline.init(device, renderpass, &[_]vk.DescriptorSetLayout{shader.global_descriptor_layout}, &shader.stage_ci, viewport, scissor, true);
+    pipeline = try Pipeline.init(device, renderpass, &[_]vk.DescriptorSetLayout{shader.global_descriptor_layout}, &shader.stage_ci, viewport, scissor, false);
 }
 
 fn upload(pool: vk.CommandPool, buffer: Buffer, comptime T: type, items: []T) !void {

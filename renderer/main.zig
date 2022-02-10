@@ -41,21 +41,24 @@ pub fn main() !void {
     window.setSizeCallback(cb);
 
 
+    var z: f32 = -0.1;
     while (!window.shouldClose()) {
         try glfw.pollEvents();
         if (try Renderer.beginFrame()) {
-            //const pos = try window.getCursorPos();
-            // const newx: f32 = 1 - @intToFloat(f32, width)/@floatCast(f32, pos.xpos);
-            // const newy: f32 = 1 - @intToFloat(f32, height)/@floatCast(f32, pos.ypos);
-            // std.log.debug("x: {d:.2}, y: {d:.2} ", .{pos.xpos, pos.ypos});
-            //Renderer.updateUniform(
-            //    .{
-            //        .view = mmath.Mat4.translate(
-            //            mmath.Vec3.new(newx, newy, 0)
-            //        ),
-            //    }
-            //);
+            const pos = try window.getCursorPos();
+            const newx: f32 = 1 - @intToFloat(f32, width)/@floatCast(f32, pos.xpos);
+            const newy: f32 = 1 - @intToFloat(f32, height)/@floatCast(f32, pos.ypos);
+            std.log.debug("x: {d:.2}, y: {d:.2} ", .{pos.xpos, pos.ypos});
+            Renderer.updateUniform(
+                .{
+                    .model = mmath.Mat4.translate(
+                        mmath.Vec3.new(newx, newy, 0)
+                    ),
+                }
+            );
             try Renderer.endFrame();
+            z -= 1;
         }
+
     }
 }
