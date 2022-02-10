@@ -127,17 +127,35 @@ pub const Mat4 = struct {
         return ret;
     }
 
-    pub fn ortho(t: f32, b: f32, l: f32, r: f32, n: f32, f: f32) Self {
+    pub fn ortho(l: f32, r: f32, b: f32, t: f32, n: f32, f: f32) Self {
         var mat = Self.identity();
-        mat.m[0][0] = 2/(r-l);
-        mat.m[0][3] = -(r+l)/(r-l);
 
+        const lr: f32 = 1.0 / (l - r);
+        const bt: f32 = 1.0 / (b - t);
+        const nf: f32 = 1.0 / (n - f);
 
-        mat.m[1][0] = 2/(t-b);
-        mat.m[1][3] = -(t+b)/(t-b);
+        mat.m[0][0] = -2.0 * lr;
+        mat.m[1][1] = -2.0 * bt;
+        mat.m[2][2] = -2.0 * nf;
 
-        mat.m[2][0] = 2/(f-n);
-        mat.m[2][3] = -(f+n)/(f-n);
+        mat.m[3][0] = (l + r) * lr;
+        mat.m[3][1] = (b + t) * bt;
+        mat.m[3][2] = (n + f) * nf;
+
+        return mat;
+    }
+
+    pub fn perspective(fov: f32, aspect: f32, n: f32, f: f32) Self {
+        var mat = Self{};
+
+        const half_tan_fov = math.tan(fov * 0.5);
+
+        mat.m[0][0] = 1.0 / (aspect * half_tan_fov);
+        mat.m[1][1] = 1.0 / half_tan_fov;
+        mat.m[2][2] = -(f + n) / (f - n);
+        mat.m[2][3] = -1.0;
+        mat.m[3][2] = -(2.0 * f * n) / (f - n);
+
         return mat;
     }
 
