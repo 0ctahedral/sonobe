@@ -11,7 +11,7 @@ var height: i32 = 0;
 
 fn cb(g: glfw.Window, w: i32, h: i32) void {
     _ = g;
-    std.log.info("w: {}, h: {}", .{w, h});
+    std.log.info("w: {}, h: {}", .{ w, h });
     width = w;
     height = h;
     Renderer.resize(@intCast(u32, w), @intCast(u32, h));
@@ -40,25 +40,17 @@ pub fn main() !void {
 
     window.setSizeCallback(cb);
 
-
-    var z: f32 = -0.1;
     while (!window.shouldClose()) {
         try glfw.pollEvents();
+        const pos = try window.getCursorPos();
+        //const newx: f32 = 1 - @intToFloat(f32, width) / @floatCast(f32, pos.xpos);
+        //const newy: f32 = 1 - @intToFloat(f32, height) / @floatCast(f32, pos.ypos);
         if (try Renderer.beginFrame()) {
-            const pos = try window.getCursorPos();
-            const newx: f32 = 1 - @intToFloat(f32, width)/@floatCast(f32, pos.xpos);
-            const newy: f32 = 1 - @intToFloat(f32, height)/@floatCast(f32, pos.ypos);
-            std.log.debug("x: {d:.2}, y: {d:.2} ", .{pos.xpos, pos.ypos});
-            Renderer.updateUniform(
-                .{
-                    .model = mmath.Mat4.translate(
-                        mmath.Vec3.new(newx, newy, 0)
-                    ),
-                }
-            );
+            try Renderer.updateUniform(mmath.Vec3.new(
+                    @floatCast(f32, pos.xpos),
+                    @floatCast(f32, pos.ypos),
+            0));
             try Renderer.endFrame();
-            z -= 1;
         }
-
     }
 }

@@ -17,7 +17,9 @@ const Semaphore = @import("semaphore.zig").Semaphore;
 const Shader = @import("shader.zig").Shader;
 const Pipeline = @import("pipeline.zig").Pipeline;
 const Vertex = @import("mesh.zig").Vertex;
-const Vec3 = @import("mmath").Vec3;
+const mmath = @import("mmath");
+const Mat4 = mmath.Mat4;
+const Vec3 = mmath.Vec3;
 const Buffer = @import("buffer.zig").Buffer;
 
 // TODO: get these from the system
@@ -34,11 +36,18 @@ const required_exts = [_][*:0]const u8{
 // TODO: set this in a config
 const required_layers = [_][*:0]const u8{"VK_LAYER_KHRONOS_validation"};
 
+//var quad_verts = [_]Vertex{
+//    .{ .pos = Vec3.new(-0.5, -0.5, 0).scale(100) },
+//    .{ .pos = Vec3.new(0.5, 0.5, 0).scale(100) },
+//    .{ .pos = Vec3.new(-0.5, 0.5, 0).scale(100) },
+//    .{ .pos = Vec3.new(0.5, -0.5, 0).scale(100) },
+//};
+
 var quad_verts = [_]Vertex{
-    .{ .pos = Vec3.new(-0.5, -0.5, 0).scale(20) },
-    .{ .pos = Vec3.new(0.5, 0.5, 0).scale(20) },
-    .{ .pos = Vec3.new(-0.5, 0.5, 0).scale(20) },
-    .{ .pos = Vec3.new(0.5, -0.5, 0).scale(20) },
+    .{ .pos = Vec3.new(350, 250, 0) },
+    .{ .pos = Vec3.new(450, 350, 0) },
+    .{ .pos = Vec3.new(350, 350, 0) },
+    .{ .pos = Vec3.new(450, 250, 0) },
 };
 
 var oct_verts = [_]Vertex{
@@ -112,26 +121,17 @@ var pipeline: Pipeline = undefined;
 var vert_buf: Buffer = undefined;
 var ind_buf: Buffer = undefined;
 
-/// What you need for a single frame
-const FrameData = struct {
-    /// Semaphore signaled when the frame is finished rendering
-    queue_complete_semaphore: Semaphore,
-    /// semaphore signaled when the frame has been presented by the framebuffer
-    image_avail_semaphore: Semaphore,
-    /// fence to wait on for this frame to finish rendering
-    render_fence: Fence,
-
-    // maybe add a command pool?
-    /// Command buffer for this frame
-    cmdbuf: CommandBuffer,
-};
-
 /// The currently rendering frames
 var frames: [2]FrameData = undefined;
 
+/// descriptor set layout for global data (i.e. camera transform)
+var global_descriptor_layout: vk.DescriptorSetLayout = .null_handle;
+/// pool from which we allocate all descriptor sets
+var global_descriptor_pool: vk.DescriptorPool = .null_handle;
+
 /// Returns the framedata of the frame we should be on
-inline fn getCurrentFrame() FrameData {
-    return frames[frame_number % frames.len];
+inline fn getCurrentFrame() *FrameData {
+    return &frames[frame_number % frames.len];
 }
 
 // initialize the renderer
@@ -236,21 +236,12 @@ pub fn init(provided_allocator: Allocator, app_name: [*:0]const u8, window: glfw
     try recreateFramebuffers();
 
     // create frame objects
-    // TOOD: make this part of the struct?
+    try createDescriptors();
+
     for (frames) |*f| {
-        f.image_avail_semaphore = try Semaphore.init(device);
-        errdefer f.image_avail_semaphore.deinit(device);
-
-        f.queue_complete_semaphore = try Semaphore.init(device);
-        errdefer f.queue_complete_semaphore.deinit(device);
-
-        f.render_fence = try Fence.init(device, true);
-        errdefer f.render_fence.deinit(device);
-
-        f.cmdbuf = try CommandBuffer.init(device, device.command_pool, true);
-        errdefer f.cmdbuf.deinit(device, device.command_pool);
+        f.* = try FrameData.init(device, global_descriptor_pool, global_descriptor_layout);
     }
-    
+
     // create shader
     shader = try Shader.init(device, allocator);
 
@@ -278,10 +269,6 @@ fn vk_debug(
     return vk.FALSE;
 }
 
-pub fn updateUniform(obj: Shader.GlobalUniformObject) void {
-    shader.global_uniform_obj = obj;
-}
-
 // shutdown the renderer
 pub fn deinit() void {
 
@@ -298,11 +285,11 @@ pub fn deinit() void {
     shader.deinit(device);
 
     for (frames) |*f| {
-        f.image_avail_semaphore.deinit(device);
-        f.queue_complete_semaphore.deinit(device);
-        f.render_fence.deinit(device);
-        f.cmdbuf.deinit(device, device.command_pool);
+        f.deinit(device);
     }
+
+    device.vkd.destroyDescriptorPool(device.logical, global_descriptor_pool, null);
+    device.vkd.destroyDescriptorSetLayout(device.logical, global_descriptor_layout, null);
 
     renderpass.deinit(device);
     swapchain.deinit(device, allocator);
@@ -363,8 +350,6 @@ pub fn beginFrame() !bool {
     //std.log.info("waiting for render fence", .{});
     try getCurrentFrame().render_fence.wait(device, std.math.maxInt(u64));
     try getCurrentFrame().render_fence.reset(device);
-    
-    getCurrentFrame().cmdbuf.reset();
 
     image_index = swapchain.acquireNext(device, getCurrentFrame().image_avail_semaphore, Fence{}) catch |err| {
         switch (err) {
@@ -379,7 +364,7 @@ pub fn beginFrame() !bool {
     //std.log.debug("image idx: {}", .{image_index});
 
     var cb: *CommandBuffer = &getCurrentFrame().cmdbuf;
-    //cb.reset();
+    cb.reset();
     try cb.begin(device, .{});
 
     // set the viewport
@@ -401,7 +386,16 @@ pub fn beginFrame() !bool {
 
     device.vkd.cmdBindPipeline(cb.handle, .graphics, pipeline.handle);
 
-    try shader.updateGlobalState(device, cb, pipeline, image_index);
+
+    return true;
+}
+
+pub fn endFrame() !void {
+
+    var cb: *CommandBuffer = &getCurrentFrame().cmdbuf;
+
+    // this stuff should be in a middle area where we are actually drawing the frame
+
 
     const offset = [_]vk.DeviceSize{0};
     device.vkd.cmdBindVertexBuffers(cb.handle, 0, 1, @ptrCast([*]const vk.Buffer, &vert_buf.handle), &offset);
@@ -409,11 +403,9 @@ pub fn beginFrame() !bool {
 
     device.vkd.cmdDrawIndexed(cb.handle, quad_inds.len, 1, 0, 0, 0);
 
-    return true;
-}
+    // --------
 
-pub fn endFrame() !void {
-    var cb: *CommandBuffer = &getCurrentFrame().cmdbuf;
+
     renderpass.end(device, cb);
     try cb.end(device);
 
@@ -534,7 +526,7 @@ fn createPipeline() !void {
         },
     };
 
-    pipeline = try Pipeline.init(device, renderpass, &[_]vk.DescriptorSetLayout{shader.global_descriptor_layout}, &shader.stage_ci, viewport, scissor, false);
+    pipeline = try Pipeline.init(device, renderpass, &[_]vk.DescriptorSetLayout{global_descriptor_layout}, &shader.stage_ci, viewport, scissor, false);
 }
 
 fn upload(pool: vk.CommandPool, buffer: Buffer, comptime T: type, items: []T) !void {
@@ -552,3 +544,182 @@ fn upload(pool: vk.CommandPool, buffer: Buffer, comptime T: type, items: []T) !v
 
     try Buffer.copyTo(device, pool, device.graphics.?, staging_buffer, 0, buffer, 0, size);
 }
+
+fn createDescriptors() !void {
+    // create a descriptor pool for the frame data
+    const sizes = [_]vk.DescriptorPoolSize{.{
+        .@"type" = .uniform_buffer,
+        .descriptor_count = frames.len,
+    }};
+
+    global_descriptor_pool = try device.vkd.createDescriptorPool(
+        device.logical,
+        &.{
+            .flags = .{},
+            .max_sets =  frames.len,
+            .pool_size_count = sizes.len,
+            .p_pool_sizes = &sizes,
+        }, null);
+
+
+    const global_bindings = [_]vk.DescriptorSetLayoutBinding {
+        // camera binding
+        .{
+            .binding = 0,
+            .descriptor_type = .uniform_buffer,
+            .descriptor_count = 1,
+            .stage_flags = .{ .vertex_bit = true },
+            .p_immutable_samplers = null,
+        }
+    };
+
+    global_descriptor_layout = try device.vkd.createDescriptorSetLayout(
+        device.logical,
+        &.{
+            .flags = .{},
+            .binding_count = global_bindings.len,
+            .p_bindings = &global_bindings,
+        }, null);
+
+    // TOOD: make a new layout for object matrices
+    // later will have one for ui, from there might have a geometry shader that creates quads?
+}
+
+pub fn updateUniform(pos: Vec3) !void {
+    const npos = Vec3.new(0, -@intToFloat(f32, fb_height), 0).add(pos);
+    getCurrentFrame().*.cam_data.view = Mat4.translate(npos).inv();
+    try getCurrentFrame().update(device, pipeline);
+}
+
+
+/// What you need for a single frame
+const FrameData = struct {
+    /// Semaphore signaled when the frame is finished rendering
+    queue_complete_semaphore: Semaphore,
+    /// semaphore signaled when the frame has been presented by the framebuffer
+    image_avail_semaphore: Semaphore,
+    /// fence to wait on for this frame to finish rendering
+    render_fence: Fence,
+
+    // maybe add a command pool?
+    /// Command buffer for this frame
+    cmdbuf: CommandBuffer,
+
+    /// descriptor set for this frame
+    global_descriptor_set: vk.DescriptorSet,
+
+    /// buffer of data in ds for this frame
+    global_buffer: Buffer,
+
+    cam_data: CameraData,
+
+    const CameraData = struct {
+        //projection: Mat4 = Mat4.perspective(mmath.util.rad(70), 800.0/600.0, 0.1, 1000),
+        projection: Mat4 = Mat4.ortho(0, 800.0, 0, 600.0, -100, 100),
+        //view: Mat4 = Mat4.translate(.{.x=0, .y=0, .z=-2}),
+        view: Mat4 = Mat4.translate(.{.x=0, .y=0, .z=0}),
+    };
+
+    const Self = @This();
+
+    pub fn init(
+        dev: Device,
+        descriptor_pool: vk.DescriptorPool,
+        layout: vk.DescriptorSetLayout
+    ) !Self {
+        var self: Self = undefined;
+
+        self.image_avail_semaphore = try Semaphore.init(dev);
+        errdefer self.image_avail_semaphore.deinit(dev);
+
+        self.queue_complete_semaphore = try Semaphore.init(dev);
+        errdefer self.queue_complete_semaphore.deinit(dev);
+
+        self.render_fence = try Fence.init(dev, true);
+        errdefer self.render_fence.deinit(dev);
+
+        self.cmdbuf = try CommandBuffer.init(dev, dev.command_pool, true);
+        errdefer self.cmdbuf.deinit(dev, dev.command_pool);
+
+        // create the buffer
+        self.global_buffer = try Buffer.init(
+            dev,
+            @sizeOf(CameraData),
+            .{ .transfer_dst_bit = true, .uniform_buffer_bit = true },
+            .{
+                .device_local_bit = true,
+                .host_visible_bit = true,
+                .host_coherent_bit = true,
+            },
+            true
+        );
+
+        // allocate the sets
+        const layouts = [_]vk.DescriptorSetLayout {
+            layout,
+        };
+
+        try dev.vkd.allocateDescriptorSets(dev.logical, &.{
+            .descriptor_pool = descriptor_pool,
+            .descriptor_set_count = 1,
+            .p_set_layouts = layouts[0..],
+        }, @ptrCast([*]vk.DescriptorSet, &self.global_descriptor_set));
+
+        self.cam_data = CameraData{};
+
+        return self;
+    }
+
+    pub fn deinit(self: *Self, dev: Device) void {
+        self.global_buffer.deinit(dev);
+        self.image_avail_semaphore.deinit(dev);
+        self.queue_complete_semaphore.deinit(dev);
+        self.render_fence.deinit(dev);
+        self.cmdbuf.deinit(dev, dev.command_pool);
+    }
+
+    pub fn update(
+        self: Self,
+        dev: Device,
+        pl: Pipeline,
+    ) !void {
+        dev.vkd.cmdBindDescriptorSets(
+            self.cmdbuf.handle,
+            .graphics,
+            pl.layout,
+            0,
+            1,
+            @ptrCast([*]const vk.DescriptorSet, &self.global_descriptor_set),
+            0,
+            undefined,
+        );
+
+        try self.global_buffer.load(
+            dev,
+            CameraData,
+            &[_]CameraData{
+                self.cam_data
+            }, 0);
+
+        const bi = vk.DescriptorBufferInfo {
+            .buffer = self.global_buffer.handle,
+            .offset = 0,
+            .range = @sizeOf(CameraData),
+        };
+
+        const writes = [_]vk.WriteDescriptorSet{ .{
+            .dst_set = self.global_descriptor_set,
+            .dst_binding = 0,
+            .dst_array_element = 0,
+            .descriptor_count = 1,
+            .descriptor_type = .uniform_buffer,
+            .p_image_info = undefined,
+            .p_buffer_info = @ptrCast([*]const vk.DescriptorBufferInfo, &bi),
+            .p_texel_buffer_view = undefined,
+        }};
+
+        dev.vkd.updateDescriptorSets(dev.logical, writes.len, &writes, 0, undefined);
+    }
+};
+
+
