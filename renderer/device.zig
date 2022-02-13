@@ -139,7 +139,7 @@ pub const Device = struct {
         }
 
         // create the command pool
-        self.command_pool= try self.vkd.createCommandPool(self.logical, &.{
+        self.command_pool = try self.vkd.createCommandPool(self.logical, &.{
             .flags = .{ .reset_command_buffer_bit = true },
             .queue_family_index = self.graphics.?.idx,
         }, null);
@@ -308,26 +308,22 @@ pub const Device = struct {
     }
 
     pub fn findMemoryIndex(self: Self, type_bits: u32, flags: vk.MemoryPropertyFlags) !u32 {
-
         for (self.memory.memory_types[0..self.memory.memory_type_count]) |mem_type, i| {
             if (type_bits & (@as(u32, 1) << @truncate(u5, i)) != 0 and mem_type.property_flags.contains(flags)) {
                 return @truncate(u32, i);
             }
         }
 
+        std.log.err("cannot find mem index type: {} flags: {}", .{ type_bits, flags });
+
         return error.CannotFindMemoryIndex;
     }
 
     fn getDepthFormat(self: *Self, vki: InstanceDispatch) !void {
-        const candidates = [_]vk.Format {
-            .d32_sfloat,
-            .d32_sfloat_s8_uint,
-            .d24_unorm_s8_uint
-        };
+        const candidates = [_]vk.Format{ .d32_sfloat, .d32_sfloat_s8_uint, .d24_unorm_s8_uint };
 
         for (candidates) |fmt| {
             const props = vki.getPhysicalDeviceFormatProperties(self.physical, fmt);
-
 
             if (props.linear_tiling_features.depth_stencil_attachment_bit) {
                 self.depth_format = fmt;
@@ -341,5 +337,4 @@ pub const Device = struct {
 
         return error.CannotFindDepthFormat;
     }
-
 };

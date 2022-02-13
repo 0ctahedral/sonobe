@@ -13,7 +13,6 @@ const BUILTIN_SHADER_NAME_OBJ = "builtin";
 
 /// TODO: this might need to be more of an interface
 pub const Shader = struct {
-
     const Self = @This();
 
     // vertex and fragment
@@ -24,7 +23,6 @@ pub const Shader = struct {
         dev: Device,
         allocator: std.mem.Allocator,
     ) !Self {
-
         var self = Self{};
 
         const stage_types = [_]vk.ShaderStageFlags{
@@ -58,22 +56,17 @@ pub const Shader = struct {
             allocator.free(data);
         }
 
-
         return self;
     }
-
 
     fn loadShader(name: []const u8, alloctor: std.mem.Allocator) ![]u8 {
         // path for assets
         var buf: [512]u8 = undefined;
-        //const path = try std.fmt.bufPrint(buf[0..], "assets/{s}.spv", .{name});
-        const path = try std.fmt.bufPrint(buf[0..], "/home/oct/code/octal/assets/{s}.spv", .{name});
-
+        const path = try std.fmt.bufPrint(buf[0..], "assets/{s}.spv", .{name});
 
         std.log.info("finding file: {s}", .{path});
 
-        //const f = try std.fs.cwd().openFile(path, .{ .read = true} );
-        const f = try std.fs.openFileAbsolute(path, .{ .read = true} );
+        const f = try std.fs.cwd().openFile(path, .{ .read = true });
         defer f.close();
 
         const ret = try alloctor.alloc(u8, (try f.stat()).size);
@@ -83,15 +76,12 @@ pub const Shader = struct {
         return ret;
     }
 
-
     pub fn deinit(
         self: Self,
         dev: Device,
     ) void {
-
         for (self.handles) |h| {
             dev.vkd.destroyShaderModule(dev.logical, h, null);
         }
-
     }
 };

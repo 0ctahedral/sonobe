@@ -51,27 +51,23 @@ var quad_verts = [_]Vertex{
 };
 
 var oct_verts = [_]Vertex{
-    .{ .pos = .{ .x=-1.1920928955078125e-07, .y=-1.1920928955078125e-07, .z=-1.0 } },
-    .{ .pos = .{ .x=-1.1920928955078125e-07, .y=-1.0, .z=-1.1920928955078125e-07 } },
-    .{ .pos = .{ .x=-1.0, .y=-1.1920928955078125e-07, .z=-1.1920928955078125e-07 } },
-    .{ .pos = .{ .x=-1.1920928955078125e-07, .y=-1.1920928955078125e-07, .z=1.0 } },
-    .{ .pos = .{ .x=-1.1920928955078125e-07, .y=1.0, .z=-1.1920928955078125e-07 } },
-    .{ .pos = .{ .x=1.0, .y=-1.1920928955078125e-07, .z=-1.1920928955078125e-07 } },
-    .{ .pos = .{ .x=-0.6666668057441711, .y=-0.6666667461395264, .z=-0.6666667461395264 } },
-    .{ .pos = .{ .x=-0.6666668057441711, .y=-0.6666667461395264, .z=0.6666667461395264 } },
-    .{ .pos = .{ .x=-0.6666667461395264, .y=0.6666668057441711, .z=-0.6666667461395264 } },
-    .{ .pos = .{ .x=-0.6666668057441711, .y=0.6666667461395264, .z=0.6666667461395264 } },
-    .{ .pos = .{ .x=0.6666667461395264, .y=-0.6666668057441711, .z=-0.6666667461395264 } },
-    .{ .pos = .{ .x=0.6666668057441711, .y=-0.6666667461395264, .z=0.6666667461395264 } },
-    .{ .pos = .{ .x=0.6666668057441711, .y=0.6666667461395264, .z=-0.6666667461395264 } },
-    .{ .pos = .{ .x=0.6666667461395264, .y=0.6666668057441711, .z=0.6666667461395264 } },
+    .{ .pos = .{ .x = -1.1920928955078125e-07, .y = -1.1920928955078125e-07, .z = -1.0 } },
+    .{ .pos = .{ .x = -1.1920928955078125e-07, .y = -1.0, .z = -1.1920928955078125e-07 } },
+    .{ .pos = .{ .x = -1.0, .y = -1.1920928955078125e-07, .z = -1.1920928955078125e-07 } },
+    .{ .pos = .{ .x = -1.1920928955078125e-07, .y = -1.1920928955078125e-07, .z = 1.0 } },
+    .{ .pos = .{ .x = -1.1920928955078125e-07, .y = 1.0, .z = -1.1920928955078125e-07 } },
+    .{ .pos = .{ .x = 1.0, .y = -1.1920928955078125e-07, .z = -1.1920928955078125e-07 } },
+    .{ .pos = .{ .x = -0.6666668057441711, .y = -0.6666667461395264, .z = -0.6666667461395264 } },
+    .{ .pos = .{ .x = -0.6666668057441711, .y = -0.6666667461395264, .z = 0.6666667461395264 } },
+    .{ .pos = .{ .x = -0.6666667461395264, .y = 0.6666668057441711, .z = -0.6666667461395264 } },
+    .{ .pos = .{ .x = -0.6666668057441711, .y = 0.6666667461395264, .z = 0.6666667461395264 } },
+    .{ .pos = .{ .x = 0.6666667461395264, .y = -0.6666668057441711, .z = -0.6666667461395264 } },
+    .{ .pos = .{ .x = 0.6666668057441711, .y = -0.6666667461395264, .z = 0.6666667461395264 } },
+    .{ .pos = .{ .x = 0.6666668057441711, .y = 0.6666667461395264, .z = -0.6666667461395264 } },
+    .{ .pos = .{ .x = 0.6666667461395264, .y = 0.6666668057441711, .z = 0.6666667461395264 } },
 };
 
-var oct_inds = [_]u32{
-    0, 1, 6, 1, 3, 7, 0, 2, 8, 3, 4, 9, 0, 5, 10, 3, 1, 11, 0, 4, 12, 3, 5, 13,
-    1, 2, 6, 2, 0, 6, 3, 2, 7, 2, 1, 7, 2, 4, 8, 4, 0, 8, 4, 2, 9, 2, 3, 9, 5,
-    1, 10, 1, 0, 10, 1, 5, 11, 5, 3, 11, 4, 5, 12, 5, 0, 12, 5, 4, 13, 4, 3, 13
-};
+var oct_inds = [_]u32{ 0, 1, 6, 1, 3, 7, 0, 2, 8, 3, 4, 9, 0, 5, 10, 3, 1, 11, 0, 4, 12, 3, 5, 13, 1, 2, 6, 2, 0, 6, 3, 2, 7, 2, 1, 7, 2, 4, 8, 4, 0, 8, 4, 2, 9, 2, 3, 9, 5, 1, 10, 1, 0, 10, 1, 5, 11, 5, 3, 11, 4, 5, 12, 5, 0, 12, 5, 4, 13, 4, 3, 13 };
 
 var quad_inds = [_]u32{ 0, 1, 2, 0, 3, 1 };
 
@@ -386,16 +382,13 @@ pub fn beginFrame() !bool {
 
     device.vkd.cmdBindPipeline(cb.handle, .graphics, pipeline.handle);
 
-
     return true;
 }
 
 pub fn endFrame() !void {
-
     var cb: *CommandBuffer = &getCurrentFrame().cmdbuf;
 
     // this stuff should be in a middle area where we are actually drawing the frame
-
 
     const offset = [_]vk.DeviceSize{0};
     device.vkd.cmdBindVertexBuffers(cb.handle, 0, 1, @ptrCast([*]const vk.Buffer, &vert_buf.handle), &offset);
@@ -404,7 +397,6 @@ pub fn endFrame() !void {
     device.vkd.cmdDrawIndexed(cb.handle, quad_inds.len, 1, 0, 0, 0);
 
     // --------
-
 
     renderpass.end(device, cb);
     try cb.end(device);
@@ -456,7 +448,6 @@ fn recreateSwapchain() !bool {
 
     try device.vkd.deviceWaitIdle(device.logical);
     std.log.info("device done waiting", .{});
-
 
     try swapchain.recreate(vki, device, surface, cached_width, cached_height, allocator);
 
@@ -552,34 +543,28 @@ fn createDescriptors() !void {
         .descriptor_count = frames.len,
     }};
 
-    global_descriptor_pool = try device.vkd.createDescriptorPool(
-        device.logical,
-        &.{
-            .flags = .{},
-            .max_sets =  frames.len,
-            .pool_size_count = sizes.len,
-            .p_pool_sizes = &sizes,
-        }, null);
+    global_descriptor_pool = try device.vkd.createDescriptorPool(device.logical, &.{
+        .flags = .{},
+        .max_sets = frames.len,
+        .pool_size_count = sizes.len,
+        .p_pool_sizes = &sizes,
+    }, null);
 
+    const global_bindings = [_]vk.DescriptorSetLayoutBinding{
+    // camera binding
+    .{
+        .binding = 0,
+        .descriptor_type = .uniform_buffer,
+        .descriptor_count = 1,
+        .stage_flags = .{ .vertex_bit = true },
+        .p_immutable_samplers = null,
+    }};
 
-    const global_bindings = [_]vk.DescriptorSetLayoutBinding {
-        // camera binding
-        .{
-            .binding = 0,
-            .descriptor_type = .uniform_buffer,
-            .descriptor_count = 1,
-            .stage_flags = .{ .vertex_bit = true },
-            .p_immutable_samplers = null,
-        }
-    };
-
-    global_descriptor_layout = try device.vkd.createDescriptorSetLayout(
-        device.logical,
-        &.{
-            .flags = .{},
-            .binding_count = global_bindings.len,
-            .p_bindings = &global_bindings,
-        }, null);
+    global_descriptor_layout = try device.vkd.createDescriptorSetLayout(device.logical, &.{
+        .flags = .{},
+        .binding_count = global_bindings.len,
+        .p_bindings = &global_bindings,
+    }, null);
 
     // TOOD: make a new layout for object matrices
     // later will have one for ui, from there might have a geometry shader that creates quads?
@@ -590,7 +575,6 @@ pub fn updateUniform(pos: Vec3) !void {
     getCurrentFrame().*.cam_data.view = Mat4.translate(npos).inv();
     try getCurrentFrame().update(device, pipeline);
 }
-
 
 /// What you need for a single frame
 const FrameData = struct {
@@ -617,16 +601,12 @@ const FrameData = struct {
         //projection: Mat4 = Mat4.perspective(mmath.util.rad(70), 800.0/600.0, 0.1, 1000),
         projection: Mat4 = Mat4.ortho(0, 800.0, 0, 600.0, -100, 100),
         //view: Mat4 = Mat4.translate(.{.x=0, .y=0, .z=-2}),
-        view: Mat4 = Mat4.translate(.{.x=0, .y=0, .z=0}),
+        view: Mat4 = Mat4.translate(.{ .x = 0, .y = 0, .z = 0 }),
     };
 
     const Self = @This();
 
-    pub fn init(
-        dev: Device,
-        descriptor_pool: vk.DescriptorPool,
-        layout: vk.DescriptorSetLayout
-    ) !Self {
+    pub fn init(dev: Device, descriptor_pool: vk.DescriptorPool, layout: vk.DescriptorSetLayout) !Self {
         var self: Self = undefined;
 
         self.image_avail_semaphore = try Semaphore.init(dev);
@@ -642,20 +622,13 @@ const FrameData = struct {
         errdefer self.cmdbuf.deinit(dev, dev.command_pool);
 
         // create the buffer
-        self.global_buffer = try Buffer.init(
-            dev,
-            @sizeOf(CameraData),
-            .{ .transfer_dst_bit = true, .uniform_buffer_bit = true },
-            .{
-                .device_local_bit = true,
-                .host_visible_bit = true,
-                .host_coherent_bit = true,
-            },
-            true
-        );
+        self.global_buffer = try Buffer.init(dev, @sizeOf(CameraData), .{ .transfer_dst_bit = true, .uniform_buffer_bit = true }, .{
+            .host_visible_bit = true,
+            .host_coherent_bit = true,
+        }, true);
 
         // allocate the sets
-        const layouts = [_]vk.DescriptorSetLayout {
+        const layouts = [_]vk.DescriptorSetLayout{
             layout,
         };
 
@@ -694,20 +667,15 @@ const FrameData = struct {
             undefined,
         );
 
-        try self.global_buffer.load(
-            dev,
-            CameraData,
-            &[_]CameraData{
-                self.cam_data
-            }, 0);
+        try self.global_buffer.load(dev, CameraData, &[_]CameraData{self.cam_data}, 0);
 
-        const bi = vk.DescriptorBufferInfo {
+        const bi = vk.DescriptorBufferInfo{
             .buffer = self.global_buffer.handle,
             .offset = 0,
             .range = @sizeOf(CameraData),
         };
 
-        const writes = [_]vk.WriteDescriptorSet{ .{
+        const writes = [_]vk.WriteDescriptorSet{.{
             .dst_set = self.global_descriptor_set,
             .dst_binding = 0,
             .dst_array_element = 0,
@@ -721,5 +689,3 @@ const FrameData = struct {
         dev.vkd.updateDescriptorSets(dev.logical, writes.len, &writes, 0, undefined);
     }
 };
-
-
