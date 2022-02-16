@@ -1,6 +1,6 @@
 const vk = @import("vulkan");
 
-const Vec3 = @import("mmath").Vec3;
+const Vec3 = @import("../math.zig").Vec3;
 
 pub const Vertex = struct {
     //TODO: make a generator for binding descriptions

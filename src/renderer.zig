@@ -1,26 +1,27 @@
-const dispatch_types = @import("dispatch_types.zig");
-const BaseDispatch = dispatch_types.BaseDispatch;
-const InstanceDispatch = dispatch_types.InstanceDispatch;
 const std = @import("std");
 const builtin = @import("builtin");
 const vk = @import("vulkan");
 const glfw = @import("glfw");
+
+const dispatch_types = @import("renderer/dispatch_types.zig");
+const BaseDispatch = dispatch_types.BaseDispatch;
+const InstanceDispatch = dispatch_types.InstanceDispatch;
 const Allocator = std.mem.Allocator;
 
-const Device = @import("device.zig").Device;
-const Queue = @import("device.zig").Queue;
-const Swapchain = @import("swapchain.zig").Swapchain;
-const RenderPass = @import("renderpass.zig").RenderPass;
-const CommandBuffer = @import("commandbuffer.zig").CommandBuffer;
-const Fence = @import("fence.zig").Fence;
-const Semaphore = @import("semaphore.zig").Semaphore;
-const Shader = @import("shader.zig").Shader;
-const Pipeline = @import("pipeline.zig").Pipeline;
-const Vertex = @import("mesh.zig").Vertex;
-const mmath = @import("mmath");
+const Device = @import("renderer/device.zig").Device;
+const Queue = @import("renderer/device.zig").Queue;
+const Swapchain = @import("renderer/swapchain.zig").Swapchain;
+const RenderPass = @import("renderer/renderpass.zig").RenderPass;
+const CommandBuffer = @import("renderer/commandbuffer.zig").CommandBuffer;
+const Fence = @import("renderer/fence.zig").Fence;
+const Semaphore = @import("renderer/semaphore.zig").Semaphore;
+const Shader = @import("renderer/shader.zig").Shader;
+const Pipeline = @import("renderer/pipeline.zig").Pipeline;
+const Vertex = @import("renderer/mesh.zig").Vertex;
+const mmath = @import("math.zig");
 const Mat4 = mmath.Mat4;
 const Vec3 = mmath.Vec3;
-const Buffer = @import("buffer.zig").Buffer;
+const Buffer = @import("renderer/buffer.zig").Buffer;
 
 // TODO: get these from the system
 const required_exts = [_][*:0]const u8{
