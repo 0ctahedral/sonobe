@@ -2,19 +2,13 @@ const std = @import("std");
 const octal = @import("octal");
 const Renderer = octal.Renderer;
 const mmath = octal.mmath;
-const vk = @import("vulkan");
 const glfw = @import("glfw");
 
 const app_name = "octal: triangle test";
 
-var width: i32 = 0;
-var height: i32 = 0;
-
 fn cb(g: glfw.Window, w: i32, h: i32) void {
     _ = g;
     std.log.info("w: {}, h: {}", .{ w, h });
-    width = w;
-    height = h;
     Renderer.resize(@intCast(u32, w), @intCast(u32, h));
 }
 
@@ -24,9 +18,10 @@ pub fn main() !void {
     try glfw.init(.{});
     defer glfw.terminate();
 
-    var extent = vk.Extent2D{ .width = 800, .height = 600 };
+    var width: u32 = 800;
+    var height: u32 = 600;
 
-    const window = try glfw.Window.create(extent.width, extent.height, app_name, null, null, .{
+    const window = try glfw.Window.create(width, height, app_name, null, null, .{
         .client_api = .no_api,
         .floating = true,
     });
@@ -44,8 +39,6 @@ pub fn main() !void {
     while (!window.shouldClose()) {
         try glfw.pollEvents();
         const pos = try window.getCursorPos();
-        //const newx: f32 = 1 - @intToFloat(f32, width) / @floatCast(f32, pos.xpos);
-        //const newy: f32 = 1 - @intToFloat(f32, height) / @floatCast(f32, pos.ypos);
         if (try Renderer.beginFrame()) {
             try Renderer.updateUniform(mmath.Vec3.new(
                     @floatCast(f32, pos.xpos),

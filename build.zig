@@ -34,7 +34,7 @@ pub fn build(b: *Builder) void {
     const exe = b.addExecutable("testbed", "testbed/main.zig");
     exe.install();
 
-    const exe_step = b.step("testbed", "build and run testbed");
+    const exe_step = b.step("run", "build and run testbed");
     exe_step.dependOn(&exe.run().step);
 
     exe.addPackagePath("glfw", "deps/mach-glfw/src/main.zig");
