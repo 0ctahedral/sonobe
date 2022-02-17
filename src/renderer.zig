@@ -1,7 +1,8 @@
 const std = @import("std");
 const builtin = @import("builtin");
 const vk = @import("vulkan");
-const glfw = @import("glfw");
+
+const Platform = @import("platform.zig");
 
 const dispatch_types = @import("renderer/dispatch_types.zig");
 const BaseDispatch = dispatch_types.BaseDispatch;
@@ -132,17 +133,16 @@ inline fn getCurrentFrame() *FrameData {
 }
 
 // initialize the renderer
-pub fn init(provided_allocator: Allocator, app_name: [*:0]const u8, window: glfw.Window) !void {
+pub fn init(provided_allocator: Allocator, app_name: [*:0]const u8) !void {
     allocator = provided_allocator;
 
     // get proc address from glfw window
-    // TODO: this should really just be a function passed into the init
-    const vk_proc = @ptrCast(fn (instance: vk.Instance, procname: [*:0]const u8) callconv(.C) vk.PfnVoidFunction, glfw.getInstanceProcAddress);
+    const vk_proc = Platform.getInstanceProcAddress();
 
     // load the base dispatch functions
     vkb = try BaseDispatch.load(vk_proc);
 
-    const winsize = try window.getSize();
+    const winsize = try Platform.getWinSize();
     cached_width = winsize.width;
     cached_height = winsize.height;
 
@@ -198,9 +198,7 @@ pub fn init(provided_allocator: Allocator, app_name: [*:0]const u8, window: glfw
     errdefer vki.destroyDebugUtilsMessengerEXT(instance, messenger, null);
 
     // TODO: move this to system
-    if ((try glfw.createWindowSurface(instance, window, null, &surface)) != @enumToInt(vk.Result.success)) {
-        return error.SurfaceInitFailed;
-    }
+    try Platform.createWindowSurface(instance, &surface);
     errdefer vki.destroySurfaceKHR(instance, surface, null);
 
     // create a device
