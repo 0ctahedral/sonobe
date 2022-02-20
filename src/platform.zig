@@ -1,60 +1,65 @@
 const std = @import("std");
+//const glfw = @import("glfw");
 const vk = @import("vulkan");
-const glfw = @import("glfw");
+const InstanceDispatch = @import("renderer/dispatch_types.zig").InstanceDispatch;
 const Renderer = @import("renderer.zig");
 
-/// the window we are using
-pub var window: glfw.Window = undefined;
+pub const Window = @import("platform/window.zig");
 
-pub var is_running = false;
+const backend = @import("platform/linux.zig");
 
-pub fn init(width: u32, height: u32, app_name: [*:0]const u8) !void {
-    try glfw.init(.{});
-    window = try glfw.Window.create(width, height, app_name, null, null, .{
-        .client_api = .no_api,
-        .floating = true,
-    });
+pub var is_running = true;
 
-    window.setSizeCallback(cb);
+/// the vulkan dynamic library
+var libvk: std.DynLib = undefined;
+/// function pointer to vulkan proc
+var vk_get_proc: vk.PfnGetInstanceProcAddr = undefined;
 
-    is_running = true;
-}
-
-const Size = struct { w: i32, h: i32 };
-
-var resized: ?Size = null;
-
-// TODO: this should be adding a resize event to a queue
-fn cb(g: glfw.Window, w: i32, h: i32) void {
-    _ = g;
-    resized = .{ .w = w, .h = h };
-}
-
-pub fn pollEvents() !void {
-    try glfw.pollEvents();
-    if (resized) |s| {
-        std.log.info("w: {}, h: {}", .{ s.w, s.h });
-        Renderer.resize(@intCast(u32, s.w), @intCast(u32, s.h));
-        resized = null;
+/// Initialize the platform layer
+pub fn init() !void {
+    libvk = try std.DynLib.open("/usr/lib/libvulkan.so");
+    if (libvk.lookup(vk.PfnGetInstanceProcAddr, "vkGetInstanceProcAddr")) |pfn| {
+        vk_get_proc = pfn;
+    } else {
+        return error.CouldNotLoadVulkan;
     }
-    is_running = !window.shouldClose();
+    return backend.init();
 }
 
+/// shutdown the platform layer
 pub fn deinit() void {
-    window.destroy();
-    glfw.terminate();
+    backend.deinit();
 }
 
-pub fn getInstanceProcAddress() fn (vk.Instance, [*:0]const u8) callconv(.C) vk.PfnVoidFunction {
-    return @ptrCast(fn (instance: vk.Instance, procname: [*:0]const u8) callconv(.C) vk.PfnVoidFunction, glfw.getInstanceProcAddress);
-}
-
-pub fn createWindowSurface(instance: vk.Instance, surface: *vk.SurfaceKHR) !void {
-    if ((try glfw.createWindowSurface(instance, window, null, surface)) != @enumToInt(vk.Result.success)) {
-        return error.SurfaceInitFailed;
+/// poll for input events on this platform
+pub fn flush() bool {
+    var rev: ?backend.ResizeEvent = null;
+    while(backend.nextEvent()) |ev| {
+        switch (ev) {
+            .Quit => is_running = false,
+            .WindowResize => |r| {
+                rev = r;
+            }
+        }
     }
+    if (rev) |r| {
+        Renderer.resize(r.w, r.h);
+        return false;
+    }
+
+    return true;
 }
 
-pub fn getWinSize() !glfw.Window.Size {
-    return try window.getSize();
+/// get the vulkan instance address
+pub fn getInstanceProcAddress() fn (vk.Instance, [*:0]const u8) callconv(.C) vk.PfnVoidFunction {
+    //TODO: sanity checks (if it is this function, or empty)
+    return vk_get_proc;
+}
+
+pub fn createWindowSurface(vki: InstanceDispatch, instance: vk.Instance, window: Window) !vk.SurfaceKHR {
+    return backend.createWindowSurface(vki, instance, window);
+}
+
+pub fn createWindow(title: []const u8, width: u32, height: u32) anyerror!Window {
+    return backend.createWindow(title, width, height);
 }

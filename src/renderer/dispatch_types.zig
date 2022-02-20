@@ -9,6 +9,7 @@ pub const InstanceDispatch = vk.InstanceWrapper(&.{
     .createDebugUtilsMessengerEXT,
     .destroyDebugUtilsMessengerEXT,
     .createDevice,
+    .createXcbSurfaceKHR,
     .destroySurfaceKHR,
     .enumeratePhysicalDevices,
     .getPhysicalDeviceProperties,

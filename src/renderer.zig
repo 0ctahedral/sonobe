@@ -132,19 +132,22 @@ inline fn getCurrentFrame() *FrameData {
     return &frames[frame_number % frames.len];
 }
 
+
 // initialize the renderer
-pub fn init(provided_allocator: Allocator, app_name: [*:0]const u8) !void {
+pub fn init(provided_allocator: Allocator, app_name: [*:0]const u8, window: Platform.Window) !void {
     allocator = provided_allocator;
+    // open vulkan dynlib
+    // TODO: make local or whatever
+    var vk_proc = Platform.getInstanceProcAddress();
 
     // get proc address from glfw window
-    const vk_proc = Platform.getInstanceProcAddress();
-
+    //const vk_proc = Platform.getInstanceProcAddress();
     // load the base dispatch functions
     vkb = try BaseDispatch.load(vk_proc);
 
-    const winsize = try Platform.getWinSize();
-    cached_width = winsize.width;
-    cached_height = winsize.height;
+    //const winsize = try Platform.getWinSize();
+    cached_width = 0;
+    cached_height = 0;
 
     fb_width = if (cached_width != 0) cached_width else 800;
     fb_height = if (cached_height != 0) cached_height else 600;
@@ -198,7 +201,7 @@ pub fn init(provided_allocator: Allocator, app_name: [*:0]const u8) !void {
     errdefer vki.destroyDebugUtilsMessengerEXT(instance, messenger, null);
 
     // TODO: move this to system
-    try Platform.createWindowSurface(instance, &surface);
+    surface = try Platform.createWindowSurface(vki, instance, window);
     errdefer vki.destroySurfaceKHR(instance, surface, null);
 
     // create a device

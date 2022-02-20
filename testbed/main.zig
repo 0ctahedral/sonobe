@@ -4,27 +4,31 @@ const Platform = octal.Platform;
 const Renderer = octal.Renderer;
 const mmath = octal.mmath;
 
-//const glfw = @import("glfw");
-
 const app_name = "octal: triangle test";
 
 pub fn main() !void {
     // open the window
-    try Platform.init(800, 600, app_name);
+    try Platform.init();
     defer Platform.deinit();
+    errdefer Platform.deinit();
 
     const allocator = std.testing.allocator;
 
-    // setup renderer
-    try Renderer.init(allocator, app_name);
+
+    const window = try Platform.createWindow(app_name, 800, 600);
+    _ = window;
+
+    //// setup renderer
+    try Renderer.init(allocator, app_name, window);
     defer Renderer.deinit();
 
     while (Platform.is_running) {
-        try Platform.pollEvents();
-
-        if (try Renderer.beginFrame()) {
-            try Renderer.updateUniform(.{});
-            try Renderer.endFrame();
+        if (Platform.flush()) {
+            if (try Renderer.beginFrame()) {
+                try Renderer.updateUniform(.{});
+                try Renderer.endFrame();
+            }
         }
     }
+
 }

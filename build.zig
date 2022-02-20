@@ -51,6 +51,9 @@ pub fn build(b: *Builder) void {
             gen.package
         }
     });
+    // TODO: configure this by os
+    exe.linkSystemLibrary("xcb");
+    exe.linkSystemLibrary("X11-xcb");
     glfw.link(b, exe, .{});
 
     exe.step.dependOn(&compile_vert.step);
