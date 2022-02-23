@@ -384,6 +384,18 @@ pub fn beginFrame() !bool {
 
     device.vkd.cmdBindPipeline(cb.handle, .graphics, pipeline.handle);
 
+
+    device.vkd.cmdBindDescriptorSets(
+        cb.handle,
+        .graphics,
+        pipeline.layout,
+        0,
+        1,
+        @ptrCast([*]const vk.DescriptorSet, &getCurrentFrame().global_descriptor_set),
+        0,
+        undefined,
+    );
+
     return true;
 }
 
@@ -552,15 +564,58 @@ fn createDescriptors() !void {
         .p_pool_sizes = &sizes,
     }, null);
 
+    // TOOD: make this a setting
+    //const Settings = struct {
+    //    storage_buffers: usize = 1024,
+    //    samplers: usize= 1024,
+    //    sampled_images: usize = 1024,
+    //    storage_images: usize = 1024,
+    //};
+
+    //const settings = Settings{};
+
+    // attempt at bindless aproach
     const global_bindings = [_]vk.DescriptorSetLayoutBinding{
-    // camera binding
-    .{
-        .binding = 0,
-        .descriptor_type = .uniform_buffer,
-        .descriptor_count = 1,
-        .stage_flags = .{ .vertex_bit = true },
-        .p_immutable_samplers = null,
-    }};
+        //.{
+        //    .binding = 1,
+        //    .descriptor_type = .sampled_image,
+        //    .descriptor_count = settings.sampled_images,
+        //    .stage_flags = .{ .all_bit = true },
+        //    .p_immutable_samplers = null,
+        //},
+        //.{
+        //    .binding = 2,
+        //    .descriptor_type = .storage_image,
+        //    .descriptor_count = settings.storage_images,
+        //    .stage_flags = .{ .all_bit = true },
+        //    .p_immutable_samplers = null,
+        //},
+        //.{
+        //    .binding = 3,
+        //    .descriptor_type = .sampler,
+        //    .descriptor_count = settings.samplers,
+        //    .stage_flags = .{ .all_bit = true },
+        //    .p_immutable_samplers = null,
+        //},
+
+        // camera
+        .{
+            .binding = 0,
+            .descriptor_type = .uniform_buffer,
+            .descriptor_count = 1,
+            .stage_flags = .{ .vertex_bit = true },
+            .p_immutable_samplers = null,
+        },
+
+        // storage for model matricies
+        .{
+            .binding = 1,
+            .descriptor_type = .storage_buffer,
+            .descriptor_count = 10,
+            .stage_flags = .{ .vertex_bit = true },
+            .p_immutable_samplers = null,
+        },
+    };
 
     global_descriptor_layout = try device.vkd.createDescriptorSetLayout(device.logical, &.{
         .flags = .{},
@@ -573,9 +628,10 @@ fn createDescriptors() !void {
 }
 
 pub fn updateUniform(pos: Vec3) !void {
-    const npos = Vec3.new(0, -@intToFloat(f32, fb_height), 0).add(pos);
-    getCurrentFrame().*.cam_data.view = Mat4.translate(npos).inv();
-    try getCurrentFrame().update(device, pipeline);
+    _ = pos;
+    //const npos = Vec3.new(0, -@intToFloat(f32, fb_height), 0).add(pos);
+    //getCurrentFrame().*.cam_data.view = Mat4.translate(npos).inv();
+    //try getCurrentFrame().update(device, pipeline);
 }
 
 /// What you need for a single frame
@@ -596,6 +652,8 @@ const FrameData = struct {
 
     /// buffer of data in ds for this frame
     global_buffer: Buffer,
+
+    model_buffer: Buffer,
 
     cam_data: CameraData,
 
@@ -629,6 +687,15 @@ const FrameData = struct {
             .host_coherent_bit = true,
         }, true);
 
+        self.model_buffer = try Buffer.init(dev, @sizeOf(Mat4), .{
+            .storage_buffer_bit = true,
+            .transfer_dst_bit = true, 
+        },
+        .{
+            .host_visible_bit = true,
+            .host_coherent_bit = true,
+        }, true);
+
         // allocate the sets
         const layouts = [_]vk.DescriptorSetLayout{
             layout,
@@ -641,6 +708,8 @@ const FrameData = struct {
         }, @ptrCast([*]vk.DescriptorSet, &self.global_descriptor_set));
 
         self.cam_data = CameraData{};
+
+        try self.update(dev);
 
         return self;
     }
@@ -656,37 +725,59 @@ const FrameData = struct {
     pub fn update(
         self: Self,
         dev: Device,
-        pl: Pipeline,
+        //pl: Pipeline,
     ) !void {
-        dev.vkd.cmdBindDescriptorSets(
-            self.cmdbuf.handle,
-            .graphics,
-            pl.layout,
-            0,
-            1,
-            @ptrCast([*]const vk.DescriptorSet, &self.global_descriptor_set),
-            0,
-            undefined,
-        );
+        //dev.vkd.cmdBindDescriptorSets(
+        //    self.cmdbuf.handle,
+        //    .graphics,
+        //    pl.layout,
+        //    0,
+        //    1,
+        //    @ptrCast([*]const vk.DescriptorSet, &self.global_descriptor_set),
+        //    0,
+        //    undefined,
+        //);
 
         try self.global_buffer.load(dev, CameraData, &[_]CameraData{self.cam_data}, 0);
+        try self.model_buffer.load(dev, Mat4, &[_]Mat4{
+            Mat4.identity(),
+        }, 0);
 
-        const bi = vk.DescriptorBufferInfo{
-            .buffer = self.global_buffer.handle,
-            .offset = 0,
-            .range = @sizeOf(CameraData),
+        const infos = [_]vk.DescriptorBufferInfo{
+            .{
+                .buffer = self.global_buffer.handle,
+                .offset = 0,
+                .range = @sizeOf(CameraData),
+            },
+            .{
+                .buffer = self.model_buffer.handle,
+                .offset = 0,
+                .range = @sizeOf(Mat4),
+            },
         };
 
-        const writes = [_]vk.WriteDescriptorSet{.{
-            .dst_set = self.global_descriptor_set,
-            .dst_binding = 0,
-            .dst_array_element = 0,
-            .descriptor_count = 1,
-            .descriptor_type = .uniform_buffer,
-            .p_image_info = undefined,
-            .p_buffer_info = @ptrCast([*]const vk.DescriptorBufferInfo, &bi),
-            .p_texel_buffer_view = undefined,
-        }};
+        const writes = [_]vk.WriteDescriptorSet{
+            .{
+                .dst_set = self.global_descriptor_set,
+                .dst_binding = 0,
+                .dst_array_element = 0,
+                .descriptor_count = 1,
+                .descriptor_type = .uniform_buffer,
+                .p_image_info = undefined,
+                .p_buffer_info = @ptrCast([*]const vk.DescriptorBufferInfo, &infos[0]),
+                .p_texel_buffer_view = undefined,
+            },
+            .{
+                .dst_set = self.global_descriptor_set,
+                .dst_binding = 1,
+                .dst_array_element = 0,
+                .descriptor_count = 1,
+                .descriptor_type = .storage_buffer,
+                .p_image_info = undefined,
+                .p_buffer_info = @ptrCast([*]const vk.DescriptorBufferInfo, &infos[1]),
+                .p_texel_buffer_view = undefined,
+            }
+        };
 
         dev.vkd.updateDescriptorSets(dev.logical, writes.len, &writes, 0, undefined);
     }
