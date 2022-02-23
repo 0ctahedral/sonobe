@@ -38,19 +38,24 @@ const required_exts = [_][*:0]const u8{
 // TODO: set this in a config
 const required_layers = [_][*:0]const u8{"VK_LAYER_KHRONOS_validation"};
 
-//var quad_verts = [_]Vertex{
-//    .{ .pos = Vec3.new(-0.5, -0.5, 0).scale(100) },
-//    .{ .pos = Vec3.new(0.5, 0.5, 0).scale(100) },
-//    .{ .pos = Vec3.new(-0.5, 0.5, 0).scale(100) },
-//    .{ .pos = Vec3.new(0.5, -0.5, 0).scale(100) },
-//};
-
 var quad_verts = [_]Vertex{
-    .{ .pos = Vec3.new(350, 250, 0) },
-    .{ .pos = Vec3.new(450, 350, 0) },
-    .{ .pos = Vec3.new(350, 350, 0) },
-    .{ .pos = Vec3.new(450, 250, 0) },
+    .{ .pos = Vec3.new(-0.5, -0.5, 0) },
+    .{ .pos = Vec3.new(0.5, 0.5, 0) },
+    .{ .pos = Vec3.new(-0.5, 0.5, 0) },
+    .{ .pos = Vec3.new(0.5, -0.5, 0) },
 };
+
+
+const MeshPushConstants = struct {
+    index: u32,
+};
+
+//var quad_verts = [_]Vertex{
+//    .{ .pos = Vec3.new(350, 250, 0) },
+//    .{ .pos = Vec3.new(450, 350, 0) },
+//    .{ .pos = Vec3.new(350, 350, 0) },
+//    .{ .pos = Vec3.new(450, 250, 0) },
+//};
 
 var oct_verts = [_]Vertex{
     .{ .pos = .{ .x = -1.1920928955078125e-07, .y = -1.1920928955078125e-07, .z = -1.0 } },
@@ -408,6 +413,17 @@ pub fn endFrame() !void {
     device.vkd.cmdBindVertexBuffers(cb.handle, 0, 1, @ptrCast([*]const vk.Buffer, &vert_buf.handle), &offset);
     device.vkd.cmdBindIndexBuffer(cb.handle, ind_buf.handle, 0, .uint32);
 
+    // push some constants to this bih
+    device.vkd.cmdPushConstants(cb.handle, pipeline.layout, .{ .vertex_bit = true }, 0, @intCast(u32, @sizeOf(MeshPushConstants)), &MeshPushConstants{
+        .index = 0,
+    });
+
+    device.vkd.cmdDrawIndexed(cb.handle, quad_inds.len, 1, 0, 0, 0);
+
+    device.vkd.cmdPushConstants(cb.handle, pipeline.layout, .{ .vertex_bit = true }, 0, @intCast(u32, @sizeOf(MeshPushConstants)), &MeshPushConstants{
+        .index = 1,
+    });
+
     device.vkd.cmdDrawIndexed(cb.handle, quad_inds.len, 1, 0, 0, 0);
 
     // --------
@@ -531,7 +547,22 @@ fn createPipeline() !void {
         },
     };
 
-    pipeline = try Pipeline.init(device, renderpass, &[_]vk.DescriptorSetLayout{global_descriptor_layout}, &shader.stage_ci, viewport, scissor, false);
+    pipeline = try Pipeline.init(
+        device,
+        renderpass,
+        &[_]vk.DescriptorSetLayout{global_descriptor_layout},
+        &[_]vk.PushConstantRange{
+            .{
+                .stage_flags = .{ .vertex_bit = true },
+                .offset = 0,
+                .size = @intCast(u32, @sizeOf(MeshPushConstants)),
+            }
+        },
+        &shader.stage_ci,
+        viewport,
+        scissor,
+        false
+    );
 }
 
 fn upload(pool: vk.CommandPool, buffer: Buffer, comptime T: type, items: []T) !void {
@@ -597,8 +628,8 @@ fn createDescriptors() !void {
     }, null);
 }
 
-pub fn updateUniform(pos: Vec3) !void {
-    getCurrentFrame().*.model_data[0] = Mat4.translate(pos).inv();
+pub fn updateUniform(transform: Mat4) !void {
+    getCurrentFrame().*.model_data[0] = transform;
     try getCurrentFrame().updateDescriptorSets(device);
 }
 
@@ -679,6 +710,8 @@ const FrameData = struct {
 
         self.cam_data = CameraData{};
         self.model_data[0] = Mat4.translate(Vec3.new(0, 100, 0));
+        self.model_data[1] = Mat4.scale(mmath.Vec3.new(100, 100, 100))
+                            .mul(Mat4.translate(.{ .x = 500, .y = 250}));
 
         try self.updateDescriptorSets(dev);
 
@@ -699,7 +732,7 @@ const FrameData = struct {
         dev: Device,
     ) !void {
         try self.global_buffer.load(dev, CameraData, &[_]CameraData{self.cam_data}, 0);
-        try self.model_buffer.load(dev, Mat4, self.model_data[0..1], 0);
+        try self.model_buffer.load(dev, Mat4, self.model_data[0..], 0);
 
         const cam_infos = [_]vk.DescriptorBufferInfo{
             .{
@@ -712,7 +745,7 @@ const FrameData = struct {
             .{
                 .buffer = self.model_buffer.handle,
                 .offset = 0,
-                .range = @sizeOf(Mat4),
+                .range = @sizeOf(@TypeOf(self.model_data)),
             },
         };
 

@@ -27,7 +27,11 @@ pub fn main() !void {
     while (Platform.is_running) {
         if (Platform.flush()) {
             if (try Renderer.beginFrame()) {
-                try Renderer.updateUniform(.{ .y = @sin(f) * 100});
+                try Renderer.updateUniform(
+                        mmath.Mat4.scale(mmath.Vec3.new(100, 100, 100))
+                            .mul(mmath.Mat4.rotate(.z, f))
+                            .mul(mmath.Mat4.translate(.{ .x = 350, .y = 250 + (@sin(f) * 100)}))
+                    );
                 try Renderer.endFrame();
             }
         }

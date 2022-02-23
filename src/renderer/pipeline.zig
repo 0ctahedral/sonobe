@@ -15,6 +15,7 @@ pub const Pipeline = struct {
         dev: Device,
         renderpass: RenderPass,
         descriptor_set_layouts: []const vk.DescriptorSetLayout,
+        push_constants: []const vk.PushConstantRange,
         stages: []const vk.PipelineShaderStageCreateInfo,
         viewport: vk.Viewport,
         scissor: vk.Rect2D,
@@ -117,8 +118,8 @@ pub const Pipeline = struct {
             .flags = .{},
             .set_layout_count = @intCast(u32, descriptor_set_layouts.len),
             .p_set_layouts = descriptor_set_layouts.ptr,
-            .push_constant_range_count = 0,
-            .p_push_constant_ranges = undefined,
+            .push_constant_range_count = @intCast(u32, push_constants.len),
+            .p_push_constant_ranges = push_constants.ptr,
         }, null);
 
         const gpci = vk.GraphicsPipelineCreateInfo{
