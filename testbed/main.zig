@@ -22,13 +22,17 @@ pub fn main() !void {
     try Renderer.init(allocator, app_name, window);
     defer Renderer.deinit();
 
+    var f: f32 = 0;
+
     while (Platform.is_running) {
         if (Platform.flush()) {
             if (try Renderer.beginFrame()) {
-                try Renderer.updateUniform(.{});
+                try Renderer.updateUniform(.{ .y = @sin(f) * 100});
                 try Renderer.endFrame();
             }
         }
+
+        f += 0.033;
     }
 
 }

@@ -93,7 +93,7 @@ pub const Buffer = struct {
         self: Self,
         dev: Device,
         comptime T: type,
-        data: []T,
+        data: []const T,
         offset: usize,
     ) !void {
         //var ptr = @ptrCast([*]u8, try dev.vkd.mapMemory(dev.logical, self.mem, offset, size, .{}));
