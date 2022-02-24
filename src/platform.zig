@@ -3,6 +3,7 @@ const std = @import("std");
 const vk = @import("vulkan");
 const InstanceDispatch = @import("renderer/dispatch_types.zig").InstanceDispatch;
 const Renderer = @import("renderer.zig");
+const Events = @import("events.zig");
 
 pub const Window = @import("platform/window.zig");
 
@@ -33,17 +34,21 @@ pub fn deinit() void {
 
 /// poll for input events on this platform
 pub fn flush() bool {
-    var rev: ?backend.ResizeEvent = null;
+    var rev: ?Events.WindowResizeEvent = null;
     while(backend.nextEvent()) |ev| {
         switch (ev) {
             .Quit => is_running = false,
+            .WindowClose => |id| std.log.info("window {} closed", .{id}),
             .WindowResize => |r| {
                 rev = r;
+                std.log.debug("event: {}", .{ev});
+                //Events.send(ev);
             }
         }
     }
     if (rev) |r| {
-        Renderer.resize(r.w, r.h);
+        Events.send(Events.Event{.WindowResize=r});
+        //Renderer.resize(r.w, r.h);
         return false;
     }
 

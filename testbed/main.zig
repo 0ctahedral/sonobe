@@ -2,23 +2,29 @@ const std = @import("std");
 const octal = @import("octal");
 const Platform = octal.Platform;
 const Renderer = octal.Renderer;
+const Events = octal.Events;
 const mmath = octal.mmath;
 
 const app_name = "octal: triangle test";
 
 pub fn main() !void {
+    // initialize the event system
+    Events.init();
+    defer Events.deinit();
+
+
     // open the window
     try Platform.init();
     defer Platform.deinit();
     errdefer Platform.deinit();
 
-    const allocator = std.testing.allocator;
 
 
     const window = try Platform.createWindow(app_name, 800, 600);
     _ = window;
 
     //// setup renderer
+    const allocator = std.testing.allocator;
     try Renderer.init(allocator, app_name, window);
     defer Renderer.deinit();
 

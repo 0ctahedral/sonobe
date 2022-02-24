@@ -4,6 +4,7 @@ const xcb = @import("xcb_decls.zig").XCB;
 const Window = @import("window.zig");
 const vk = @import("vulkan");
 const InstanceDispatch = @import("../renderer/dispatch_types.zig").InstanceDispatch;
+const Event = @import("../events.zig").Event;
 
 var display: *xcb.Display = undefined;
 var connection: *xcb.xcb_connection_t = undefined;
@@ -12,6 +13,8 @@ var screen: *xcb.xcb_screen_t = undefined;
 var windows: struct {
     /// idx of the next open spot
     idx: usize = 0,
+    // number of windows still living
+    num_living: usize = 0,
     handles: [32]xcb.xcb_window_t = undefined,
     wm_dels: [32]xcb.xcb_atom_t = undefined,
     wm_protos: [32]xcb.xcb_atom_t = undefined,
@@ -37,30 +40,6 @@ pub fn deinit() void {
     //_ = xcb.XAutoRepeatOn(display);
     std.log.info("linux shutdown", .{});
 }
-
-
-pub const EventType = enum {
-    Quit,
-    WindowResize,
-    //WindowClose,
-    //KeyPress,
-    //KeyRelease,
-    //MousePress,
-    //MouseRelease,
-    //MouseMoved,
-};
-
-pub const ResizeEvent = struct {
-        x: i16,
-        y: i16,
-        w: u16,
-        h: u16,
-    };
-
-pub const Event = union(EventType) {
-    Quit,
-    WindowResize: ResizeEvent,
-};
 
 pub fn nextEvent() ?Event {
     var ret: ?Event = null;
@@ -94,10 +73,12 @@ pub fn nextEvent() ?Event {
                         cm.window == handle.* and
                         cm.*.data.data32[0] == windows.wm_dels[i]
                     ) {
-                        //ret = event.Event{.WindowClose = cm.window };
                         _ = xcb.xcb_destroy_window(connection, handle.*);
-                        //handle.* = .null_handle;
-                        return Event{.Quit={}};
+                        windows.num_living -= 1;
+                        if (windows.num_living == 0) {
+                            return Event{.Quit=.{}};
+                        }
+                        return Event{.WindowClose=@intToEnum(Window.Handle,i)};
                     }
                 }
             },
@@ -238,6 +219,7 @@ pub fn createWindow(
     windows.handles[windows.idx] = window;
     windows.wm_dels[windows.idx] = wm_del;
     windows.wm_protos[windows.idx] = wm_proto;
+    windows.num_living += 1;
 
     return Window{
         .handle = @intToEnum(Window.Handle, windows.idx),
