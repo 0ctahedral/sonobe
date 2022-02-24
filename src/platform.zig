@@ -16,9 +16,12 @@ var libvk: std.DynLib = undefined;
 /// function pointer to vulkan proc
 var vk_get_proc: vk.PfnGetInstanceProcAddr = undefined;
 
+pub const vkprefix = backend.vkprefix;
+
 /// Initialize the platform layer
 pub fn init() !void {
-    libvk = try std.DynLib.open("/usr/lib/libvulkan.so");
+    libvk = try std.DynLib.open(vkprefix ++ "/lib/libvulkan.so");
+
     if (libvk.lookup(vk.PfnGetInstanceProcAddr, "vkGetInstanceProcAddr")) |pfn| {
         vk_get_proc = pfn;
     } else {
@@ -35,7 +38,7 @@ pub fn deinit() void {
 /// poll for input events on this platform
 pub fn flush() bool {
     var rev: ?Events.WindowResizeEvent = null;
-    while(backend.nextEvent()) |ev| {
+    while (backend.nextEvent()) |ev| {
         switch (ev) {
             .Quit => is_running = false,
             .WindowClose => |id| std.log.info("window {} closed", .{id}),
@@ -43,11 +46,11 @@ pub fn flush() bool {
                 rev = r;
                 std.log.debug("event: {}", .{ev});
                 //Events.send(ev);
-            }
+            },
         }
     }
     if (rev) |r| {
-        Events.send(Events.Event{.WindowResize=r});
+        Events.send(Events.Event{ .WindowResize = r });
         //Renderer.resize(r.w, r.h);
         return false;
     }

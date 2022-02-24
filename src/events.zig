@@ -6,8 +6,6 @@
 //! with the same function.
 const std = @import("std");
 const Window = @import("platform/window.zig");
-const Ringbuffer = @import("containers.zig").Ringbuffer;
-
 
 var initialized = false;
 
@@ -23,11 +21,11 @@ pub const EventType = enum {
 };
 
 pub const WindowResizeEvent = struct {
-        x: i16,
-        y: i16,
-        w: u16,
-        h: u16,
-    };
+    x: i16,
+    y: i16,
+    w: u16,
+    h: u16,
+};
 
 pub const Event = union(EventType) {
     Quit,
@@ -49,7 +47,7 @@ const MAX_CALLBACKS = 32;
 /// a wrapper for a function and object to send
 const Callback = struct {
     //obj: *anyopaque,
-    func: fn(Event)void,
+    func: fn (Event) void,
 };
 
 /// Where we store our different callbacks for different event types
@@ -85,7 +83,7 @@ pub fn register(event: EventType, func: anytype) !void {
     //if (!initialized) {
     //    return error.NotInitialized;
     //}
-    
+
     std.log.info("registering event: {}", .{event});
 
     if (firstNull(event)) |idx| {
@@ -103,7 +101,7 @@ pub fn register(event: EventType, func: anytype) !void {
 //    if (!initialized) {
 //        return error.NotInitialized;
 //    }
-//    // 
+//    //
 //    const optr = @ptrCast(opaqueT, obj);
 //    const idx: i8 = blk: {
 //        var i: i8 = 0;
@@ -131,4 +129,3 @@ pub fn send(event: Event) void {
         }
     }
 }
-
