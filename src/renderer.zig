@@ -3,6 +3,7 @@ const builtin = @import("builtin");
 const vk = @import("vulkan");
 
 const Platform = @import("platform.zig");
+const Events = @import("events.zig");
 
 const dispatch_types = @import("renderer/dispatch_types.zig");
 const BaseDispatch = dispatch_types.BaseDispatch;
@@ -223,6 +224,9 @@ pub fn init(provided_allocator: Allocator, app_name: [*:0]const u8, window: Plat
     swapchain = try Swapchain.init(vki, device, surface, fb_width, fb_height, allocator);
     errdefer swapchain.deinit(device, allocator);
 
+    // subscribe to resize events
+    try Events.register(Events.EventType.WindowResize, resize);
+
     // create a renderpass
     renderpass = try RenderPass.init(swapchain, device, .{ .offset = .{ .x = 0, .y = 0 }, .extent = .{
         .width = fb_width,
@@ -305,7 +309,9 @@ pub fn deinit() void {
     vki.destroyInstance(instance, null);
 }
 
-pub fn resize(w: u32, h: u32) void {
+pub fn resize(ev: Events.Event) void {
+    const w = ev.WindowResize.w;
+    const h = ev.WindowResize.h;
     cached_width = w;
     cached_height = h;
     size_gen += 1;
@@ -350,9 +356,8 @@ pub fn beginFrame() !bool {
     }
 
     // wait for current frame
-    //std.log.info("waiting for render fence", .{});
+    //std.log.info("waiting for render fence: {}", .{getCurrentFrame().render_fence.handle});
     try getCurrentFrame().render_fence.wait(device, std.math.maxInt(u64));
-    try getCurrentFrame().render_fence.reset(device);
 
     image_index = swapchain.acquireNext(device, getCurrentFrame().image_avail_semaphore, Fence{}) catch |err| {
         switch (err) {
@@ -364,6 +369,7 @@ pub fn beginFrame() !bool {
         }
     };
 
+    try getCurrentFrame().render_fence.reset(device);
     //std.log.debug("image idx: {}", .{image_index});
 
     var cb: *CommandBuffer = &getCurrentFrame().cmdbuf;
@@ -460,6 +466,8 @@ pub fn endFrame() !void {
             else => |narrow| return narrow,
         }
     };
+
+    frame_number += 1;
 }
 
 fn recreateSwapchain() !bool {
@@ -513,7 +521,7 @@ fn recreateSwapchain() !bool {
     recreating_swapchain = false;
     std.log.info("done recreating swapchain", .{});
 
-    frame_number += 1;
+    //frame_number += 1;
 
     return true;
 }
