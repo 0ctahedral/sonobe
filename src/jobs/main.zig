@@ -1,98 +1,62 @@
 const std = @import("std");
 const expect = std.testing.expect;
 
-const Counter = struct {
-    value: usize = 0,
-};
+var saved_frame: anyframe = undefined;
 
-const Shelved = struct {
-    f: anyframe,
-    c: ?Counter,
-};
+/// Schedules to the target frame
+fn scheduleFrame(target: *anyframe) void {
+    suspend {
+        target.* = @frame();
+        std.debug.print("frame scheduled\n", .{});
+    }
+}
+
+fn schedule() void {
+    suspend {
+        saved_frame = @frame();
+        std.debug.print("frame scheduled\n", .{});
+    }
+}
 
 const Job = struct {
-    task: fn () void,
-    data: *u32,
+    taskfn: fn ()  callconv(.Async) void = undefined,
+    fn task(self: @This(), data: []align(8) u8) void {
+        _ = @asyncCall(data, undefined, self.taskfn, .{});
+    }
 };
 
-//var shelf: [10]?Shelved = undefined;
-var last: usize = 0;
-var job_queue = [_]?Job{
-    null,
-} ** 10;
-
-var counter = Counter{};
-
-/// yeild this job until counter is 0
-fn wait_for(c: *Counter) void {
-    _ = c;
-    suspend {
-        // add current frame to queue
-    }
+fn runJob(job: Job) void {
+    scheduleFrame(&saved_frame);
+    var data: [4096] u8 align(8) = undefined;
+    _ = async job.task(data[0..]);
 }
 
-/// adds a job to the queue
-fn run_job(f: Job) void {
-    job_queue[last] = f;
-    last += 1;
+fn onesuspend() void {
+    a += 1;
+    std.debug.print("added 1\n", .{});
+    scheduleFrame(&saved_frame);
+    a += 1;
+    std.debug.print("added 1 again\n", .{});
 }
 
-fn main_loop() void {
-    //while (true) {
-    for (job_queue) |job, i| {
-        if (job) |j| {
-            std.debug.print("running job {d}\n", .{i});
-            j.task.*(j.data);
-            std.debug.print("ran job {d}\n", .{i});
-            // remove job from queue
-            job_queue[i] = null;
-        }
-    }
-    //}
-}
+var a: u32 = 0;
 
-test "async" {
-    var a: u32 = 0;
+test "one job" {
+    _ = async runJob(.{
+        .taskfn = onesuspend,
+    });
 
-    //var ofn = &onesuspend;
+    try expect(a == 0);
 
-    var data: [4096]u8 align(8) = undefined;
-
-    //var f = @asyncCall(data[0..], undefined, onesuspend, .{&a});
-    var j = Job{
-        .task = onesuspend,
-        .data = &a,
-    };
-
-    var f = @asyncCall(data[0..], undefined, j.task, .{j.data});
+    resume saved_frame;
 
     try expect(a == 1);
 
-    nosuspend await f;
+    resume saved_frame;
 
     try expect(a == 2);
-
-    //counter.value = 10;
-
-    //std.debug.print("{}\n", .{@Frame(onesuspend)});
-
-    //run_job(.{ .task = &onesuspend, .data = @ptrCast(*anyopaque, &a) });
-    //var j = job_queue[0].?;
-    //async j.task.*(j.data);
-
-    //try expect(a == 1);
-
-    //std.time.sleep(1 * std.time.ns_per_ms);
-    //counter.value = 0;
-
-    //var t = try std.Thread.spawn(.{}, main_loop, .{});
-    //t.join();
 }
 
-fn onesuspend(i: *u32) void {
-    i.* += 1;
-    std.debug.print("added 1\n", .{});
-    wait_for(&counter);
-    i.* += 1;
-    std.debug.print("added 1 again\n", .{});
+test "queue" {
+
 }
