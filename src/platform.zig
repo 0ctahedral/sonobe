@@ -1,5 +1,5 @@
 const std = @import("std");
-//const glfw = @import("glfw");
+const builtin = @import("builtin");
 const vk = @import("vulkan");
 const InstanceDispatch = @import("renderer/dispatch_types.zig").InstanceDispatch;
 const Renderer = @import("renderer.zig");
@@ -16,7 +16,21 @@ var libvk: std.DynLib = undefined;
 /// function pointer to vulkan proc
 var vk_get_proc: vk.PfnGetInstanceProcAddr = undefined;
 
-pub const vkprefix = backend.vkprefix;
+pub const vkprefix = switch (builtin.target.os.tag) {
+    .macos => "VK_EXT_metal_surface",
+    .linux => "./deps/vulkan/x86_64",
+    else => unreachable,
+};
+
+pub const required_exts = [_][*:0]const u8{
+    vk.extension_info.ext_debug_utils.name,
+    "VK_KHR_surface",
+    switch (builtin.target.os.tag) {
+        .macos => "VK_EXT_metal_surface",
+        .linux => "VK_KHR_xcb_surface",
+        else => unreachable,
+    },
+};
 
 /// Initialize the platform layer
 pub fn init() !void {

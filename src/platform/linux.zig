@@ -10,8 +10,6 @@ var display: *xcb.Display = undefined;
 var connection: *xcb.xcb_connection_t = undefined;
 var screen: *xcb.xcb_screen_t = undefined;
 
-pub const vkprefix = "./deps/vulkan/x86_64";
-
 var windows: struct {
     /// idx of the next open spot
     idx: usize = 0,

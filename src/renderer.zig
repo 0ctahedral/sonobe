@@ -1,5 +1,4 @@
 const std = @import("std");
-const builtin = @import("builtin");
 const vk = @import("vulkan");
 
 const Platform = @import("platform.zig");
@@ -26,15 +25,6 @@ const Vec3 = mmath.Vec3;
 const Buffer = @import("renderer/buffer.zig").Buffer;
 
 // TODO: get these from the system
-const required_exts = [_][*:0]const u8{
-    vk.extension_info.ext_debug_utils.name,
-    "VK_KHR_surface",
-    switch (builtin.target.os.tag) {
-        .macos => "VK_EXT_metal_surface",
-        .linux => "VK_KHR_xcb_surface",
-        else => unreachable,
-    },
-};
 
 // TODO: set this in a config
 const required_layers = [_][*:0]const u8{"VK_LAYER_KHRONOS_validation"};
@@ -45,7 +35,6 @@ var quad_verts = [_]Vertex{
     .{ .pos = Vec3.new(-0.5, 0.5, 0) },
     .{ .pos = Vec3.new(0.5, -0.5, 0) },
 };
-
 
 const MeshPushConstants = struct {
     index: u32,
@@ -138,7 +127,6 @@ inline fn getCurrentFrame() *FrameData {
     return &frames[frame_number % frames.len];
 }
 
-
 // initialize the renderer
 pub fn init(provided_allocator: Allocator, app_name: [*:0]const u8, window: Platform.Window) !void {
     allocator = provided_allocator;
@@ -175,8 +163,8 @@ pub fn init(provided_allocator: Allocator, app_name: [*:0]const u8, window: Plat
         .enabled_layer_count = required_layers.len,
         //.enabled_layer_count = 0,
         .pp_enabled_layer_names = &required_layers,
-        .enabled_extension_count = @intCast(u32, required_exts.len),
-        .pp_enabled_extension_names = @ptrCast([*]const [*:0]const u8, &required_exts),
+        .enabled_extension_count = @intCast(u32, Platform.required_exts.len),
+        .pp_enabled_extension_names = @ptrCast([*]const [*:0]const u8, &Platform.required_exts),
     }, null);
 
     // load dispatch functions which require instance
@@ -395,7 +383,6 @@ pub fn beginFrame() !bool {
 
     device.vkd.cmdBindPipeline(cb.handle, .graphics, pipeline.handle);
 
-
     device.vkd.cmdBindDescriptorSets(
         cb.handle,
         .graphics,
@@ -555,22 +542,11 @@ fn createPipeline() !void {
         },
     };
 
-    pipeline = try Pipeline.init(
-        device,
-        renderpass,
-        &[_]vk.DescriptorSetLayout{global_descriptor_layout},
-        &[_]vk.PushConstantRange{
-            .{
-                .stage_flags = .{ .vertex_bit = true },
-                .offset = 0,
-                .size = @intCast(u32, @sizeOf(MeshPushConstants)),
-            }
-        },
-        &shader.stage_ci,
-        viewport,
-        scissor,
-        false
-    );
+    pipeline = try Pipeline.init(device, renderpass, &[_]vk.DescriptorSetLayout{global_descriptor_layout}, &[_]vk.PushConstantRange{.{
+        .stage_flags = .{ .vertex_bit = true },
+        .offset = 0,
+        .size = @intCast(u32, @sizeOf(MeshPushConstants)),
+    }}, &shader.stage_ci, viewport, scissor, false);
 }
 
 fn upload(pool: vk.CommandPool, buffer: Buffer, comptime T: type, items: []T) !void {
@@ -698,9 +674,8 @@ const FrameData = struct {
 
         self.model_buffer = try Buffer.init(dev, @sizeOf(@TypeOf(self.model_data)), .{
             .storage_buffer_bit = true,
-            .transfer_dst_bit = true, 
-        },
-        .{
+            .transfer_dst_bit = true,
+        }, .{
             .host_visible_bit = true,
             .host_coherent_bit = true,
         }, true);
@@ -719,7 +694,7 @@ const FrameData = struct {
         self.cam_data = CameraData{};
         self.model_data[0] = Mat4.translate(Vec3.new(0, 100, 0));
         self.model_data[1] = Mat4.scale(mmath.Vec3.new(100, 100, 100))
-                            .mul(Mat4.translate(.{ .x = 500, .y = 250}));
+            .mul(Mat4.translate(.{ .x = 500, .y = 250 }));
 
         try self.updateDescriptorSets(dev);
 
@@ -757,28 +732,25 @@ const FrameData = struct {
             },
         };
 
-        const writes = [_]vk.WriteDescriptorSet{
-            .{
-                .dst_set = self.global_descriptor_set,
-                .dst_binding = 0,
-                .dst_array_element = 0,
-                .descriptor_count = cam_infos.len,
-                .descriptor_type = .uniform_buffer,
-                .p_image_info = undefined,
-                .p_buffer_info = cam_infos[0..],
-                .p_texel_buffer_view = undefined,
-            },
-            .{
-                .dst_set = self.global_descriptor_set,
-                .dst_binding = 1,
-                .dst_array_element = 0,
-                .descriptor_count = model_infos.len,
-                .descriptor_type = .storage_buffer,
-                .p_image_info = undefined,
-                .p_buffer_info = model_infos[0..],
-                .p_texel_buffer_view = undefined,
-            }
-        };
+        const writes = [_]vk.WriteDescriptorSet{ .{
+            .dst_set = self.global_descriptor_set,
+            .dst_binding = 0,
+            .dst_array_element = 0,
+            .descriptor_count = cam_infos.len,
+            .descriptor_type = .uniform_buffer,
+            .p_image_info = undefined,
+            .p_buffer_info = cam_infos[0..],
+            .p_texel_buffer_view = undefined,
+        }, .{
+            .dst_set = self.global_descriptor_set,
+            .dst_binding = 1,
+            .dst_array_element = 0,
+            .descriptor_count = model_infos.len,
+            .descriptor_type = .storage_buffer,
+            .p_image_info = undefined,
+            .p_buffer_info = model_infos[0..],
+            .p_texel_buffer_view = undefined,
+        } };
 
         dev.vkd.updateDescriptorSets(dev.logical, writes.len, &writes, 0, undefined);
     }

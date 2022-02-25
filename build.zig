@@ -1,7 +1,6 @@
 const std = @import("std");
 const Builder = std.build.Builder;
 
-const glfw = @import("deps/mach-glfw/build.zig");
 const vkgen = @import("deps/vulkan-zig/generator/index.zig");
 const zigvulkan = @import("deps/vulkan-zig/build.zig");
 const prefix = @import("src/platform.zig").vkprefix;
@@ -15,6 +14,42 @@ pub fn build(b: *Builder) void {
     const test_step = b.step("test", "Run tests");
     test_step.dependOn(&tests.step);
 
+    const exe = b.addExecutable("testbed", "testbed/main.zig");
+    exe.install();
+
+    const exe_step = b.step("run", "build and run testbed");
+    exe_step.dependOn(&exe.run().step);
+
+    link(b, exe);
+
+    compileBuiltinShaders(b, exe);
+}
+
+/// add this library package to the executable
+/// and link dependencies
+fn link(b: *Builder, step: *std.build.LibExeObjStep) void {
+    // packages
+    const gen = vkgen.VkGenerateStep.init(b, "deps/vulkan-zig/examples/vk.xml", "vk.zig");
+    step.addPackage(.{
+        .name = "octal",
+        .path = .{ .path = "./src/main.zig" },
+        .dependencies = &[_]std.build.Pkg{gen.package},
+    });
+    // links / c stuff
+    step.linkLibC();
+    step.addIncludeDir(prefix ++ "/include");
+    // TODO: configure this by os
+    const lib_names = [_][]const u8{
+        "xcb",
+        "X11-xcb",
+    };
+    for (lib_names) |ln| {
+        step.linkSystemLibrary(ln);
+    }
+}
+
+// TODO: make this compile all shaders in the folder
+fn compileBuiltinShaders(b: *Builder, step: *std.build.LibExeObjStep) void {
     const compile_vert = b.addSystemCommand(&[_][]const u8{
         prefix ++ "/bin/glslc",
         "-fshader-stage=vert",
@@ -31,32 +66,6 @@ pub fn build(b: *Builder) void {
         "assets/builtin.frag.spv",
     });
 
-    const exe = b.addExecutable("testbed", "testbed/main.zig");
-    exe.install();
-
-    const exe_step = b.step("run", "build and run testbed");
-    exe_step.dependOn(&exe.run().step);
-
-    //exe.addPackagePath("glfw", "deps/mach-glfw/src/main.zig");
-    const gen = vkgen.VkGenerateStep.init(b, "deps/vulkan-zig/examples/vk.xml", "vk.zig");
-    exe.addPackage(gen.package);
-    exe.addPackage(.{
-        .name = "octal",
-        .path = .{ .path = "./src/main.zig" },
-        .dependencies = &[_]std.build.Pkg{
-        //.{
-        //    .name = "glfw",
-        //    .path = .{ .path = "deps/mach-glfw/src/main.zig" },
-        //},
-        gen.package},
-    });
-    // TODO: configure this by os
-    exe.linkSystemLibrary("xcb");
-    exe.linkSystemLibrary("X11-xcb");
-
-    glfw.link(b, exe, .{});
-    exe.addIncludeDir(prefix ++ "/include");
-
-    exe.step.dependOn(&compile_vert.step);
-    exe.step.dependOn(&compile_frag.step);
+    step.step.dependOn(&compile_vert.step);
+    step.step.dependOn(&compile_frag.step);
 }
