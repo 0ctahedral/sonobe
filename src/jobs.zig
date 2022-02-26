@@ -5,8 +5,13 @@ const Ringbuffer = @import("containers.zig").Ringbuffer;
 /// A job that is submitted to be run by a worker thread
 const Job = struct {
     taskfn: fn () callconv(.Async) void = undefined,
-    fn task(self: @This(), data: []align(8) u8) void {
-        _ = @asyncCall(data, undefined, self.taskfn, .{});
+    counter: *Counter = undefined,
+
+    fn task(self: @This()) void {
+        var stack: [4096]u8 align(8) = undefined;
+        var f = @asyncCall(&stack, undefined, self.taskfn, .{});
+        await f;
+        self.counter.dec();
     }
 };
 
@@ -38,9 +43,14 @@ const ShelvedJob = struct {
     frame: anyframe,
 };
 
-var job_queue = Ringbuffer(anyframe, 10).init();
+/// jobs that have not started yet
+var job_queue = Ringbuffer(Job, 10).init();
+/// fibers that are ready
+var frame_queue = Ringbuffer(anyframe, 10).init();
+/// fibers that are waiting
 var wait_queue = Ringbuffer(ShelvedJob, 10).init();
 
+//fn wait(counter: *Counter, value?) void {
 fn wait(counter: *Counter) void {
     suspend {
         wait_queue.push(.{
@@ -51,27 +61,26 @@ fn wait(counter: *Counter) void {
     }
 }
 
-fn run(job: Job, data: []align(8) u8) void {
-    // add to job queue
-    suspend {
-        job_queue.push(@frame()) catch unreachable;
-    }
-    _ = async job.task(data);
+fn run(job: Job) void {
+    job_queue.push(job) catch unreachable;
 }
 
 var a: u32 = 0;
-var c: Counter = Counter{ .value = 1 };
+var wait_c: Counter = Counter{ .value = 1 };
 fn onesuspend() void {
     a += 1;
     std.debug.print("added 1\n", .{});
-    wait(&c);
+    wait(&wait_c);
     a += 1;
     std.debug.print("added 1 again\n", .{});
 }
 
 var done = false;
 
-fn loop() void {
+//threadlocal var thread_number: u32 = 0;
+
+fn loop(tn: u32) void {
+    //thread_number = tn;
     while (!done) {
         var tmp_queue = Ringbuffer(ShelvedJob, 10).init();
 
@@ -81,11 +90,9 @@ fn loop() void {
             // otherwise add to back of queue
             // for now there are no conditions
             if (shelved.counter.is_zero()) {
-                std.debug.print("resuming frame\n", .{});
-                // the frame is ready so we should push it to the
-                // front of the job_queue
+                std.debug.print("resuming frame in {d}\n", .{tn});
                 // TODO: push front
-                job_queue.push(shelved.frame) catch unreachable;
+                frame_queue.push(shelved.frame) catch unreachable;
             } else {
                 tmp_queue.push(shelved) catch {
                     wait_queue.push(shelved) catch unreachable;
@@ -99,32 +106,43 @@ fn loop() void {
             wait_queue.push(j) catch unreachable;
         }
 
+        // resume from a frame
+        while (frame_queue.pop()) |frame| {
+            std.debug.print("resuming job in {d}\n", .{tn});
+            resume frame;
+        }
+
         // then see if there are any new jobs to run
         while (job_queue.pop()) |job| {
-            std.debug.print("starting job\n", .{});
-            resume job;
+            std.debug.print("starting job {d}\n", .{tn});
+            _ = async job.task();
         }
     }
 }
 
 test "queue while loop in thread" {
     a = 0;
-    var data: [4096]u8 align(8) = undefined;
-    try expect(job_queue.len == 0);
 
-    _ = async run(.{
+    var job_c = Counter{ .value = 1 };
+
+    run(.{
+        .counter = &job_c,
         .taskfn = onesuspend,
-    }, data[0..]);
+    });
 
     try expect(a == 0);
+    //try expect(job_queue.len == 1);
+    try expect(job_c.value == 1);
 
-    try expect(job_queue.len == 1);
-
-    var t = try std.Thread.spawn(.{}, loop, .{});
+    // TODO: lock to core
+    var t = try std.Thread.spawn(.{}, loop, .{1});
 
     std.time.sleep(1 * std.time.ns_per_s);
 
-    c.dec();
+    try expect(a == 1);
+    try expect(job_c.value == 1);
+
+    wait_c.dec();
 
     std.time.sleep(1 * std.time.ns_per_s);
 
@@ -132,8 +150,7 @@ test "queue while loop in thread" {
 
     t.join();
 
-    try expect(job_queue.len == 0);
+    //try expect(job_queue.len == 0);
     try expect(a == 2);
-
-    job_queue.clear();
+    try expect(job_c.value == 0);
 }
