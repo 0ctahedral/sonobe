@@ -19,6 +19,8 @@ frame_queue: Ringbuffer(anyframe, 10),
 /// fibers that are waiting
 wait_queue: Ringbuffer(WaitingFrame, 10),
 
+alloc: std.mem.Allocator,
+
 /// Basically a semaphore, indicates when a job dependency is done
 const Counter = struct {
     /// value stored in this counter
@@ -51,10 +53,11 @@ const WaitingFrame = struct {
 
 /// initialize the jobs subsystem
 /// this creates an instance
-pub fn init() !void {
+pub fn init(allocator: std.mem.Allocator) !void {
     global = Jobs{
         .frame_queue = Ringbuffer(anyframe, 10).init(),
         .wait_queue = Ringbuffer(WaitingFrame, 10).init(),
+        .alloc = allocator,
     };
 
     for (global.worker_threads) |*t, i| {
@@ -71,6 +74,8 @@ pub fn deinit() void {
     for (global.worker_threads) |t| {
         t.join();
     }
+    global.frame_queue.clear();
+    global.wait_queue.clear();
     instance = null;
 }
 
@@ -104,15 +109,12 @@ pub fn run(comptime func: anytype, args: anytype, counter: ?*Counter) !void {
                 if (c != null) {
                     c.?.dec();
                 }
+                instance.?.alloc.destroy(@frame());
             }
         }
     };
 
-    std.debug.print("wrapper frame size: {d}\n", .{@sizeOf(@Frame(Wrapper.run))});
-
-    var stack: [stack_size]u8 align(8) = undefined;
-
-    var run_frame = @ptrCast(*@Frame(Wrapper.run), &stack);
+    var run_frame = try instance.?.alloc.create(@Frame(Wrapper.run));
     run_frame.* = async Wrapper.run(args, counter);
 }
 
@@ -149,8 +151,14 @@ fn loop(self: *Jobs, tn: u32) void {
     }
 }
 
-// TESTS AND STUFF
+test "no funcs called" {
+    try init(std.testing.allocator);
+    defer deinit();
 
+    std.time.sleep(2 * std.time.ns_per_s);
+}
+
+// TESTS AND STUFF
 fn onesuspend(a: *u32, c: *Counter) void {
     a.* += 1;
     std.debug.print("added 1\n", .{});
@@ -163,7 +171,7 @@ test "function with single suspend" {
     var a: u32 = 0;
     var wait_c: Counter = Counter{ .value = 1 };
 
-    try init();
+    try init(std.testing.allocator);
     defer deinit();
 
     var job_c = Counter{};
@@ -188,6 +196,34 @@ test "function with single suspend" {
     try expect(job_c.value == 0);
 }
 
+fn spawner(i: *u32) void {
+    var c = Counter{};
+    std.debug.print("spanwing other job\n", .{});
+    i.* += 1;
+    run(other, .{i}, &c) catch unreachable;
+    std.debug.print("waiting for other job\n", .{});
+    wait(&c, 0);
+    std.debug.print("spawn done\n", .{});
+}
+
+fn other(i: *u32) void {
+    i.* += 1;
+    std.debug.print("hello from other job\n", .{});
+}
+
+test "job spawns job" {
+    try init(std.testing.allocator);
+    defer deinit();
+
+    var job_c = Counter{};
+    var a: u32 = 0;
+    try run(spawner, .{&a}, &job_c);
+
+    while (job_c.val() != 0) {}
+
+    try std.testing.expect(a == 2);
+}
+
 fn doStuff(v: *u32, t: u32) void {
     var i: u32 = 0;
     while (i < t) : (i += 1) {
@@ -196,7 +232,7 @@ fn doStuff(v: *u32, t: u32) void {
 }
 
 test "add a bunch of jobs" {
-    try init();
+    try init(std.testing.allocator);
     defer deinit();
 
     var x: u32 = 0;
