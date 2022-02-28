@@ -4,3 +4,4 @@
 
 pub const hash = @import("./containers/hash.zig");
 pub const Ringbuffer = @import("./containers/ringbuffer.zig").Ringbuffer;
+pub const FreeList = @import("./containers/freelist.zig").FreeList;
