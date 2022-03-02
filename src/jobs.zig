@@ -1,10 +1,13 @@
 const std = @import("std");
 const expect = std.testing.expect;
-const Ringbuffer = @import("containers.zig").Ringbuffer;
+const containers = @import("containers.zig");
+const Ringbuffer = containers.Ringbuffer;
+const FreeList = containers.FreeList;
 
 pub const Jobs = @This();
 pub const num_threads = 4;
-pub const stack_size = 64 * 1024;
+pub const stack_size = 4 * 1024;
+pub const num_jobs = 120;
 
 var global: Jobs = undefined;
 pub var instance: ?*Jobs = null;
@@ -15,11 +18,13 @@ done: bool = false,
 worker_threads: [num_threads]std.Thread = undefined,
 
 /// fibers that are ready
-frame_queue: Ringbuffer(anyframe, 10),
+frame_queue: Ringbuffer(anyframe, num_jobs),
 /// fibers that are waiting
-wait_queue: Ringbuffer(WaitingFrame, 10),
+wait_queue: Ringbuffer(WaitingFrame, num_jobs),
 
 alloc: std.mem.Allocator,
+
+stacks: FreeList([stack_size]u8),
 
 /// Basically a semaphore, indicates when a job dependency is done
 const Counter = struct {
@@ -55,9 +60,10 @@ const WaitingFrame = struct {
 /// this creates an instance
 pub fn init(allocator: std.mem.Allocator) !void {
     global = Jobs{
-        .frame_queue = Ringbuffer(anyframe, 10).init(),
-        .wait_queue = Ringbuffer(WaitingFrame, 10).init(),
+        .frame_queue = Ringbuffer(anyframe, num_jobs).init(),
+        .wait_queue = Ringbuffer(WaitingFrame, num_jobs).init(),
         .alloc = allocator,
+        .stacks = try FreeList([stack_size]u8).init(allocator, num_jobs),
     };
 
     for (global.worker_threads) |*t, i| {
@@ -76,6 +82,7 @@ pub fn deinit() void {
     }
     global.frame_queue.clear();
     global.wait_queue.clear();
+    global.stacks.deinit();
     instance = null;
 }
 
@@ -109,12 +116,12 @@ pub fn run(comptime func: anytype, args: anytype, counter: ?*Counter) !void {
                 if (c != null) {
                     c.?.dec();
                 }
-                instance.?.alloc.destroy(@frame());
+                instance.?.stacks.freeAny(@frame());
             }
         }
     };
 
-    var run_frame = try instance.?.alloc.create(@Frame(Wrapper.run));
+    var run_frame = @ptrCast(*@Frame(Wrapper.run), @alignCast(8, try instance.?.stacks.alloc()));
     run_frame.* = async Wrapper.run(args, counter);
 }
 
@@ -155,7 +162,7 @@ test "no funcs called" {
     try init(std.testing.allocator);
     defer deinit();
 
-    std.time.sleep(2 * std.time.ns_per_s);
+    std.time.sleep(std.time.ns_per_s / 10);
 }
 
 // TESTS AND STUFF
@@ -183,14 +190,14 @@ test "function with single suspend" {
 
     std.debug.print("job enqueued\n", .{});
 
-    std.time.sleep(1 * std.time.ns_per_s);
+    std.time.sleep(std.time.ns_per_s / 10);
 
     try expect(a == 1);
     try expect(job_c.value == 1);
 
     wait_c.dec();
 
-    std.time.sleep(1 * std.time.ns_per_s);
+    std.time.sleep(std.time.ns_per_s / 10);
 
     try expect(a == 2);
     try expect(job_c.value == 0);
