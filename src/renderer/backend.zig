@@ -126,7 +126,6 @@ pub fn init(provided_allocator: Allocator, app_name: [*:0]const u8, window: Plat
     var vk_proc = Platform.getInstanceProcAddress();
 
     // get proc address from glfw window
-    //const vk_proc = Platform.getInstanceProcAddress();
     // load the base dispatch functions
     vkb = try BaseDispatch.load(vk_proc);
 
@@ -219,7 +218,7 @@ pub fn init(provided_allocator: Allocator, app_name: [*:0]const u8, window: Plat
 
     // create framebuffers
     std.log.info("fbw: {} fbh: {}", .{ fb_width, fb_width });
-    try recreateFramebuffers();
+    try swapchain.recreateFramebuffers(device, renderpass, fb_width, fb_height);
 
     // create frame objects
     try createDescriptors();
@@ -232,7 +231,7 @@ pub fn init(provided_allocator: Allocator, app_name: [*:0]const u8, window: Plat
     shader = try Shader.init(device, allocator);
 
     // create pipeline
-    try createPipeline();
+    try defaultPipeline();
     // create some buffers
     try createBuffers();
 
@@ -295,25 +294,6 @@ fn resize(ev: Events.Event) void {
     cached_height = h;
     size_gen += 1;
     std.log.warn("resize triggered: {}x{}, gen: {}", .{ w, h, size_gen });
-}
-
-// TODO: fix this, i'm lazy
-// also should probably be in the swapchain??
-fn recreateFramebuffers() !void {
-    std.log.info("fbw: {} fbh: {}", .{ fb_width, fb_height });
-    for (swapchain.images) |img, i| {
-        const attachments = [_]vk.ImageView{ img.view, swapchain.depth.view };
-
-        swapchain.framebuffers[i] = try device.vkd.createFramebuffer(device.logical, &.{
-            .flags = .{},
-            .render_pass = renderpass.handle,
-            .attachment_count = attachments.len,
-            .p_attachments = @ptrCast([*]const vk.ImageView, &attachments),
-            .width = fb_width,
-            .height = fb_height,
-            .layers = 1,
-        }, null);
-    }
 }
 
 pub fn beginFrame() !bool {
@@ -482,7 +462,7 @@ fn recreateSwapchain() !bool {
     }
 
     // create the framebuffers
-    try recreateFramebuffers();
+    try swapchain.recreateFramebuffers(device, renderpass, fb_width, fb_height);
 
     // create the command buffers
     for (frames) |*f| {
@@ -498,8 +478,6 @@ fn recreateSwapchain() !bool {
 
     recreating_swapchain = false;
     std.log.info("done recreating swapchain", .{});
-
-    //frame_number += 1;
 
     return true;
 }
@@ -521,8 +499,8 @@ fn createBuffers() !void {
     }, .{ .device_local_bit = true }, true);
 }
 
-// TODO: find a home for this
-fn createPipeline() !void {
+/// creates the default pipeline
+fn defaultPipeline() !void {
     const viewport = vk.Viewport{ .x = 0, .y = @intToFloat(f32, fb_height), .width = @intToFloat(f32, fb_width), .height = -@intToFloat(f32, fb_height), .min_depth = 0, .max_depth = 1 };
 
     const scissor = vk.Rect2D{

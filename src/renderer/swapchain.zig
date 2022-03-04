@@ -7,6 +7,7 @@ const Queue = @import("device.zig").Queue;
 const Image = @import("image.zig").Image;
 const Fence = @import("fence.zig").Fence;
 const Semaphore = @import("semaphore.zig").Semaphore;
+const RenderPass = @import("renderpass.zig").RenderPass;
 
 pub const Swapchain = struct {
     surface_format: vk.SurfaceFormatKHR = undefined,
@@ -58,7 +59,6 @@ pub const Swapchain = struct {
                 break;
             }
         }
-
 
         // find present mode
         var present_modes: [32]vk.PresentModeKHR = undefined;
@@ -141,16 +141,7 @@ pub const Swapchain = struct {
         self.framebuffers = try allocator.alloc(vk.Framebuffer, count);
 
         // create the depth image
-        self.depth = try Image.init(
-            dev,
-            .@"2d",
-            extent,
-            dev.depth_format,
-            .optimal,
-            .{ .depth_stencil_attachment_bit = true },
-            .{ .device_local_bit = true },
-            .{ .depth_bit = true }
-        );
+        self.depth = try Image.init(dev, .@"2d", extent, dev.depth_format, .optimal, .{ .depth_stencil_attachment_bit = true }, .{ .device_local_bit = true }, .{ .depth_bit = true });
 
         return self;
     }
@@ -218,6 +209,24 @@ pub const Swapchain = struct {
                 return result.image_index;
             },
             else => unreachable,
+        }
+    }
+
+    // also should probably be in the swapchain??
+    pub fn recreateFramebuffers(self: *Self, dev: Device, renderpass: RenderPass, w: u32, h: u32) !void {
+        std.log.info("fbw: {} fbh: {}", .{ w, h });
+        for (self.images) |img, i| {
+            const attachments = [_]vk.ImageView{ img.view, self.depth.view };
+
+            self.framebuffers[i] = try dev.vkd.createFramebuffer(dev.logical, &.{
+                .flags = .{},
+                .render_pass = renderpass.handle,
+                .attachment_count = attachments.len,
+                .p_attachments = @ptrCast([*]const vk.ImageView, &attachments),
+                .width = w,
+                .height = h,
+                .layers = 1,
+            }, null);
         }
     }
 };
