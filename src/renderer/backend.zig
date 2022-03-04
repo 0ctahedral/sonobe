@@ -18,7 +18,7 @@ const Fence = @import("fence.zig").Fence;
 const Semaphore = @import("semaphore.zig").Semaphore;
 const Shader = @import("shader.zig").Shader;
 const Pipeline = @import("pipeline.zig").Pipeline;
-const Vertex = @import("mesh.zig").Vertex;
+const mesh = @import("mesh.zig");
 const mmath = @import("../math.zig");
 const Mat4 = mmath.Mat4;
 const Vec3 = mmath.Vec3;
@@ -27,18 +27,13 @@ const Buffer = @import("buffer.zig").Buffer;
 // TODO: set this in a config
 const required_layers = [_][*:0]const u8{"VK_LAYER_KHRONOS_validation"};
 
-var quad_verts = [_]Vertex{
-    .{ .pos = Vec3.new(-0.5, -0.5, 0) },
-    .{ .pos = Vec3.new(0.5, 0.5, 0) },
-    .{ .pos = Vec3.new(-0.5, 0.5, 0) },
-    .{ .pos = Vec3.new(0.5, -0.5, 0) },
-};
-
+const quad = mesh.Quad;
+/// Index to look up mesh data in shader
 const MeshPushConstants = struct {
     index: u32,
 };
 
-var oct_verts = [_]Vertex{
+var oct_verts = [_]mesh.Vertex{
     .{ .pos = .{ .x = -1.1920928955078125e-07, .y = -1.1920928955078125e-07, .z = -1.0 } },
     .{ .pos = .{ .x = -1.1920928955078125e-07, .y = -1.0, .z = -1.1920928955078125e-07 } },
     .{ .pos = .{ .x = -1.0, .y = -1.1920928955078125e-07, .z = -1.1920928955078125e-07 } },
@@ -56,8 +51,6 @@ var oct_verts = [_]Vertex{
 };
 
 var oct_inds = [_]u32{ 0, 1, 6, 1, 3, 7, 0, 2, 8, 3, 4, 9, 0, 5, 10, 3, 1, 11, 0, 4, 12, 3, 5, 13, 1, 2, 6, 2, 0, 6, 3, 2, 7, 2, 1, 7, 2, 4, 8, 4, 0, 8, 4, 2, 9, 2, 3, 9, 5, 1, 10, 1, 0, 10, 1, 5, 11, 5, 3, 11, 4, 5, 12, 5, 0, 12, 5, 4, 13, 4, 3, 13 };
-
-var quad_inds = [_]u32{ 0, 1, 2, 0, 3, 1 };
 
 var vkb: BaseDispatch = undefined;
 var vki: InstanceDispatch = undefined;
@@ -236,8 +229,8 @@ pub fn init(provided_allocator: Allocator, app_name: [*:0]const u8, window: Plat
     try createBuffers();
 
     // upload the vertices
-    try upload(device.command_pool, vert_buf, Vertex, &quad_verts);
-    try upload(device.command_pool, ind_buf, u32, &quad_inds);
+    try upload(device.command_pool, vert_buf, mesh.Vertex, quad.verts);
+    try upload(device.command_pool, ind_buf, u32, quad.inds);
 }
 
 fn vk_debug(
@@ -382,13 +375,13 @@ pub fn endFrame() !void {
         .index = 0,
     });
 
-    device.vkd.cmdDrawIndexed(cb.handle, quad_inds.len, 1, 0, 0, 0);
+    device.vkd.cmdDrawIndexed(cb.handle, quad.inds.len, 1, 0, 0, 0);
 
     device.vkd.cmdPushConstants(cb.handle, pipeline.layout, .{ .vertex_bit = true }, 0, @intCast(u32, @sizeOf(MeshPushConstants)), &MeshPushConstants{
         .index = 1,
     });
 
-    device.vkd.cmdDrawIndexed(cb.handle, quad_inds.len, 1, 0, 0, 0);
+    device.vkd.cmdDrawIndexed(cb.handle, quad.inds.len, 1, 0, 0, 0);
 
     // --------
 
@@ -484,7 +477,7 @@ fn recreateSwapchain() !bool {
 
 // TODO: move this?
 fn createBuffers() !void {
-    const vertex_buf_size = @sizeOf(Vertex) * 1024 * 1024;
+    const vertex_buf_size = @sizeOf(mesh.Vertex) * 1024 * 1024;
     vert_buf = try Buffer.init(device, vertex_buf_size, .{
         .vertex_buffer_bit = true,
         .transfer_src_bit = true,
@@ -518,7 +511,7 @@ fn defaultPipeline() !void {
     }}, &shader.stage_ci, viewport, scissor, false);
 }
 
-fn upload(pool: vk.CommandPool, buffer: Buffer, comptime T: type, items: []T) !void {
+fn upload(pool: vk.CommandPool, buffer: Buffer, comptime T: type, items: []const T) !void {
     const size = @sizeOf(T) * items.len;
     const staging_buffer = try Buffer.init(
         device,
