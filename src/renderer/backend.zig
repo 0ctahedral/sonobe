@@ -144,7 +144,7 @@ pub fn init(provided_allocator: Allocator, app_name: [*:0]const u8, window: Plat
         .application_version = vk.makeApiVersion(0, 0, 0, 0),
         .p_engine_name = app_name,
         .engine_version = vk.makeApiVersion(0, 0, 0, 0),
-        .api_version = vk.API_VERSION_1_2,
+        .api_version = vk.makeApiVersion(0, 1, 3, 0),
     };
 
     // create an instance
@@ -152,7 +152,6 @@ pub fn init(provided_allocator: Allocator, app_name: [*:0]const u8, window: Plat
         .flags = .{},
         .p_application_info = &app_info,
         .enabled_layer_count = required_layers.len,
-        //.enabled_layer_count = 0,
         .pp_enabled_layer_names = &required_layers,
         .enabled_extension_count = @intCast(u32, Platform.required_exts.len),
         .pp_enabled_extension_names = @ptrCast([*]const [*:0]const u8, &Platform.required_exts),

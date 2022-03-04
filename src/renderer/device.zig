@@ -13,6 +13,7 @@ const Requirements = struct {
 
     extensions: []const [:0]const u8 = &[_][:0]const u8{
         vk.extension_info.khr_swapchain.name,
+        //        vk.extension_info.khr_maintenance_1.name,
     },
 
     /// idk what this is
@@ -112,7 +113,7 @@ pub const Device = struct {
             .p_queue_create_infos = &qci,
             // TODO: add features
             .p_enabled_features = &.{
-                .sampler_anisotropy = vk.TRUE,
+                //.sampler_anisotropy = vk.TRUE,
             },
             .enabled_extension_count = @intCast(u32, reqs.extensions.len),
             //.enabled_extension_count = 1,

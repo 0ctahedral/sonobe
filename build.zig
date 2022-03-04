@@ -29,7 +29,7 @@ pub fn build(b: *Builder) void {
 /// and link dependencies
 fn link(b: *Builder, step: *std.build.LibExeObjStep) void {
     // packages
-    const gen = vkgen.VkGenerateStep.init(b, "deps/vulkan-zig/examples/vk.xml", "vk.zig");
+    const gen = vkgen.VkGenerateStep.init(b, prefix ++ "/vk.xml", "vk.zig");
     step.addPackage(.{
         .name = "octal",
         .path = .{ .path = "./src/main.zig" },
