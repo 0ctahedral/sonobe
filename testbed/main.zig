@@ -8,21 +8,37 @@ const mmath = octal.mmath;
 const app_name = "octal: triangle test";
 
 const Game = struct {
+    var pl_handle: Renderer.PipelineHandle = .null_handle;
     /// load resources and stuff
-    pub fn init() void {}
+    pub fn init() void {
+        // setup pipeline
+        // should this be a material declaration?
+        // or are materials separate?
+        pl_handle = Renderer.createPipeline(
+        // TODO: vertex type?
+        // stages
+        .{
+            .vertex = "",
+            .fragment = "",
+            //.compute = "",
+        });
+        // inputs and outputs?
+    }
 
     /// unload those resources?
-    //pub fn deinit() void { }
+    pub fn deinit() void {}
 
-    /// draw a frame?
+    /// draw a frame
+    /// basically records and submits a single draw call?
     var f: f32 = 0;
     pub fn draw(window: anytype, dt: f32) void {
         _ = window;
+        Renderer.setPipeline(pl_handle);
         // window.framebuffer().submit?
         // submit data to renderer and stuff
         // scene.add(quad);
         // Renderer.submit(scene);
-        f += dt;
+        f += std.math.pi * dt;
         Renderer.updateUniform(mmath.Mat4.scale(mmath.Vec3.new(100, 100, 100))
             .mul(mmath.Mat4.rotate(.z, f))
             .mul(mmath.Mat4.translate(.{ .x = 350, .y = 250 + (@sin(f) * 100) })));
@@ -48,14 +64,17 @@ pub fn main() !void {
     defer Renderer.deinit();
 
     Game.init();
+    defer Game.deinit();
 
     var frame_timer = try std.time.Timer.start();
 
     while (Platform.is_running) {
         if (Platform.flush()) {
             if (try Renderer.beginFrame()) {
-                Game.draw(.{}, @intToFloat(f32, frame_timer.read()) / @intToFloat(f32, std.time.ns_per_s));
+                const ftime = @intToFloat(f32, frame_timer.read()) / @intToFloat(f32, std.time.ns_per_s);
+                Game.draw(.{}, ftime);
                 try Renderer.endFrame();
+                //std.log.debug("ftime: {}", .{std.time.ns_per_s / frame_timer.read()});
             }
         }
 

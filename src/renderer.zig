@@ -5,3 +5,21 @@ pub const deinit = backend.deinit;
 pub const updateUniform = backend.updateUniform;
 pub const beginFrame = backend.beginFrame;
 pub const endFrame = backend.endFrame;
+
+// pipeline suff
+pub const PipelineHandle = enum(u32) { null_handle = 0, _ };
+
+/// Creates a user defined pipeline
+pub fn createPipeline(
+    /// stages of the pipeline
+    /// specified (for now) as strings of the shader file paths
+    comptime stages: anytype,
+) PipelineHandle {
+    _ = stages;
+    return .null_handle;
+}
+
+/// sets the pipeline used for the recording of the current frame
+pub fn setPipeline(handle: PipelineHandle) void {
+    _ = handle;
+}
