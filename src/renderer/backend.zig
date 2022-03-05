@@ -33,25 +33,6 @@ const MeshPushConstants = struct {
     index: u32,
 };
 
-var oct_verts = [_]mesh.Vertex{
-    .{ .pos = .{ .x = -1.1920928955078125e-07, .y = -1.1920928955078125e-07, .z = -1.0 } },
-    .{ .pos = .{ .x = -1.1920928955078125e-07, .y = -1.0, .z = -1.1920928955078125e-07 } },
-    .{ .pos = .{ .x = -1.0, .y = -1.1920928955078125e-07, .z = -1.1920928955078125e-07 } },
-    .{ .pos = .{ .x = -1.1920928955078125e-07, .y = -1.1920928955078125e-07, .z = 1.0 } },
-    .{ .pos = .{ .x = -1.1920928955078125e-07, .y = 1.0, .z = -1.1920928955078125e-07 } },
-    .{ .pos = .{ .x = 1.0, .y = -1.1920928955078125e-07, .z = -1.1920928955078125e-07 } },
-    .{ .pos = .{ .x = -0.6666668057441711, .y = -0.6666667461395264, .z = -0.6666667461395264 } },
-    .{ .pos = .{ .x = -0.6666668057441711, .y = -0.6666667461395264, .z = 0.6666667461395264 } },
-    .{ .pos = .{ .x = -0.6666667461395264, .y = 0.6666668057441711, .z = -0.6666667461395264 } },
-    .{ .pos = .{ .x = -0.6666668057441711, .y = 0.6666667461395264, .z = 0.6666667461395264 } },
-    .{ .pos = .{ .x = 0.6666667461395264, .y = -0.6666668057441711, .z = -0.6666667461395264 } },
-    .{ .pos = .{ .x = 0.6666668057441711, .y = -0.6666667461395264, .z = 0.6666667461395264 } },
-    .{ .pos = .{ .x = 0.6666668057441711, .y = 0.6666667461395264, .z = -0.6666667461395264 } },
-    .{ .pos = .{ .x = 0.6666667461395264, .y = 0.6666668057441711, .z = 0.6666667461395264 } },
-};
-
-var oct_inds = [_]u32{ 0, 1, 6, 1, 3, 7, 0, 2, 8, 3, 4, 9, 0, 5, 10, 3, 1, 11, 0, 4, 12, 3, 5, 13, 1, 2, 6, 2, 0, 6, 3, 2, 7, 2, 1, 7, 2, 4, 8, 4, 0, 8, 4, 2, 9, 2, 3, 9, 5, 1, 10, 1, 0, 10, 1, 5, 11, 5, 3, 11, 4, 5, 12, 5, 0, 12, 5, 4, 13, 4, 3, 13 };
-
 var vkb: BaseDispatch = undefined;
 var vki: InstanceDispatch = undefined;
 var instance: vk.Instance = undefined;
@@ -89,7 +70,7 @@ var fb_width: u32 = 0;
 var fb_height: u32 = 0;
 
 /// Shader currently used by the pipeline
-var shader: Shader = undefined;
+//var shader: Shader = undefined;
 
 /// pipeline currently being used
 var pipeline: Pipeline = undefined;
@@ -220,9 +201,6 @@ pub fn init(provided_allocator: Allocator, app_name: [*:0]const u8, window: Plat
         f.* = try FrameData.init(device, global_descriptor_pool, global_descriptor_layout);
     }
 
-    // create shader
-    shader = try Shader.init(device, allocator);
-
     // create pipeline
     try defaultPipeline();
     // create some buffers
@@ -259,8 +237,6 @@ pub fn deinit() void {
     ind_buf.deinit(device);
 
     pipeline.deinit(device);
-
-    shader.deinit(device);
 
     for (frames) |*f| {
         f.deinit(device);
@@ -494,6 +470,27 @@ fn createBuffers() !void {
 
 /// creates the default pipeline
 fn defaultPipeline() !void {
+    pipeline = try createPipeline(.{
+        //.vertex = "assets/builtin.vert.spv",
+        //.fragment = "assets/builtin.frag.spv",
+
+        .vertex = "builtin.vert",
+        .fragment = "builtin.frag",
+    });
+}
+
+/// Creates a user defined pipeline
+pub fn createPipeline(
+    /// stages of the pipeline
+    /// specified (for now) as strings of the shader file paths
+    //stages: struct {
+    //    vertex: ?[]const u8,
+    //    fragment: ?[]const u8,
+    //},
+    comptime stages: anytype,
+) !Pipeline {
+    _ = stages;
+
     const viewport = vk.Viewport{ .x = 0, .y = @intToFloat(f32, fb_height), .width = @intToFloat(f32, fb_width), .height = -@intToFloat(f32, fb_height), .min_depth = 0, .max_depth = 1 };
 
     const scissor = vk.Rect2D{
@@ -504,7 +501,43 @@ fn defaultPipeline() !void {
         },
     };
 
-    pipeline = try Pipeline.init(device, renderpass, &[_]vk.DescriptorSetLayout{global_descriptor_layout}, &[_]vk.PushConstantRange{.{
+    var stage_names: [3][]const u8 = undefined;
+    var stage_ci: [3]vk.PipelineShaderStageCreateInfo = undefined;
+    var shader_modules: [3]vk.ShaderModule = undefined;
+    var n_stages: usize = 0;
+    inline for (@typeInfo(@TypeOf(stages)).Struct.fields) |stage, i| {
+        if (std.mem.eql(u8, stage.name, "vertex")) {
+            stage_names[i] = stage.name;
+
+            const data = try Shader.loadShader(@field(stages, stage.name), allocator);
+
+            shader_modules[i] = try device.vkd.createShaderModule(device.logical, &.{
+                .flags = .{},
+                .code_size = data.len,
+                .p_code = @ptrCast([*]const u32, @alignCast(4, data)),
+            }, null);
+
+            stage_ci[i] = .{
+                .flags = .{},
+                .stage = .{ .vertex_bit = true },
+                .module = shader_modules[i],
+                .p_name = "main",
+                .p_specialization_info = null,
+            };
+
+            n_stages += 1;
+        }
+    }
+
+    for (stage_names[0..n_stages]) |name| {
+        std.log.info("{s}", .{name});
+    }
+
+    // create shader
+    var shader = try Shader.init(device, allocator);
+    defer shader.deinit(device);
+
+    return Pipeline.init(device, renderpass, &[_]vk.DescriptorSetLayout{global_descriptor_layout}, &[_]vk.PushConstantRange{.{
         .stage_flags = .{ .vertex_bit = true },
         .offset = 0,
         .size = @intCast(u32, @sizeOf(MeshPushConstants)),

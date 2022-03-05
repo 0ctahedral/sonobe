@@ -59,7 +59,7 @@ pub const Shader = struct {
         return self;
     }
 
-    fn loadShader(name: []const u8, alloctor: std.mem.Allocator) ![]u8 {
+    pub fn loadShader(name: []const u8, alloctor: std.mem.Allocator) ![]u8 {
         // path for assets
         var buf: [512]u8 = undefined;
         const path = try std.fmt.bufPrint(buf[0..], "assets/{s}.spv", .{name});
