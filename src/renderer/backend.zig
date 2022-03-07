@@ -471,23 +471,32 @@ fn createBuffers() !void {
 /// creates the default pipeline
 fn defaultPipeline() !void {
     pipeline = try createPipeline(.{
-        //.vertex = "assets/builtin.vert.spv",
-        //.fragment = "assets/builtin.frag.spv",
-
-        .vertex = "builtin.vert",
-        .fragment = "builtin.frag",
+        .vertex = .{ .path = "assets/builtin.vert.spv" },
+        .fragment = .{ .path = "assets/builtin.frag.spv" },
     });
 }
+
+/// This will be an api around descriptor sets and stuff
+pub const ShaderInfo = struct {
+    pub const Input = struct {
+        type: enum {
+            buffer,
+        }
+    };
+
+    path: []const u8,
+    inputs: []const Input = &[_]Input{},
+    //outputs?
+};
 
 /// Creates a user defined pipeline
 pub fn createPipeline(
     /// stages of the pipeline
     /// specified (for now) as strings of the shader file paths
-    //stages: struct {
-    //    vertex: ?[]const u8,
-    //    fragment: ?[]const u8,
-    //},
-    comptime stages: anytype,
+    stages: struct {
+        vertex: ?ShaderInfo,
+        fragment: ?ShaderInfo,
+    },
 ) !Pipeline {
     _ = stages;
 
@@ -501,47 +510,34 @@ pub fn createPipeline(
         },
     };
 
-    var stage_names: [3][]const u8 = undefined;
     var stage_ci: [3]vk.PipelineShaderStageCreateInfo = undefined;
     var shader_modules: [3]vk.ShaderModule = undefined;
     var n_stages: usize = 0;
-    inline for (@typeInfo(@TypeOf(stages)).Struct.fields) |stage, i| {
-        if (std.mem.eql(u8, stage.name, "vertex")) {
-            stage_names[i] = stage.name;
 
-            const data = try Shader.loadShader(@field(stages, stage.name), allocator);
-
-            shader_modules[i] = try device.vkd.createShaderModule(device.logical, &.{
-                .flags = .{},
-                .code_size = data.len,
-                .p_code = @ptrCast([*]const u32, @alignCast(4, data)),
-            }, null);
-
-            stage_ci[i] = .{
-                .flags = .{},
-                .stage = .{ .vertex_bit = true },
-                .module = shader_modules[i],
-                .p_name = "main",
-                .p_specialization_info = null,
-            };
-
-            n_stages += 1;
-        }
+    if (stages.vertex) |vert| {
+        const shader_info = try Shader.createAndLoad(device, vert.path, .{ .vertex_bit = true }, allocator);
+        stage_ci[n_stages] = shader_info.info;
+        shader_modules[n_stages] = shader_info.module;
+        n_stages += 1;
+    }
+    if (stages.fragment) |frag| {
+        const shader_info = try Shader.createAndLoad(device, frag.path, .{ .fragment_bit = true }, allocator);
+        stage_ci[n_stages] = shader_info.info;
+        shader_modules[n_stages] = shader_info.module;
+        n_stages += 1;
     }
 
-    for (stage_names[0..n_stages]) |name| {
-        std.log.info("{s}", .{name});
-    }
-
-    // create shader
-    var shader = try Shader.init(device, allocator);
-    defer shader.deinit(device);
-
-    return Pipeline.init(device, renderpass, &[_]vk.DescriptorSetLayout{global_descriptor_layout}, &[_]vk.PushConstantRange{.{
+    const pl = Pipeline.init(device, renderpass, &[_]vk.DescriptorSetLayout{global_descriptor_layout}, &[_]vk.PushConstantRange{.{
         .stage_flags = .{ .vertex_bit = true },
         .offset = 0,
         .size = @intCast(u32, @sizeOf(MeshPushConstants)),
-    }}, &shader.stage_ci, viewport, scissor, false);
+    }}, stage_ci[0..n_stages], viewport, scissor, false);
+
+    for (shader_modules[0..n_stages]) |stage| {
+        device.vkd.destroyShaderModule(device.logical, stage, null);
+    }
+
+    return pl;
 }
 
 fn upload(pool: vk.CommandPool, buffer: Buffer, comptime T: type, items: []const T) !void {

@@ -76,6 +76,41 @@ pub const Shader = struct {
         return ret;
     }
 
+    pub const ShaderInfo = struct {
+        module: vk.ShaderModule,
+        info: vk.PipelineShaderStageCreateInfo,
+    };
+
+    pub fn createAndLoad(dev: Device, path: []const u8, stage: vk.ShaderStageFlags, allocator: std.mem.Allocator) !ShaderInfo {
+        std.log.info("finding file: {s}", .{path});
+
+        const f = try std.fs.cwd().openFile(path, .{ .read = true });
+        defer f.close();
+
+        const data = try allocator.alloc(u8, (try f.stat()).size);
+
+        _ = try f.readAll(data);
+
+        const mod = try dev.vkd.createShaderModule(dev.logical, &.{
+            .flags = .{},
+            .code_size = data.len,
+            .p_code = @ptrCast([*]const u32, @alignCast(4, data)),
+        }, null);
+
+        const ci = vk.PipelineShaderStageCreateInfo{
+            .flags = .{},
+            .stage = stage,
+            .module = mod,
+            .p_name = "main",
+            .p_specialization_info = null,
+        };
+
+        return ShaderInfo{
+            .module = mod,
+            .info = ci,
+        };
+    }
+
     pub fn deinit(
         self: Self,
         dev: Device,
