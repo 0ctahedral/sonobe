@@ -96,9 +96,6 @@ pub const Buffer = struct {
         data: []const T,
         offset: usize,
     ) !void {
-        //var ptr = @ptrCast([*]u8, try dev.vkd.mapMemory(dev.logical, self.mem, offset, size, .{}));
-        //
-
         const dest = try dev.vkd.mapMemory(dev.logical, self.mem, @sizeOf(T) * offset, @sizeOf(T) * data.len, .{});
         const ptr = @ptrCast([*]T, @alignCast(@alignOf(T), dest));
 

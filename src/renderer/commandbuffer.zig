@@ -6,6 +6,7 @@ const vk = @import("vulkan");
 const Device = @import("device.zig").Device;
 const RenderPass = @import("renderpass.zig").RenderPass;
 const Renderer = @import("../renderer.zig");
+const Buffer = @import("buffer.zig").Buffer;
 
 pub const CommandBuffer = struct {
 
@@ -185,6 +186,10 @@ pub const CommandBuffer = struct {
     pub fn drawIndexed(
         self: *Self,
         num_indices: u32,
+        vbuf: Buffer,
+        ibuf: Buffer,
+        first: u32,
+        offset: u32,
     ) void {
         // setup descriptor sets and stuff
 
@@ -202,12 +207,12 @@ pub const CommandBuffer = struct {
             undefined,
         );
 
-        const offset = [_]vk.DeviceSize{0};
-        Renderer.device.vkd.cmdBindVertexBuffers(self.handle, 0, 1, @ptrCast([*]const vk.Buffer, &Renderer.vert_buf.handle), &offset);
-        Renderer.device.vkd.cmdBindIndexBuffer(self.handle, Renderer.ind_buf.handle, 0, .uint32);
+        const bind_offset = [_]vk.DeviceSize{0};
+        Renderer.device.vkd.cmdBindVertexBuffers(self.handle, 0, 1, @ptrCast([*]const vk.Buffer, &vbuf.handle), &bind_offset);
+        Renderer.device.vkd.cmdBindIndexBuffer(self.handle, ibuf.handle, 0, .uint32);
 
         // actually draw
-        Renderer.device.vkd.cmdDrawIndexed(self.handle, num_indices, 1, 0, 0, 0);
+        Renderer.device.vkd.cmdDrawIndexed(self.handle, num_indices, 1, first, @intCast(i32, offset), 0);
     }
 
 

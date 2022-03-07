@@ -1,5 +1,7 @@
 const std = @import("std");
-pub const vk = @import("vulkan");
+const vk = @import("vulkan");
+
+pub const mesh = @import("./renderer/mesh.zig");
 
 const Platform = @import("platform.zig");
 const Events = @import("events.zig");
@@ -20,7 +22,7 @@ pub const Shader = @import("./renderer/shader.zig").Shader;
 pub const Pipeline = @import("./renderer/pipeline.zig").Pipeline;
 pub const Buffer = @import("./renderer/buffer.zig").Buffer;
 
-const mesh = @import("./renderer/mesh.zig");
+
 const mmath = @import("math.zig");
 const Mat4 = mmath.Mat4;
 const Vec3 = mmath.Vec3;
@@ -28,7 +30,6 @@ const Vec3 = mmath.Vec3;
 // TODO: set this in a config
 const required_layers = [_][*:0]const u8{"VK_LAYER_KHRONOS_validation"};
 
-pub const quad = mesh.Quad;
 /// Index to look up mesh data in shader
 pub const MeshPushConstants = struct {
     index: u32,
@@ -76,10 +77,6 @@ pub var fb_height: u32 = 0;
 
 /// pipeline currently being used
 pub var pipeline: Pipeline = undefined;
-
-/// the GPU side buffers that store the currenlty rendering objects
-pub var vert_buf: Buffer = undefined;
-pub var ind_buf: Buffer = undefined;
 
 /// The currently rendering frames
 var frames: [2]FrameData = undefined;
@@ -207,11 +204,7 @@ pub fn init(provided_allocator: Allocator, app_name: [*:0]const u8, window: Plat
     // create pipeline
     try defaultPipeline();
     // create some buffers
-    try createBuffers();
 
-    // upload the vertices
-    try upload(device.command_pool, vert_buf, mesh.Vertex, quad.verts);
-    try upload(device.command_pool, ind_buf, u32, quad.inds);
 }
 
 fn vk_debug(
@@ -236,8 +229,6 @@ pub fn deinit() void {
         unreachable;
     };
 
-    vert_buf.deinit(device);
-    ind_buf.deinit(device);
 
     pipeline.deinit(device);
 
@@ -393,23 +384,6 @@ fn recreateSwapchain() !void {
 
 }
 
-// TODO: move this?
-fn createBuffers() !void {
-    const vertex_buf_size = @sizeOf(mesh.Vertex) * 1024 * 1024;
-    vert_buf = try Buffer.init(device, vertex_buf_size, .{
-        .vertex_buffer_bit = true,
-        .transfer_src_bit = true,
-        .transfer_dst_bit = true,
-    }, .{ .device_local_bit = true }, true);
-
-    const index_buf_size = @sizeOf(u32) * 1024 * 1024;
-    ind_buf = try Buffer.init(device, index_buf_size, .{
-        .index_buffer_bit = true,
-        .transfer_src_bit = true,
-        .transfer_dst_bit = true,
-    }, .{ .device_local_bit = true }, true);
-}
-
 /// creates the default pipeline
 fn defaultPipeline() !void {
     pipeline = try createPipeline(.{
@@ -471,7 +445,7 @@ pub fn createPipeline(
         .stage_flags = .{ .vertex_bit = true },
         .offset = 0,
         .size = @intCast(u32, @sizeOf(MeshPushConstants)),
-    }}, stage_ci[0..n_stages], viewport, scissor, false);
+    }}, stage_ci[0..n_stages], viewport, scissor, true);
 
     for (shader_modules[0..n_stages]) |stage| {
         device.vkd.destroyShaderModule(device.logical, stage, null);
@@ -480,7 +454,7 @@ pub fn createPipeline(
     return pl;
 }
 
-fn upload(pool: vk.CommandPool, buffer: Buffer, comptime T: type, items: []const T) !void {
+pub fn upload(pool: vk.CommandPool, buffer: Buffer, comptime T: type, items: []const T) !void {
     const size = @sizeOf(T) * items.len;
     const staging_buffer = try Buffer.init(
         device,
@@ -574,10 +548,10 @@ const FrameData = struct {
     model_data: [100]Mat4 = undefined,
 
     const CameraData = struct {
-        //projection: Mat4 = Mat4.perspective(mmath.util.rad(70), 800.0/600.0, 0.1, 1000),
-        projection: Mat4 = Mat4.ortho(0, 800.0, 0, 600.0, -100, 100),
-        //view: Mat4 = Mat4.translate(.{.x=0, .y=0, .z=-2}),
-        view: Mat4 = Mat4.translate(.{ .x = 0, .y = 0, .z = 0 }),
+        projection: Mat4 = Mat4.perspective(mmath.util.rad(70), 800.0/600.0, 0.1, 1000),
+        //projection: Mat4 = Mat4.ortho(0, 800.0, 0, 600.0, -100, 100),
+        view: Mat4 = Mat4.translate(.{.x=0, .y=0, .z=2}).inv(),
+        //view: Mat4 = Mat4.translate(.{ .x = 0, .y = 0, .z = 0 }),
     };
 
     const Self = @This();
