@@ -179,6 +179,8 @@ pub fn init(provided_allocator: Allocator, app_name: [*:0]const u8, window: Plat
     // subscribe to resize events
     try Events.register(Events.EventType.WindowResize, resize);
 
+    // HERE IS WHERE SETUP SHOULD END
+
     // create a renderpass
     renderpass = try RenderPass.init(swapchain, device, .{ .offset = .{ .x = 0, .y = 0 }, .extent = .{
         .width = fb_width,
@@ -265,22 +267,17 @@ fn resize(ev: Events.Event) void {
     std.log.warn("resize triggered: {}x{}, gen: {}", .{ w, h, size_gen });
 }
 
-pub fn beginFrame() !bool {
+pub fn beginFrame() !void {
     if (recreating_swapchain) {
         std.log.info("waiting for swapchain", .{});
         try device.vkd.deviceWaitIdle(device.logical);
-        return false;
+        //return false;
     }
 
     if (size_gen != last_size_gen) {
         try device.vkd.deviceWaitIdle(device.logical);
-
-        if (!try recreateSwapchain()) {
-            return false;
-        }
-
+        try recreateSwapchain();
         std.log.info("resized, booting frame", .{});
-        return false;
     }
 
     // wait for current frame
@@ -291,13 +288,16 @@ pub fn beginFrame() !bool {
         switch (err) {
             error.OutOfDateKHR => {
                 std.log.warn("failed to aquire, booting", .{});
-                return false;
+                return try recreateSwapchain();
             },
             else => |narrow| return narrow,
         }
     };
 
     try getCurrentFrame().render_fence.reset(device);
+}
+
+pub fn tmpDraw() !void {
     //std.log.debug("image idx: {}", .{image_index});
 
     var cb: *CommandBuffer = &getCurrentFrame().cmdbuf;
@@ -334,12 +334,6 @@ pub fn beginFrame() !bool {
         undefined,
     );
 
-    return true;
-}
-
-pub fn endFrame() !void {
-    var cb: *CommandBuffer = &getCurrentFrame().cmdbuf;
-
     // this stuff should be in a middle area where we are actually drawing the frame
 
     const offset = [_]vk.DeviceSize{0};
@@ -359,10 +353,14 @@ pub fn endFrame() !void {
 
     device.vkd.cmdDrawIndexed(cb.handle, quad.inds.len, 1, 0, 0, 0);
 
-    // --------
-
     renderpass.end(device, cb);
     try cb.end(device);
+}
+
+pub fn endFrame() !void {
+    var cb: *CommandBuffer = &getCurrentFrame().cmdbuf;
+
+    // --------
 
     // waits for the this stage to write
     const wait_stage = [_]vk.PipelineStageFlags{.{ .color_attachment_output_bit = true }};
@@ -397,15 +395,15 @@ pub fn endFrame() !void {
     frame_number += 1;
 }
 
-fn recreateSwapchain() !bool {
+fn recreateSwapchain() !void {
     if (recreating_swapchain) {
         std.log.warn("already recreating", .{});
-        return false;
+        return;
     }
 
     if (fb_width == 0 or fb_height == 0) {
         std.log.info("dimesnsion is zero so, no", .{});
-        return false;
+        return;
     }
 
     recreating_swapchain = true;
@@ -448,7 +446,6 @@ fn recreateSwapchain() !bool {
     recreating_swapchain = false;
     std.log.info("done recreating swapchain", .{});
 
-    return true;
 }
 
 // TODO: move this?
@@ -478,11 +475,9 @@ fn defaultPipeline() !void {
 
 /// This will be an api around descriptor sets and stuff
 pub const ShaderInfo = struct {
-    pub const Input = struct {
-        type: enum {
-            buffer,
-        }
-    };
+    pub const Input = struct { type: enum {
+        buffer,
+    } };
 
     path: []const u8,
     inputs: []const Input = &[_]Input{},

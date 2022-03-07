@@ -91,15 +91,16 @@ pub fn main() !void {
     var frame_timer = try std.time.Timer.start();
 
     while (Platform.is_running) {
+        //const ftime = @intToFloat(f32, frame_timer.read()) / @intToFloat(f32, std.time.ns_per_s);
+        frame_timer.reset();
+
         if (Platform.flush()) {
-            if (try Renderer.beginFrame()) {
-                const ftime = @intToFloat(f32, frame_timer.read()) / @intToFloat(f32, std.time.ns_per_s);
-                Game.draw(.{}, ftime);
-                try Renderer.endFrame();
-                //std.log.debug("ftime: {}", .{std.time.ns_per_s / frame_timer.read()});
-            }
+            try Renderer.beginFrame();
+            //Game.draw(.{}, ftime);
+            try Renderer.tmpDraw();
+
+            try Renderer.endFrame();
         }
 
-        frame_timer.reset();
     }
 }

@@ -7,6 +7,7 @@ pub const deinit = backend.deinit;
 pub const updateUniform = backend.updateUniform;
 pub const beginFrame = backend.beginFrame;
 pub const endFrame = backend.endFrame;
+pub const tmpDraw = backend.tmpDraw;
 
 // pipeline suff
 pub const PipelineHandle = enum(u32) { null_handle = 0, _ };
