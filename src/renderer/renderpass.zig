@@ -138,49 +138,4 @@ pub const RenderPass = struct {
     pub fn deinit(self: Self, device: Device) void {
         device.vkd.destroyRenderPass(device.logical, self.handle, null);
     }
-
-    pub fn begin(
-        self: Self,
-        dev: Device,
-        command_buffer: *CommandBuffer,
-        framebuffer: vk.Framebuffer,
-        // TODO: maybe will make this a memeber
-    ) void {
-
-        var clear_values: [2]vk.ClearValue = undefined;
-        // color
-        clear_values[0] = vk.ClearValue{ .color = .{ .float_32 = .{
-            self.clear_color[0],
-            self.clear_color[1],
-            self.clear_color[2],
-            self.clear_color[3],
-        } } };
-        // depth
-        clear_values[1] = vk.ClearValue{
-            .depth_stencil = .{
-                .depth = self.depth,
-                .stencil = self.stencil,
-            }
-        };
-
-        dev.vkd.cmdBeginRenderPass(command_buffer.handle, &.{
-            .render_pass = self.handle,
-            .framebuffer = framebuffer,
-            .render_area = self.render_area,
-            .clear_value_count = clear_values.len,
-            .p_clear_values = @ptrCast([*]const vk.ClearValue, &clear_values[0]),
-        }, .@"inline");
-
-        command_buffer.*.state = .in_render_pass;
-    }
-
-    pub fn end(
-        self: Self,
-        dev: Device,
-        command_buffer: *CommandBuffer,
-    ) void {
-        _ = self;
-        dev.vkd.cmdEndRenderPass(command_buffer.handle);
-        command_buffer.*.state = .recording;
-    }
 };

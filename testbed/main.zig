@@ -5,6 +5,9 @@ const Renderer = octal.Renderer;
 const Events = octal.Events;
 const Mesh = Renderer.mesh.Mesh;
 const mmath = octal.mmath;
+const Mat4 = mmath.Mat4;
+const Vec3 = mmath.Vec3;
+const vk = Renderer.vk;
 
 const app_name = "octal: triangle test";
 
@@ -85,19 +88,42 @@ pub fn main() !void {
     try Renderer.init(allocator, app_name, window);
     defer Renderer.deinit();
 
-    Game.init();
-    defer Game.deinit();
-
     var frame_timer = try std.time.Timer.start();
 
-    while (Platform.is_running) {
-        //const ftime = @intToFloat(f32, frame_timer.read()) / @intToFloat(f32, std.time.ns_per_s);
-        frame_timer.reset();
+    var f: f32 = 0;
 
+    while (Platform.is_running) {
         if (Platform.flush()) {
+
+            const dt = @intToFloat(f32, frame_timer.read()) / @intToFloat(f32, std.time.ns_per_s);
+            frame_timer.reset();
+            f += std.math.pi * dt;
+
             try Renderer.beginFrame();
-            //Game.draw(.{}, ftime);
-            try Renderer.tmpDraw();
+
+            {
+
+            var cmd = &Renderer.getCurrentFrame().cmdbuf;
+            try cmd.begin(.{});
+            cmd.beginRenderPass(Renderer.renderpass);
+
+            Renderer.getCurrentFrame().*.model_data[0] = mmath.Mat4.scale(Vec3.new(100, 100, 100))
+            .mul(Mat4.rotate(.z, f))
+            .mul(Mat4.translate(.{ .x = 350, .y = 250 + (@sin(f) * 100) }));
+            try Renderer.getCurrentFrame().updateDescriptorSets();
+
+            cmd.pushConstant(Renderer.MeshPushConstants, Renderer.MeshPushConstants{ .index = 0 });
+
+            cmd.drawIndexed(Renderer.quad.inds.len);
+
+            cmd.pushConstant(Renderer.MeshPushConstants, Renderer.MeshPushConstants{ .index = 1 });
+
+            cmd.drawIndexed(Renderer.quad.inds.len);
+
+            cmd.endRenderPass();
+            try cmd.end();
+
+            }
 
             try Renderer.endFrame();
         }
