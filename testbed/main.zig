@@ -94,7 +94,7 @@ pub fn main() !void {
             cmd.beginRenderPass(Renderer.renderpass);
 
             Renderer.getCurrentFrame().*.model_data[0] = Mat4.scale(Vec3.new(2, 2, 2))
-                    //.mul(Mat4.rotate(.y, f))
+                    .mul(Mat4.rotate(.y, f))
                     //.mul(Mat4.translate(Vec3.new(350, 250 + @sin(f) * 100, 0)));
                     .mul(Mat4.translate(Vec3.new(0, 0, -10)));
 

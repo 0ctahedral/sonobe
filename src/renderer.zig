@@ -445,7 +445,7 @@ pub fn createPipeline(
         .stage_flags = .{ .vertex_bit = true },
         .offset = 0,
         .size = @intCast(u32, @sizeOf(MeshPushConstants)),
-    }}, stage_ci[0..n_stages], viewport, scissor, true);
+    }}, stage_ci[0..n_stages], viewport, scissor, false);
 
     for (shader_modules[0..n_stages]) |stage| {
         device.vkd.destroyShaderModule(device.logical, stage, null);
