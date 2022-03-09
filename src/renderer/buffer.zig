@@ -4,6 +4,7 @@ const Device = @import("device.zig").Device;
 const Queue = @import("device.zig").Queue;
 //const Fence = @import("fence.zig").Fence;
 const CommandBuffer = @import("commandbuffer.zig").CommandBuffer;
+const Renderer = @import("../renderer.zig");
 
 // this will go somewhere else too
 pub const Buffer = struct {
@@ -89,6 +90,7 @@ pub const Buffer = struct {
         self.locked = false;
     }
 
+    /// map buffer memory and copy into it
     pub fn load(
         self: Self,
         dev: Device,
@@ -104,6 +106,23 @@ pub const Buffer = struct {
         }
 
         dev.vkd.unmapMemory(dev.logical, self.mem);
+    }
+
+    /// create a temporary staging buffer and use that to load into gpu side buffer
+    pub fn stagedLoad(self: Self, comptime T: type, items: []const T, offset: usize) !void {
+        const size = @sizeOf(T) * items.len;
+        const staging_buffer = try Buffer.init(
+            Renderer.device,
+            size,
+            .{ .transfer_src_bit = true },
+            .{ .host_visible_bit = true, .host_coherent_bit = true },
+            true,
+        );
+        defer staging_buffer.deinit(Renderer.device);
+
+        try staging_buffer.load(Renderer.device, T, items, 0);
+
+        try Buffer.copyTo(Renderer.device, Renderer.device.command_pool, Renderer.device.graphics.?, staging_buffer, 0, self, offset, size);
     }
 
     pub fn bind(self: Self, dev: Device) !void {

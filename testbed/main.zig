@@ -61,7 +61,7 @@ pub fn main() !void {
         .transfer_src_bit = true,
         .transfer_dst_bit = true,
     }, .{ .device_local_bit = true }, true);
-    defer vert_buf.deinit(Renderer.device);
+    //defer vert_buf.deinit(Renderer.device);
 
     const index_buf_size = @sizeOf(u32) * 1024 * 1024;
     var ind_buf = try Renderer.Buffer.init(Renderer.device, index_buf_size, .{
@@ -69,14 +69,14 @@ pub fn main() !void {
         .transfer_src_bit = true,
         .transfer_dst_bit = true,
     }, .{ .device_local_bit = true }, true);
-    defer ind_buf.deinit(Renderer.device);
+    //defer ind_buf.deinit(Renderer.device);
 
 
     // upload the vertices
     //try vert_buf.load(Renderer.device, Vertex, Quad.verts, 0);
     //try ind_buf.load(Renderer.device, u32, Quad.inds, 0);
-    try vert_buf.load(Renderer.device, Vertex, octahedron_mesh.verts, 0);
-    try ind_buf.load(Renderer.device, u32, octahedron_mesh.inds, 0);
+    try vert_buf.stagedLoad(Vertex, octahedron_mesh.verts, 0);
+    try ind_buf.stagedLoad(u32, octahedron_mesh.inds, 0);
 
     while (Platform.is_running) {
         if (Platform.flush()) {
