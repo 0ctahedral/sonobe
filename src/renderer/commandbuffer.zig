@@ -5,6 +5,7 @@ const std = @import("std");
 const vk = @import("vulkan");
 const Device = @import("device.zig").Device;
 const RenderPass = @import("renderpass.zig").RenderPass;
+const RenderPassInfo = @import("renderpass.zig").RenderPassInfo;
 const Renderer = @import("../renderer.zig");
 const Buffer = @import("buffer.zig").Buffer;
 
@@ -124,7 +125,7 @@ pub const CommandBuffer = struct {
     /// reduces boilerplate for beginning rp
     pub fn beginRenderPass(
         self: *Self,
-        rp: RenderPass,
+        rpi: RenderPassInfo,
     ) void {
         // set the viewport
         const viewport = vk.Viewport{ .x = 0, .y = @intToFloat(f32, Renderer.fb_height), .width = @intToFloat(f32, Renderer.fb_width), .height = -@intToFloat(f32, Renderer.fb_height), .min_depth = 0, .max_depth = 1 };
@@ -141,6 +142,9 @@ pub const CommandBuffer = struct {
 
         Renderer.device.vkd.cmdSetScissor(self.handle, 0, 1, @ptrCast([*]const vk.Rect2D, &scissor));
 
+        // TODO: create renderpass
+
+        // TODO: put this in its own command
         var clear_values: [2]vk.ClearValue = undefined;
         // color
         clear_values[0] = vk.ClearValue{ .color = .{ .float_32 = .{

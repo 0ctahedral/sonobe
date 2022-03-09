@@ -78,6 +78,12 @@ pub fn main() !void {
     try vert_buf.stagedLoad(Vertex, octahedron_mesh.verts, 0);
     try ind_buf.stagedLoad(u32, octahedron_mesh.inds, 0);
 
+    // renderpass api
+    // const rp = Renderer.RenderPassInfo{};
+    // rp.color_attachments[0] = swapchain.getAttachment
+    // or maybe these could work on the iamge itself
+    //
+
     while (Platform.is_running) {
         if (Platform.flush()) {
 

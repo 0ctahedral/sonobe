@@ -13,6 +13,24 @@ pub const ClearFlags = packed struct {
     stencil: bool = false,
 };
 
+const MAX_ATTATCHMENTS = 10;
+
+// TODO: cache this type somewhere so that we don't remake the renderpasses
+/// Info for creating a renderpass
+/// collects setup so that we can just make it when binding
+pub const RenderPassInfo = struct {
+    // images we will render to in this pass
+    n_color_attachments: usize = 0,
+    color_attachments: [MAX_ATTATCHMENTS]*Image,
+    // colors to clear each image
+    clear_colors: [MAX_ATTATCHMENTS]vk.ClearColorValue,
+
+    depth_stencil: *Image,
+    clear_depth: vk.ClearDepthStencilValue,
+    
+    // TODO: subpasses
+};
+
 pub const RenderPass = struct {
     handle: vk.RenderPass,
 
@@ -29,6 +47,7 @@ pub const RenderPass = struct {
 
     const Self = @This();
 
+    // TODO: take in pass info instead
     pub fn init(
         swapchain: Swapchain,
         device: Device,

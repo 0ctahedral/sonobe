@@ -10,6 +10,8 @@ pub const Image = struct {
 
     mem: vk.DeviceMemory = .null_handle,
 
+    format: vk.Format,
+
     const Self = @This();
     /// image from a managed resource (swapchain)
     /// creates an image view and copies the vkImage in
@@ -40,6 +42,7 @@ pub const Image = struct {
                 .base_array_layer = 0,
             },
         };
+        self.format = format;
         self.view = try device.vkd.createImageView(device.logical, &info, null);
     }
 
