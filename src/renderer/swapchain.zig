@@ -132,6 +132,7 @@ pub const Swapchain = struct {
         for (imgs[0..count]) |img, i| {
             self.images[i] = Image{
                 .handle = img,
+                .format = self.surface_format.format,
             };
 
             try self.images[i].createView(dev, self.surface_format.format, .{ .color_bit = true });

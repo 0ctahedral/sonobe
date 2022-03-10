@@ -15,6 +15,7 @@ pub const Device = @import("./renderer/device.zig").Device;
 pub const Queue = @import("./renderer/device.zig").Queue;
 pub const Swapchain = @import("./renderer/swapchain.zig").Swapchain;
 pub const RenderPass = @import("./renderer/renderpass.zig").RenderPass;
+pub const RenderPassInfo = @import("./renderer/renderpass.zig").RenderPassInfo;
 pub const CommandBuffer = @import("./renderer/commandbuffer.zig").CommandBuffer;
 pub const Fence = @import("./renderer/fence.zig").Fence;
 pub const Semaphore = @import("./renderer/semaphore.zig").Semaphore;
@@ -179,8 +180,23 @@ pub fn init(provided_allocator: Allocator, app_name: [*:0]const u8, window: Plat
 
     // HERE IS WHERE SETUP SHOULD END
 
+    var rpi = RenderPassInfo{
+        .n_color_attachments = 1,
+    };
+
+    rpi.color_attachments[0] = &swapchain.images[0];
+    rpi.clear_colors[0] = .{  .float_32 = .{ 0, 0.1, 0, 0, } };
+
+    rpi.depth_attachment = &swapchain.depth;
+    rpi.clear_depth = .{
+        .depth = 1.0,
+        .stencil = 0,
+    };
+
     // create a renderpass
-    renderpass = try RenderPass.init(swapchain, device, .{ .offset = .{ .x = 0, .y = 0 }, .extent = .{
+    renderpass = try RenderPass.init(swapchain, device,
+        rpi,
+        .{ .offset = .{ .x = 0, .y = 0 }, .extent = .{
         .width = fb_width,
         .height = fb_height,
     } }, .{

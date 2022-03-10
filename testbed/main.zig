@@ -84,6 +84,33 @@ pub fn main() !void {
     // or maybe these could work on the iamge itself
     //
 
+
+
+    var rpi = Renderer.RenderPassInfo{
+        .n_color_attachments = 1,
+    };
+
+    rpi.color_attachments[0] = &Renderer.swapchain.images[0];
+    rpi.clear_colors[0] = .{  .float_32 = .{ 0, 0.1, 0, 0, } };
+
+    rpi.depth_attachment = &Renderer.swapchain.depth;
+    rpi.clear_depth = .{
+        .depth = 1.0,
+        .stencil = 0,
+    };
+
+    // TODO: this should be allocated from a freelist and cached
+    var rp = try Renderer.RenderPass.init(Renderer.swapchain, Renderer.device,
+        rpi,
+        .{ .offset = .{ .x = 0, .y = 0 }, .extent = .{
+            .width = Renderer.fb_width,
+            .height = Renderer.fb_height,
+        } }, .{
+            .color = true,
+            .depth = true,
+            .stencil = true,
+        }, .{ 0, 0.1, 0.1, 1 }, 1.0, 0);
+
     while (Platform.is_running) {
         if (Platform.flush()) {
 
@@ -97,7 +124,7 @@ pub fn main() !void {
 
             var cmd = &Renderer.getCurrentFrame().cmdbuf;
             try cmd.begin(.{});
-            cmd.beginRenderPass(Renderer.renderpass);
+            cmd.beginRenderPass(rp);
 
             Renderer.getCurrentFrame().*.model_data[0] = Mat4.scale(Vec3.new(2, 2, 2))
                     .mul(Mat4.rotate(.y, f))

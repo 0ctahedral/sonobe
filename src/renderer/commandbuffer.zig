@@ -125,7 +125,7 @@ pub const CommandBuffer = struct {
     /// reduces boilerplate for beginning rp
     pub fn beginRenderPass(
         self: *Self,
-        rpi: RenderPassInfo,
+        rp: RenderPass,
     ) void {
         // set the viewport
         const viewport = vk.Viewport{ .x = 0, .y = @intToFloat(f32, Renderer.fb_height), .width = @intToFloat(f32, Renderer.fb_width), .height = -@intToFloat(f32, Renderer.fb_height), .min_depth = 0, .max_depth = 1 };

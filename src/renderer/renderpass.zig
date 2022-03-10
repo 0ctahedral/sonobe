@@ -6,6 +6,7 @@ const vk = @import("vulkan");
 const Device = @import("device.zig").Device;
 const Swapchain = @import("swapchain.zig").Swapchain;
 const CommandBuffer = @import("commandbuffer.zig").CommandBuffer;
+const Image = @import("image.zig").Image;
 
 pub const ClearFlags = packed struct {
     color: bool = false,
@@ -20,13 +21,13 @@ const MAX_ATTATCHMENTS = 10;
 /// collects setup so that we can just make it when binding
 pub const RenderPassInfo = struct {
     // images we will render to in this pass
-    n_color_attachments: usize = 0,
-    color_attachments: [MAX_ATTATCHMENTS]*Image,
+    n_color_attachments: u32 = 0,
+    color_attachments: [MAX_ATTATCHMENTS]*const Image = undefined,
     // colors to clear each image
-    clear_colors: [MAX_ATTATCHMENTS]vk.ClearColorValue,
+    clear_colors: [MAX_ATTATCHMENTS]vk.ClearColorValue = undefined,
 
-    depth_stencil: *Image,
-    clear_depth: vk.ClearDepthStencilValue,
+    depth_attachment: ?*const Image = null,
+    clear_depth: vk.ClearDepthStencilValue = undefined,
     
     // TODO: subpasses
 };
@@ -51,12 +52,14 @@ pub const RenderPass = struct {
     pub fn init(
         swapchain: Swapchain,
         device: Device,
+        rpi: RenderPassInfo,
         render_area: vk.Rect2D,
         clear_flags: ClearFlags,
         clear_color: [4]f32,
         depth: f32,
         stencil: u32,
     ) !Self {
+
         // start by making attachments
         // color
         const color_attachment = vk.AttachmentDescription{
@@ -92,10 +95,32 @@ pub const RenderPass = struct {
             .final_layout = .depth_stencil_attachment_optimal,
         };
 
+
         const depth_attachment_ref = vk.AttachmentReference{
-            .attachment = 1,
+            .attachment = @intCast(u32, rpi.n_color_attachments),
             .layout = .depth_stencil_attachment_optimal,
         };
+
+        //var attachment_descriptions = [_]vk.AttachmentDescription{
+        //    color_attachment,
+        //    depth_attachment,
+        //};
+
+
+
+        var attachment_descriptions: [MAX_ATTATCHMENTS + 1]vk.AttachmentDescription = undefined;
+
+        for (rpi.color_attachments[0..rpi.n_color_attachments])  |at, i| {
+            _ = at;
+            attachment_descriptions[i] = color_attachment;
+        }
+
+        if (rpi.depth_attachment) |at| {
+            _ = at;
+            attachment_descriptions[rpi.n_color_attachments] = depth_attachment; 
+        }
+
+
 
         const subpass = vk.SubpassDescription{
             .flags = .{},
@@ -129,15 +154,10 @@ pub const RenderPass = struct {
             .dependency_flags = .{},
         };
 
-        const attachment_descriptions = [_]vk.AttachmentDescription{
-            color_attachment,
-            depth_attachment,
-        };
-
         const rp = try device.vkd.createRenderPass(device.logical, &.{
             .flags = .{},
             .p_next = null,
-            .attachment_count = attachment_descriptions.len,
+            .attachment_count = rpi.n_color_attachments + 1,
             .p_attachments = @ptrCast([*]const vk.AttachmentDescription, &attachment_descriptions),
             .subpass_count = 1,
             .p_subpasses = @ptrCast([*]const vk.SubpassDescription, &subpass),
