@@ -29,6 +29,8 @@ pub fn FreeList(
 
         allocator: Allocator,
 
+        // TODO: iterator of non free items?
+
         /// initialize with storage
         pub fn init(allocator: Allocator, size: usize) !Self {
             var self = Self{
@@ -76,9 +78,37 @@ pub fn FreeList(
         pub fn deinit(self: *Self) void {
             self.allocator.free(self.mem);
         }
+
+        const Iter = struct {
+            fl: *Self,
+            next_free: u32,
+            i: usize,
+
+            pub fn next(self: *Iter) ?*T {
+                while (self.next_free == self.i) {
+                    self.next_free = self.fl.mem[self.i].next;
+                    if (self.next_free == 0) {
+                        return null;
+                    }
+                    self.i += 1;
+                }
+
+                var ret: *T = &self.fl.mem[self.i].item;
+                self.i += 1;
+
+                return ret;
+            }
+        };
+
+        pub fn iter(self: *Self) Iter {
+            return Iter{
+                .fl = self,
+                .next_free = self.mem[0].next,
+                .i = 1,
+            };
+        }
     };
 }
-
 const foo = struct {
     x: u64 = 0,
     y: u32 = 0,
@@ -122,4 +152,24 @@ test "array type" {
     const StackList = FreeList([400]u8);
     var fl = try StackList.init(std.testing.allocator, 10);
     defer fl.deinit();
+}
+
+test "iter" {
+    const FooList = FreeList(foo);
+    var fl = try FooList.init(std.testing.allocator, 100);
+    defer fl.deinit();
+    const p1 = try fl.alloc();
+    const p2 = try fl.alloc();
+    const p3 = try fl.alloc();
+
+    fl.free(p2);
+
+    var iter = fl.iter();
+
+    const f1 = iter.next();
+    try expect(@ptrToInt(f1) == @ptrToInt(p1));
+    const f3 = iter.next();
+    try expect(@ptrToInt(f3) == @ptrToInt(p3));
+    try expect(iter.next() == null);
+
 }
