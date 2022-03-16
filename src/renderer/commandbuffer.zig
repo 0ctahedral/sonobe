@@ -125,8 +125,8 @@ pub const CommandBuffer = struct {
     /// reduces boilerplate for beginning rp
     pub fn beginRenderPass(
         self: *Self,
-        rp: RenderPass,
-    ) void {
+        rpi: RenderPassInfo,
+    ) !void {
         // set the viewport
         const viewport = vk.Viewport{ .x = 0, .y = @intToFloat(f32, Renderer.fb_height), .width = @intToFloat(f32, Renderer.fb_width), .height = -@intToFloat(f32, Renderer.fb_height), .min_depth = 0, .max_depth = 1 };
         Renderer.device.vkd.cmdSetViewport(self.handle, 0, 1, @ptrCast([*]const vk.Viewport, &viewport));
@@ -142,31 +142,42 @@ pub const CommandBuffer = struct {
 
         Renderer.device.vkd.cmdSetScissor(self.handle, 0, 1, @ptrCast([*]const vk.Rect2D, &scissor));
 
-        // TODO: create renderpass
+        var rp: RenderPass = undefined;
 
-        // TODO: put this in its own command
-        var clear_values: [2]vk.ClearValue = undefined;
-        // color
-        clear_values[0] = vk.ClearValue{ .color = .{ .float_32 = .{
-            rp.clear_color[0],
-            rp.clear_color[1],
-            rp.clear_color[2],
-            rp.clear_color[3],
-        } } };
-        // depth
-        clear_values[1] = vk.ClearValue{
-            .depth_stencil = .{
-                .depth = rp.depth,
-                .stencil = rp.stencil,
-            }
+        if (Renderer.renderpass_cache.get(rpi)) |cached| {
+            rp = cached;
+        } else {
+            var new = try Renderer.RenderPass.init(Renderer.swapchain, Renderer.device, rpi);
+            try Renderer.renderpass_cache.putNoClobber(rpi, new);
+            rp = new;
+        }
+
+        var num_clear: u32 = 0;
+
+        var clear_values: [RenderPassInfo.MAX_ATTATCHMENTS + 1]vk.ClearValue = undefined;
+        for (rpi.clear_colors[0..rpi.n_color_attachments])  |clear, i| {
+            clear_values[i] = vk.ClearValue{ .color = clear };
+            num_clear += 1;
+        }
+
+        if (rpi.depth_attachment) |_| {
+            clear_values[rpi.n_color_attachments] = vk.ClearValue{ .depth_stencil = rpi.clear_depth};
+            num_clear += 1;
+        }
+
+        const area = vk.Rect2D{
+            .offset = .{ .x = 0, .y = 0 }, .extent = .{
+                .width = Renderer.fb_width,
+                .height = Renderer.fb_height,
+            } 
         };
 
         Renderer.device.vkd.cmdBeginRenderPass(self.handle, &.{
             .render_pass = rp.handle,
             .framebuffer = Renderer.swapchain.framebuffers[Renderer.image_index],
-            .render_area = rp.render_area,
-            .clear_value_count = clear_values.len,
-            .p_clear_values = @ptrCast([*]const vk.ClearValue, &clear_values[0]),
+            .render_area = area,
+            .clear_value_count = num_clear,
+            .p_clear_values = clear_values[0..num_clear].ptr,
         }, .@"inline");
     }
 

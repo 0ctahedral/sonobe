@@ -43,7 +43,7 @@ var surface: vk.SurfaceKHR = undefined;
 var messenger: vk.DebugUtilsMessengerEXT = undefined;
 pub var device: Device = undefined;
 pub var swapchain: Swapchain = undefined;
-pub var renderpass: RenderPass = undefined;
+pub var default_renderpass: RenderPass = undefined;
 
 /// monotonically increasing frame number
 var frame_number: usize = 0;
@@ -91,6 +91,9 @@ var global_descriptor_pool: vk.DescriptorPool = .null_handle;
 pub inline fn getCurrentFrame() *FrameData {
     return &frames[frame_number % frames.len];
 }
+
+/// cache for renderpasses
+pub var renderpass_cache: std.ArrayHashMap(RenderPassInfo, RenderPass, RenderPassInfo.Context, false) = undefined;
 
 // initialize the renderer
 pub fn init(provided_allocator: Allocator, app_name: [*:0]const u8, window: Platform.Window) !void {
@@ -182,10 +185,15 @@ pub fn init(provided_allocator: Allocator, app_name: [*:0]const u8, window: Plat
 
     var rpi = RenderPassInfo{
         .n_color_attachments = 1,
+        .clear_flags = .{
+            .color = true,
+            .depth = true,
+            .stencil = true,
+        }
     };
 
     rpi.color_attachments[0] = &swapchain.images[0];
-    rpi.clear_colors[0] = .{  .float_32 = .{ 0, 0.1, 0, 0, } };
+    rpi.clear_colors[0] = .{  .float_32 = .{ 1, 1, 0, 0, } };
 
     rpi.depth_attachment = &swapchain.depth;
     rpi.clear_depth = .{
@@ -193,22 +201,18 @@ pub fn init(provided_allocator: Allocator, app_name: [*:0]const u8, window: Plat
         .stencil = 0,
     };
 
+
+    renderpass_cache = std.ArrayHashMap(RenderPassInfo, RenderPass, RenderPassInfo.Context, false).init(allocator);
+    errdefer renderpass_cache.deinit();
+
     // create a renderpass
-    renderpass = try RenderPass.init(swapchain, device,
-        rpi,
-        .{ .offset = .{ .x = 0, .y = 0 }, .extent = .{
-        .width = fb_width,
-        .height = fb_height,
-    } }, .{
-        .color = true,
-        .depth = true,
-        .stencil = true,
-    }, .{ 0, 0, 0.1, 1 }, 1.0, 0);
-    errdefer renderpass.deinit(device);
+    default_renderpass = try RenderPass.init(swapchain, device, rpi);
+    errdefer default_renderpass.deinit(device);
+    try renderpass_cache.putNoClobber(rpi, default_renderpass);
 
     // create framebuffers
     std.log.info("fbw: {} fbh: {}", .{ fb_width, fb_width });
-    try swapchain.recreateFramebuffers(device, renderpass, fb_width, fb_height);
+    try swapchain.recreateFramebuffers(device, default_renderpass, fb_width, fb_height);
 
     // create frame objects
     try createDescriptors();
@@ -255,7 +259,12 @@ pub fn deinit() void {
     device.vkd.destroyDescriptorPool(device.logical, global_descriptor_pool, null);
     device.vkd.destroyDescriptorSetLayout(device.logical, global_descriptor_layout, null);
 
-    renderpass.deinit(device);
+
+    for (renderpass_cache.values()) |rp| {
+        rp.deinit(device);
+    }
+    renderpass_cache.deinit();
+
     swapchain.deinit(device, allocator);
 
     device.deinit();
@@ -292,12 +301,10 @@ pub fn beginFrame() !void {
         return;
     }
 
-    //std.log.info("waiting for render fence: {}", .{getCurrentFrame().render_fence.handle});
     try getCurrentFrame().render_fence.wait(device, std.math.maxInt(u64));
 
     if (swapchain.acquireNext(device, getCurrentFrame().image_avail_semaphore, Fence{})) |idx| {
         image_index = idx;
-        //break;
     } else |err| {
         switch (err) {
             error.OutOfDateKHR => {
@@ -390,19 +397,13 @@ fn recreateSwapchain() !void {
     }
 
     // create the framebuffers
-    try swapchain.recreateFramebuffers(device, renderpass, fb_width, fb_height);
+    try swapchain.recreateFramebuffers(device, default_renderpass, fb_width, fb_height);
 
     // create the command buffers
     for (frames) |*f| {
         f.render_fence = try Fence.init(device, true);
         f.cmdbuf = try CommandBuffer.init(device, device.command_pool, true);
     }
-
-    // reset the renderpass
-    renderpass.render_area = .{ .offset = .{ .x = 0, .y = 0 }, .extent = .{
-        .width = fb_width,
-        .height = fb_height,
-    } };
 
     recreating_swapchain = false;
     std.log.info("done recreating swapchain", .{});
@@ -466,7 +467,7 @@ pub fn createPipeline(
         n_stages += 1;
     }
 
-    const pl = Pipeline.init(device, renderpass, &[_]vk.DescriptorSetLayout{global_descriptor_layout}, &[_]vk.PushConstantRange{.{
+    const pl = Pipeline.init(device, default_renderpass, &[_]vk.DescriptorSetLayout{global_descriptor_layout}, &[_]vk.PushConstantRange{.{
         .stage_flags = .{ .vertex_bit = true },
         .offset = 0,
         .size = @intCast(u32, @sizeOf(MeshPushConstants)),

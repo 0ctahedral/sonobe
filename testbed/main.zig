@@ -78,16 +78,13 @@ pub fn main() !void {
     try vert_buf.stagedLoad(Vertex, octahedron_mesh.verts, 0);
     try ind_buf.stagedLoad(u32, octahedron_mesh.inds, 0);
 
-    // renderpass api
-    // const rp = Renderer.RenderPassInfo{};
-    // rp.color_attachments[0] = swapchain.getAttachment
-    // or maybe these could work on the iamge itself
-    //
-
-
-
     var rpi = Renderer.RenderPassInfo{
         .n_color_attachments = 1,
+        .clear_flags = .{
+            .color = true,
+            .depth = true,
+            .stencil = true,
+        }
     };
 
     rpi.color_attachments[0] = &Renderer.swapchain.images[0];
@@ -99,39 +96,25 @@ pub fn main() !void {
         .stencil = 0,
     };
 
-    // TODO: this should be allocated from a freelist and cached
-    var rp = try Renderer.RenderPass.init(Renderer.swapchain, Renderer.device,
-        rpi,
-        .{ .offset = .{ .x = 0, .y = 0 }, .extent = .{
-            .width = Renderer.fb_width,
-            .height = Renderer.fb_height,
-        } }, .{
-            .color = true,
-            .depth = true,
-            .stencil = true,
-        }, .{ 0, 0.1, 0.1, 1 }, 1.0, 0);
-
-    Renderer.renderpass = rp;
-
     while (Platform.is_running) {
-        if (Platform.flush()) {
+        _ = Platform.flush();
 
-            const dt = @intToFloat(f32, frame_timer.read()) / @intToFloat(f32, std.time.ns_per_s);
-            frame_timer.reset();
-            f += std.math.pi * dt;
+        const dt = @intToFloat(f32, frame_timer.read()) / @intToFloat(f32, std.time.ns_per_s);
+        frame_timer.reset();
+        f += std.math.pi * dt;
 
-            try Renderer.beginFrame();
+        try Renderer.beginFrame();
 
-            {
+        {
 
             var cmd = &Renderer.getCurrentFrame().cmdbuf;
             try cmd.begin(.{});
-            cmd.beginRenderPass(Renderer.renderpass);
+            try cmd.beginRenderPass(rpi);
 
             Renderer.getCurrentFrame().*.model_data[0] = Mat4.scale(Vec3.new(2, 2, 2))
-                    .mul(Mat4.rotate(.y, f))
-                    //.mul(Mat4.translate(Vec3.new(350, 250 + @sin(f) * 100, 0)));
-                    .mul(Mat4.translate(Vec3.new(0, 0, -10)));
+                .mul(Mat4.rotate(.y, f))
+                //.mul(Mat4.translate(Vec3.new(350, 250 + @sin(f) * 100, 0)));
+                .mul(Mat4.translate(Vec3.new(0, 0, -10)));
 
             // TODO: this will be part of the pipeline stuff
             try Renderer.getCurrentFrame().updateDescriptorSets();
@@ -147,10 +130,8 @@ pub fn main() !void {
             cmd.endRenderPass();
             try cmd.end();
 
-            }
-
-            try Renderer.endFrame();
         }
 
+        try Renderer.endFrame();
     }
 }

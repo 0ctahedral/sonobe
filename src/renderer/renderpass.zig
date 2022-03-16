@@ -8,18 +8,14 @@ const Swapchain = @import("swapchain.zig").Swapchain;
 const CommandBuffer = @import("commandbuffer.zig").CommandBuffer;
 const Image = @import("image.zig").Image;
 
-pub const ClearFlags = packed struct {
-    color: bool = false,
-    depth: bool = false,
-    stencil: bool = false,
-};
 
-const MAX_ATTATCHMENTS = 10;
 
 // TODO: cache this type somewhere so that we don't remake the renderpasses
 /// Info for creating a renderpass
 /// collects setup so that we can just make it when binding
 pub const RenderPassInfo = struct {
+    pub const MAX_ATTATCHMENTS = 10;
+
     // images we will render to in this pass
     n_color_attachments: u32 = 0,
     color_attachments: [MAX_ATTATCHMENTS]*const Image = undefined,
@@ -30,21 +26,52 @@ pub const RenderPassInfo = struct {
     clear_depth: vk.ClearDepthStencilValue = undefined,
     
     // TODO: subpasses
+
+    // TODO: bitflags for clear/load/store attachments
+    clear_flags: ClearFlags,
+
+    pub const ClearFlags = packed struct {
+        color: bool = false,
+        depth: bool = false,
+        stencil: bool = false,
+    };
+
+    /// used for hashing renderpass info
+    pub const Context = struct{
+        //const Context = @This();
+        const K = RenderPassInfo;
+        pub fn hash(self: Context, k: K) u32 {
+            var h = std.hash.Wyhash.init(0);
+            _ = self;
+            // things to hash
+            // color_attachments layouts? 
+            // depth_attachment layout? 
+            // num layers (don't have yet)
+            // TODO: subpasses
+            // TODO: formats
+            // num color_attachments
+            // depth stencil value
+            h.update(std.mem.asBytes(&k.n_color_attachments));
+            h.update(std.mem.asBytes(&k.clear_colors));
+            h.update(std.mem.asBytes(&k.clear_flags));
+            h.update(std.mem.asBytes(&k.clear_depth));
+
+            return @truncate(u32, h.final());
+        }
+
+        pub fn eql(self: Context, a: K, b: K) bool {
+            _ = self;
+            return a.n_color_attachments == b.n_color_attachments
+                and (a.depth_attachment != null and b.depth_attachment != null)
+                and std.meta.eql(a.clear_flags, b.clear_flags)
+                and std.mem.eql(f32, a.clear_colors[0].float_32[0..4], b.clear_colors[0].float_32[0..4])
+            ;
+        }
+    };
 };
 
 pub const RenderPass = struct {
     handle: vk.RenderPass,
-
-    /// extents of the render area
-    /// aka start and end position
-    render_area: vk.Rect2D,
-
-    // TODO: make this a vec4
-    clear_color: [4]f32,
-
-    /// depth value
-    depth: f32,
-    stencil: u32,
 
     const Self = @This();
 
@@ -53,11 +80,6 @@ pub const RenderPass = struct {
         swapchain: Swapchain,
         device: Device,
         rpi: RenderPassInfo,
-        render_area: vk.Rect2D,
-        clear_flags: ClearFlags,
-        clear_color: [4]f32,
-        depth: f32,
-        stencil: u32,
     ) !Self {
 
         // start by making attachments
@@ -66,7 +88,7 @@ pub const RenderPass = struct {
             .flags = .{},
             .format = swapchain.surface_format.format,
             .samples = .{ .@"1_bit" = true },
-            .load_op = if (clear_flags.color) .clear else .load,
+            .load_op = if (rpi.clear_flags.color) .clear else .load,
             .store_op = .store,
             .stencil_load_op = .dont_care,
             .stencil_store_op = .dont_care,
@@ -85,7 +107,7 @@ pub const RenderPass = struct {
             .flags = .{},
             .format = device.depth_format,
             .samples = .{ .@"1_bit" = true },
-            .load_op = if (clear_flags.depth) .clear else .load,
+            .load_op = if (rpi.clear_flags.depth) .clear else .load,
             .store_op = .store,
             .stencil_load_op = .dont_care,
             .stencil_store_op = .dont_care,
@@ -101,14 +123,7 @@ pub const RenderPass = struct {
             .layout = .depth_stencil_attachment_optimal,
         };
 
-        //var attachment_descriptions = [_]vk.AttachmentDescription{
-        //    color_attachment,
-        //    depth_attachment,
-        //};
-
-
-
-        var attachment_descriptions: [MAX_ATTATCHMENTS + 1]vk.AttachmentDescription = undefined;
+        var attachment_descriptions: [RenderPassInfo.MAX_ATTATCHMENTS + 1]vk.AttachmentDescription = undefined;
 
         for (rpi.color_attachments[0..rpi.n_color_attachments])  |at, i| {
             _ = at;
@@ -119,8 +134,6 @@ pub const RenderPass = struct {
             _ = at;
             attachment_descriptions[rpi.n_color_attachments] = depth_attachment; 
         }
-
-
 
         const subpass = vk.SubpassDescription{
             .flags = .{},
@@ -167,10 +180,6 @@ pub const RenderPass = struct {
 
         return Self{
             .handle = rp,
-            .clear_color = clear_color,
-            .depth = depth,
-            .stencil = stencil,
-            .render_area = render_area,
         };
     }
 
