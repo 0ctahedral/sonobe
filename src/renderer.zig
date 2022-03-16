@@ -22,6 +22,7 @@ pub const Semaphore = @import("./renderer/semaphore.zig").Semaphore;
 pub const Shader = @import("./renderer/shader.zig").Shader;
 pub const Pipeline = @import("./renderer/pipeline.zig").Pipeline;
 pub const Buffer = @import("./renderer/buffer.zig").Buffer;
+pub const FreeList = @import("./containers.zig").FreeList;
 
 
 const mmath = @import("math.zig");
@@ -94,6 +95,9 @@ pub inline fn getCurrentFrame() *FrameData {
 
 /// cache for renderpasses
 pub var renderpass_cache: std.ArrayHashMap(RenderPassInfo, RenderPass, RenderPassInfo.Context, false) = undefined;
+
+// buffer manager
+pub var buffer_manager: FreeList(Buffer) = undefined;
 
 // initialize the renderer
 pub fn init(provided_allocator: Allocator, app_name: [*:0]const u8, window: Platform.Window) !void {
@@ -181,6 +185,11 @@ pub fn init(provided_allocator: Allocator, app_name: [*:0]const u8, window: Plat
     // subscribe to resize events
     try Events.register(Events.EventType.WindowResize, resize);
 
+    // create a buffer manager
+    // TODO: buffer limits and stuff
+    // should we just be suballocating one buffer?
+    buffer_manager = try FreeList(Buffer).init(allocator, 10);
+
     // HERE IS WHERE SETUP SHOULD END
 
     var rpi = RenderPassInfo{
@@ -255,6 +264,11 @@ pub fn deinit() void {
     for (frames) |*f| {
         f.deinit(device);
     }
+    var iter = buffer_manager.iter();
+    while (iter.next()) |buf| {
+        buf.deinit(device);
+    }
+    buffer_manager.deinit();
 
     device.vkd.destroyDescriptorPool(device.logical, global_descriptor_pool, null);
     device.vkd.destroyDescriptorSetLayout(device.logical, global_descriptor_layout, null);

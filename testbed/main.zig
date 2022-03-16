@@ -56,7 +56,8 @@ pub fn main() !void {
     var f: f32 = 0;
 
     const vertex_buf_size = @sizeOf(Vertex) * 1024 * 1024;
-    var vert_buf = try Renderer.Buffer.init(Renderer.device, vertex_buf_size, .{
+    var vert_buf = try Renderer.buffer_manager.alloc();
+    vert_buf.* = try Renderer.Buffer.init(Renderer.device, vertex_buf_size, .{
         .vertex_buffer_bit = true,
         .transfer_src_bit = true,
         .transfer_dst_bit = true,
@@ -64,7 +65,8 @@ pub fn main() !void {
     //defer vert_buf.deinit(Renderer.device);
 
     const index_buf_size = @sizeOf(u32) * 1024 * 1024;
-    var ind_buf = try Renderer.Buffer.init(Renderer.device, index_buf_size, .{
+    var ind_buf = try Renderer.buffer_manager.alloc();
+    ind_buf.* = try Renderer.Buffer.init(Renderer.device, index_buf_size, .{
         .index_buffer_bit = true,
         .transfer_src_bit = true,
         .transfer_dst_bit = true,
@@ -125,7 +127,7 @@ pub fn main() !void {
 
             cmd.pushConstant(Renderer.MeshPushConstants, Renderer.MeshPushConstants{ .index = 0 });
 
-            cmd.drawIndexed(octahedron_mesh.inds.len, vert_buf, ind_buf, 0, 0);
+            cmd.drawIndexed(octahedron_mesh.inds.len, vert_buf.*, ind_buf.*, 0, 0);
 
             cmd.endRenderPass();
             try cmd.end();
