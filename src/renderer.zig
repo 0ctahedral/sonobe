@@ -271,6 +271,8 @@ fn resize(ev: Events.Event) void {
     const h = ev.WindowResize.h;
     cached_width = w;
     cached_height = h;
+    fb_width = w;
+    fb_height = h;
     size_gen += 1;
     std.log.warn("resize triggered: {}x{}, gen: {}", .{ w, h, size_gen });
 }
@@ -286,30 +288,37 @@ pub fn beginFrame() !void {
         try device.vkd.deviceWaitIdle(device.logical);
         try recreateSwapchain();
         std.log.info("resized, booting frame", .{});
+        getCurrentFrame().*.begun = false;
+        return;
     }
 
-    // wait for current frame
     //std.log.info("waiting for render fence: {}", .{getCurrentFrame().render_fence.handle});
     try getCurrentFrame().render_fence.wait(device, std.math.maxInt(u64));
 
-    image_index = try swapchain.acquireNext(device, getCurrentFrame().image_avail_semaphore, Fence{});
-    // TODO: do we need to catch this?
-    //catch |err| {
-    //    switch (err) {
-    //        error.OutOfDateKHR => {
-    //            std.log.warn("failed to aquire, booting", .{});
-    //            //return try recreateSwapchain();
-    //            return;
-    //        },
-    //        else => |narrow| return narrow,
-    //    }
-    //};
+    if (swapchain.acquireNext(device, getCurrentFrame().image_avail_semaphore, Fence{})) |idx| {
+        image_index = idx;
+        //break;
+    } else |err| {
+        switch (err) {
+            error.OutOfDateKHR => {
+                std.log.warn("failed to aquire, booting", .{});
+                _ = try recreateSwapchain();
+                getCurrentFrame().*.begun = false;
+                return;
+            },
+            else => |narrow| return narrow,
+        }
+    }
 
     // reset the fence now that we've waited for it
     try getCurrentFrame().render_fence.reset(device);
+    getCurrentFrame().*.begun = true;
 }
 
 pub fn endFrame() !void {
+    if (!getCurrentFrame().begun) {
+        return;
+    }
     var cb: *CommandBuffer = &getCurrentFrame().cmdbuf;
 
     // --------
@@ -353,7 +362,7 @@ fn recreateSwapchain() !void {
         return;
     }
 
-    if (fb_width == 0 or fb_height == 0) {
+    if (cached_width == 0 or cached_height == 0) {
         std.log.info("dimesnsion is zero so, no", .{});
         return;
     }
@@ -562,6 +571,8 @@ const FrameData = struct {
     cam_data: CameraData,
 
     model_data: [100]Mat4 = undefined,
+
+    begun: bool = false,
 
     const CameraData = struct {
         projection: Mat4 = Mat4.perspective(mmath.util.rad(70), 800.0/600.0, 0.1, 1000),
