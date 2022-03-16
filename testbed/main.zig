@@ -111,6 +111,8 @@ pub fn main() !void {
             .stencil = true,
         }, .{ 0, 0.1, 0.1, 1 }, 1.0, 0);
 
+    Renderer.renderpass = rp;
+
     while (Platform.is_running) {
         if (Platform.flush()) {
 
@@ -124,7 +126,7 @@ pub fn main() !void {
 
             var cmd = &Renderer.getCurrentFrame().cmdbuf;
             try cmd.begin(.{});
-            cmd.beginRenderPass(rp);
+            cmd.beginRenderPass(Renderer.renderpass);
 
             Renderer.getCurrentFrame().*.model_data[0] = Mat4.scale(Vec3.new(2, 2, 2))
                     .mul(Mat4.rotate(.y, f))
