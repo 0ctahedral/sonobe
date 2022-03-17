@@ -95,6 +95,7 @@ pub inline fn getCurrentFrame() *FrameData {
 
 /// cache for renderpasses
 pub var renderpass_cache: std.ArrayHashMap(RenderPassInfo, RenderPass, RenderPassInfo.Context, false) = undefined;
+pub var fb_cache: std.ArrayHashMap(RenderPassInfo, vk.Framebuffer, RenderPassInfo.Context, false) = undefined;
 
 // buffer manager
 pub var buffer_manager: FreeList(Buffer) = undefined;
@@ -213,15 +214,13 @@ pub fn init(provided_allocator: Allocator, app_name: [*:0]const u8, window: Plat
 
     renderpass_cache = std.ArrayHashMap(RenderPassInfo, RenderPass, RenderPassInfo.Context, false).init(allocator);
     errdefer renderpass_cache.deinit();
+    fb_cache = std.ArrayHashMap(RenderPassInfo, vk.Framebuffer, RenderPassInfo.Context, false).init(allocator);
+    errdefer fb_cache.deinit();
 
     // create a renderpass
     default_renderpass = try RenderPass.init(swapchain, device, rpi);
     errdefer default_renderpass.deinit(device);
     try renderpass_cache.putNoClobber(rpi, default_renderpass);
-
-    // create framebuffers
-    std.log.info("fbw: {} fbh: {}", .{ fb_width, fb_width });
-    try swapchain.recreateFramebuffers(device, default_renderpass, fb_width, fb_height);
 
     // create frame objects
     try createDescriptors();
@@ -279,6 +278,11 @@ pub fn deinit() void {
     }
     renderpass_cache.deinit();
 
+    for (fb_cache.values()) |fb| {
+        device.vkd.destroyFramebuffer(device.logical, fb, null);
+    }
+    fb_cache.deinit();
+
     swapchain.deinit(device, allocator);
 
     device.deinit();
@@ -300,7 +304,7 @@ fn resize(ev: Events.Event) void {
     std.log.warn("resize triggered: {}x{}, gen: {}", .{ w, h, size_gen });
 }
 
-/// aquires next image and recreates the framebuffer if needed
+/// aquires next image
 pub fn beginFrame() !void {
     if (recreating_swapchain) {
         std.log.info("waiting for swapchain", .{});
@@ -410,8 +414,11 @@ fn recreateSwapchain() !void {
         f.cmdbuf.deinit(device, device.command_pool);
     }
 
-    // create the framebuffers
-    try swapchain.recreateFramebuffers(device, default_renderpass, fb_width, fb_height);
+    // destroy old framebuffers
+    for (fb_cache.values()) |fb| {
+        device.vkd.destroyFramebuffer(device.logical, fb, null);
+    }
+    fb_cache.clearRetainingCapacity();
 
     // create the command buffers
     for (frames) |*f| {
@@ -566,7 +573,7 @@ pub fn updateUniform(transform: Mat4) void {
 const FrameData = struct {
     /// Semaphore signaled when the frame is finished rendering
     queue_complete_semaphore: Semaphore,
-    /// semaphore signaled when the frame has been presented by the framebuffer
+    /// semaphore signaled when the frame has been presented by the swapchain
     image_avail_semaphore: Semaphore,
     /// fence to wait on for this frame to finish rendering
     render_fence: Fence,

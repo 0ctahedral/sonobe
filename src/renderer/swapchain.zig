@@ -18,7 +18,6 @@ pub const Swapchain = struct {
     handle: vk.SwapchainKHR = .null_handle,
 
     images: []Image = undefined,
-    framebuffers: []vk.Framebuffer = undefined,
 
     depth: Image = undefined,
 
@@ -32,7 +31,6 @@ pub const Swapchain = struct {
     /// shutdown a swapchian object
     pub fn deinit(self: *Self, dev: Device, allocator: std.mem.Allocator) void {
         self.destroy(dev);
-        allocator.free(self.framebuffers);
         allocator.free(self.images);
     }
 
@@ -138,9 +136,6 @@ pub const Swapchain = struct {
             try self.images[i].createView(dev, self.surface_format.format, .{ .color_bit = true });
         }
 
-        // allocate the framebuffers
-        self.framebuffers = try allocator.alloc(vk.Framebuffer, count);
-
         // create the depth image
         self.depth = try Image.init(dev, .@"2d", extent, dev.depth_format, .optimal, .{ .depth_stencil_attachment_bit = true }, .{ .device_local_bit = true }, .{ .depth_bit = true });
 
@@ -153,9 +148,6 @@ pub const Swapchain = struct {
             unreachable;
         };
 
-        for (self.framebuffers) |fb| {
-            dev.vkd.destroyFramebuffer(dev.logical, fb, null);
-        }
         for (self.images) |*img| {
             img.deinit(dev);
         }
@@ -177,7 +169,16 @@ pub const Swapchain = struct {
         render_complete: Semaphore,
         idx: u32,
     ) !void {
-        const result = try dev.vkd.queuePresentKHR(present_queue.handle, &.{ .wait_semaphore_count = 1, .p_wait_semaphores = render_complete.ptr(), .swapchain_count = 1, .p_swapchains = @ptrCast([*]const vk.SwapchainKHR, &self.handle), .p_image_indices = @ptrCast([*]const u32, &idx), .p_results = null });
+        const result = try dev.vkd.queuePresentKHR(
+            present_queue.handle,
+            &.{
+                .wait_semaphore_count = 1,
+                .p_wait_semaphores = render_complete.ptr(),
+                .swapchain_count = 1,
+                .p_swapchains = @ptrCast([*]const vk.SwapchainKHR, &self.handle),
+                .p_image_indices = @ptrCast([*]const u32, &idx),
+                .p_results = null
+            });
 
         switch (result) {
             .success => {},
@@ -210,24 +211,6 @@ pub const Swapchain = struct {
                 return result.image_index;
             },
             else => unreachable,
-        }
-    }
-
-    // also should probably be in the swapchain??
-    pub fn recreateFramebuffers(self: *Self, dev: Device, renderpass: RenderPass, w: u32, h: u32) !void {
-        std.log.info("fbw: {} fbh: {}", .{ w, h });
-        for (self.images) |img, i| {
-            const attachments = [_]vk.ImageView{ img.view, self.depth.view };
-
-            self.framebuffers[i] = try dev.vkd.createFramebuffer(dev.logical, &.{
-                .flags = .{},
-                .render_pass = renderpass.handle,
-                .attachment_count = attachments.len,
-                .p_attachments = @ptrCast([*]const vk.ImageView, &attachments),
-                .width = w,
-                .height = h,
-                .layers = 1,
-            }, null);
         }
     }
 };

@@ -89,15 +89,6 @@ pub fn main() !void {
         }
     };
 
-    rpi.color_attachments[0] = &Renderer.swapchain.images[0];
-    rpi.clear_colors[0] = .{  .float_32 = .{ 0, 0.1, 0, 0, } };
-
-    rpi.depth_attachment = &Renderer.swapchain.depth;
-    rpi.clear_depth = .{
-        .depth = 1.0,
-        .stencil = 0,
-    };
-
     while (Platform.is_running) {
         _ = Platform.flush();
 
@@ -109,8 +100,17 @@ pub fn main() !void {
 
         {
 
+
             var cmd = &Renderer.getCurrentFrame().cmdbuf;
             try cmd.begin(.{});
+            rpi.color_attachments[0] = &Renderer.swapchain.images[Renderer.image_index];
+            rpi.clear_colors[0] = .{  .float_32 = .{ 0, 0.1, 0, 0, } };
+
+            rpi.depth_attachment = &Renderer.swapchain.depth;
+            rpi.clear_depth = .{
+                .depth = 1.0,
+                .stencil = 0,
+            };
             try cmd.beginRenderPass(rpi);
 
             Renderer.getCurrentFrame().*.model_data[0] = Mat4.scale(Vec3.new(2, 2, 2))
