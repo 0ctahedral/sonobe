@@ -7,6 +7,7 @@ const Device = @import("device.zig").Device;
 const RenderPass = @import("renderpass.zig").RenderPass;
 const RenderPassInfo = @import("renderpass.zig").RenderPassInfo;
 const Renderer = @import("../renderer.zig");
+const Pipeline = @import("pipeline.zig").Pipeline;
 const Buffer = @import("buffer.zig").Buffer;
 
 pub const CommandBuffer = struct {
@@ -17,6 +18,8 @@ pub const CommandBuffer = struct {
     handle: vk.CommandBuffer = vk.CommandBuffer.null_handle,
 
     state: State = .not_allocated,
+
+    pipeline: Pipeline = .{},
 
     const Self = @This();
 
@@ -209,14 +212,22 @@ pub const CommandBuffer = struct {
         Renderer.device.vkd.cmdEndRenderPass(self.handle);
     }
 
-    /// TODO: move this
+    pub fn usePipeline(
+        self: *Self,
+        pl: Pipeline
+    ) void {
+        // TODO: make the bindtype part of the pipeline struct
+        Renderer.device.vkd.cmdBindPipeline(self.handle, .graphics, pl.handle);
+        self.pipeline = pl;
+    }
+
     pub fn pushConstant(
         self: *Self,
         comptime T: type,
         value: anytype
     ) void {
         Renderer.device.vkd.cmdPushConstants(self.handle,
-            Renderer.pipeline.layout,
+            self.pipeline.layout,
             .{ .vertex_bit = true }, 0, @intCast(u32, @sizeOf(T)), &value);
     }
 
@@ -228,15 +239,11 @@ pub const CommandBuffer = struct {
         first: u32,
         offset: u32,
     ) void {
-        // setup descriptor sets and stuff
-
-        // TODO: separate this to pipeline layer
-        Renderer.device.vkd.cmdBindPipeline(self.handle, .graphics, Renderer.pipeline.handle);
 
         Renderer.device.vkd.cmdBindDescriptorSets(
             self.handle,
             .graphics,
-            Renderer.pipeline.layout,
+            self.pipeline.layout,
             0,
             1,
             @ptrCast([*]const vk.DescriptorSet, &Renderer.getCurrentFrame().global_descriptor_set),

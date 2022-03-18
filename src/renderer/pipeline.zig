@@ -8,8 +8,8 @@ const Vertex = @import("mesh.zig").Vertex;
 pub const Pipeline = struct {
     const Self = @This();
 
-    handle: vk.Pipeline,
-    layout: vk.PipelineLayout,
+    handle: vk.Pipeline = .null_handle,
+    layout: vk.PipelineLayout = .null_handle,
 
     pub fn init(
         dev: Device,

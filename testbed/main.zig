@@ -34,27 +34,27 @@ const octahedron_mesh = Mesh{
 };
 
 pub fn main() !void {
-    // initialize the event system
-    Events.init();
-    defer Events.deinit();
+    // SETUP
+    const allocator = std.testing.allocator;
 
-    // open the window
+    Events.init();
+    errdefer Events.deinit();
+
     try Platform.init();
-    defer Platform.deinit();
     errdefer Platform.deinit();
 
     const window = try Platform.createWindow(app_name, 800, 600);
-    _ = window;
 
-    //// setup renderer
-    const allocator = std.testing.allocator;
     try Renderer.init(allocator, app_name, window);
-    defer Renderer.deinit();
+    errdefer Renderer.deinit();
 
+
+    // TODO: should this go in the platform?
     var frame_timer = try std.time.Timer.start();
 
-    var f: f32 = 0;
 
+
+    // create the buffers for scene data
     const vertex_buf_size = @sizeOf(Vertex) * 1024 * 1024;
     var vert_buf = try Renderer.buffer_manager.alloc();
     vert_buf.* = try Renderer.Buffer.init(Renderer.device, vertex_buf_size, .{
@@ -62,7 +62,6 @@ pub fn main() !void {
         .transfer_src_bit = true,
         .transfer_dst_bit = true,
     }, .{ .device_local_bit = true }, true);
-    //defer vert_buf.deinit(Renderer.device);
 
     const index_buf_size = @sizeOf(u32) * 1024 * 1024;
     var ind_buf = try Renderer.buffer_manager.alloc();
@@ -71,15 +70,13 @@ pub fn main() !void {
         .transfer_src_bit = true,
         .transfer_dst_bit = true,
     }, .{ .device_local_bit = true }, true);
-    //defer ind_buf.deinit(Renderer.device);
 
 
-    // upload the vertices
-    //try vert_buf.load(Renderer.device, Vertex, Quad.verts, 0);
-    //try ind_buf.load(Renderer.device, u32, Quad.inds, 0);
+    // upload to the buffers
     try vert_buf.stagedLoad(Vertex, octahedron_mesh.verts, 0);
     try ind_buf.stagedLoad(u32, octahedron_mesh.inds, 0);
 
+    // create the renderpass
     var rpi = Renderer.RenderPassInfo{
         .n_color_attachments = 1,
         .clear_flags = .{
@@ -88,18 +85,39 @@ pub fn main() !void {
             .stencil = true,
         }
     };
+    rpi.color_attachments[0] = &Renderer.swapchain.images[Renderer.image_index];
+    rpi.clear_colors[0] = .{  .float_32 = .{ 0, 0.1, 0, 0, } };
+
+    rpi.depth_attachment = &Renderer.swapchain.depth;
+    rpi.clear_depth = .{
+        .depth = 1.0,
+        .stencil = 0,
+    };
+
+    // create the shader pipeline
+    const pli = .{
+        .vertex = .{ .path = "assets/builtin.vert.spv" },
+        .fragment = .{ .path = "assets/builtin.frag.spv" },
+    };
+
+    const pipeline = try Renderer.createPipeline(rpi, pli);
+    try Renderer.pipeline_cache.putNoClobber(pli, pipeline);
+
+    // used for rotating the octahedron
+    var f: f32 = 0;
 
     while (Platform.is_running) {
         _ = Platform.flush();
 
         const dt = @intToFloat(f32, frame_timer.read()) / @intToFloat(f32, std.time.ns_per_s);
         frame_timer.reset();
+
+
         f += std.math.pi * dt;
 
         try Renderer.beginFrame();
 
         {
-
 
             var cmd = &Renderer.getCurrentFrame().cmdbuf;
             try cmd.begin(.{});
@@ -113,17 +131,16 @@ pub fn main() !void {
             };
             try cmd.beginRenderPass(rpi);
 
+            // TODO: this will be abstracted away into the scene stuff later
             Renderer.getCurrentFrame().*.model_data[0] = Mat4.scale(Vec3.new(2, 2, 2))
                 .mul(Mat4.rotate(.y, f))
-                //.mul(Mat4.translate(Vec3.new(350, 250 + @sin(f) * 100, 0)));
                 .mul(Mat4.translate(Vec3.new(0, 0, -10)));
+
 
             // TODO: this will be part of the pipeline stuff
             try Renderer.getCurrentFrame().updateDescriptorSets();
 
-            //cmd.pushConstant(Renderer.MeshPushConstants, Renderer.MeshPushConstants{ .index = 0 });
-
-            //cmd.drawIndexed(Quad.inds.len, vert_buf, ind_buf, 0, 0);
+            cmd.usePipeline(pipeline);
 
             cmd.pushConstant(Renderer.MeshPushConstants, Renderer.MeshPushConstants{ .index = 0 });
 

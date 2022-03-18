@@ -1,16 +1,23 @@
 const std = @import("std");
 const vk = @import("vulkan");
+const Allocator = std.mem.Allocator;
 
-pub const mesh = @import("./renderer/mesh.zig");
-
+// other modules in the engine
 const Platform = @import("platform.zig");
 const Events = @import("events.zig");
+const mmath = @import("math.zig");
+const Mat4 = mmath.Mat4;
+const Vec3 = mmath.Vec3;
 
+// TODO: should this be its own module?
+pub const mesh = @import("./renderer/mesh.zig");
+
+// Internal types
 const dispatch_types = @import("./renderer/dispatch_types.zig");
 const BaseDispatch = dispatch_types.BaseDispatch;
 const InstanceDispatch = dispatch_types.InstanceDispatch;
-const Allocator = std.mem.Allocator;
 
+// public internal types
 pub const Device = @import("./renderer/device.zig").Device;
 pub const Queue = @import("./renderer/device.zig").Queue;
 pub const Swapchain = @import("./renderer/swapchain.zig").Swapchain;
@@ -24,43 +31,36 @@ pub const Pipeline = @import("./renderer/pipeline.zig").Pipeline;
 pub const Buffer = @import("./renderer/buffer.zig").Buffer;
 pub const FreeList = @import("./containers.zig").FreeList;
 
-
-const mmath = @import("math.zig");
-const Mat4 = mmath.Mat4;
-const Vec3 = mmath.Vec3;
-
 // TODO: set this in a config
 const required_layers = [_][*:0]const u8{"VK_LAYER_KHRONOS_validation"};
 
-/// Index to look up mesh data in shader
-pub const MeshPushConstants = struct {
-    index: u32,
-};
-
+// dispatch for vulkan
 var vkb: BaseDispatch = undefined;
 var vki: InstanceDispatch = undefined;
+
+/// Vulkan Instance
 var instance: vk.Instance = undefined;
+// TODO: this should belong to the window
+/// Surface of main window
 var surface: vk.SurfaceKHR = undefined;
+/// debug messenger
 var messenger: vk.DebugUtilsMessengerEXT = undefined;
+/// the device we are using
 pub var device: Device = undefined;
-pub var swapchain: Swapchain = undefined;
-pub var default_renderpass: RenderPass = undefined;
-
-/// monotonically increasing frame number
-var frame_number: usize = 0;
-
-/// index of the image in the swapchain we are currently
-/// rendering to
-//TODO: make this part of the frame struct
-pub var image_index: usize = 0;
-
 /// Allocator used by the renderer
 var allocator: Allocator = undefined;
 
-/// Are we currently recreating the swapchain
-/// I don't think this is really used yet but might
-/// be useful when we multi thread
-var recreating_swapchain = false;
+// TODO: should this belong to the window?
+/// swapchain for rendering images
+pub var swapchain: Swapchain = undefined;
+
+/// monotonically increasing frame number
+pub var frame_number: usize = 0;
+
+// TODO: make this part of the frame struct
+/// index of the image in the swapchain we are currently
+/// rendering to
+pub var image_index: usize = 0;
 
 /// generation of this resize
 var size_gen: usize = 0;
@@ -70,32 +70,26 @@ var last_size_gen: usize = 0;
 var cached_width: u32 = 0;
 var cached_height: u32 = 0;
 
+// TODO: should this be the job of the platform?
 /// current dimesnsions of the framebuffer
 pub var fb_width: u32 = 0;
 pub var fb_height: u32 = 0;
 
-/// Shader currently used by the pipeline
-//var shader: Shader = undefined;
-
-/// pipeline currently being used
-pub var pipeline: Pipeline = undefined;
-
 /// The currently rendering frames
 var frames: [2]FrameData = undefined;
-
-/// descriptor set layout for global data (i.e. camera transform)
-var global_descriptor_layout: vk.DescriptorSetLayout = .null_handle;
-/// pool from which we allocate all descriptor sets
-var global_descriptor_pool: vk.DescriptorPool = .null_handle;
 
 /// Returns the framedata of the frame we should be on
 pub inline fn getCurrentFrame() *FrameData {
     return &frames[frame_number % frames.len];
 }
 
+// caches and managers of that sort
+
 /// cache for renderpasses
 pub var renderpass_cache: std.ArrayHashMap(RenderPassInfo, RenderPass, RenderPassInfo.Context, false) = undefined;
 pub var fb_cache: std.ArrayHashMap(RenderPassInfo, vk.Framebuffer, RenderPassInfo.Context, false) = undefined;
+
+pub var pipeline_cache: std.AutoArrayHashMap(PipelineInfo, Pipeline) = undefined;
 
 // buffer manager
 pub var buffer_manager: FreeList(Buffer) = undefined;
@@ -191,48 +185,22 @@ pub fn init(provided_allocator: Allocator, app_name: [*:0]const u8, window: Plat
     // should we just be suballocating one buffer?
     buffer_manager = try FreeList(Buffer).init(allocator, 10);
 
+
+    // setup caches
+    renderpass_cache = std.ArrayHashMap(RenderPassInfo, RenderPass, RenderPassInfo.Context, false).init(allocator);
+    fb_cache = std.ArrayHashMap(RenderPassInfo, vk.Framebuffer, RenderPassInfo.Context, false).init(allocator);
+
+    pipeline_cache = std.AutoArrayHashMap(PipelineInfo, Pipeline).init(allocator);
+
     // HERE IS WHERE SETUP SHOULD END
 
-    var rpi = RenderPassInfo{
-        .n_color_attachments = 1,
-        .clear_flags = .{
-            .color = true,
-            .depth = true,
-            .stencil = true,
-        }
-    };
-
-    rpi.color_attachments[0] = &swapchain.images[0];
-    rpi.clear_colors[0] = .{  .float_32 = .{ 1, 1, 0, 0, } };
-
-    rpi.depth_attachment = &swapchain.depth;
-    rpi.clear_depth = .{
-        .depth = 1.0,
-        .stencil = 0,
-    };
-
-
-    renderpass_cache = std.ArrayHashMap(RenderPassInfo, RenderPass, RenderPassInfo.Context, false).init(allocator);
-    errdefer renderpass_cache.deinit();
-    fb_cache = std.ArrayHashMap(RenderPassInfo, vk.Framebuffer, RenderPassInfo.Context, false).init(allocator);
-    errdefer fb_cache.deinit();
-
-    // create a renderpass
-    default_renderpass = try RenderPass.init(swapchain, device, rpi);
-    errdefer default_renderpass.deinit(device);
-    try renderpass_cache.putNoClobber(rpi, default_renderpass);
-
-    // create frame objects
+    // descriptors should be created by the pipeline
     try createDescriptors();
 
+    // create frame objects
     for (frames) |*f| {
         f.* = try FrameData.init(device, global_descriptor_pool, global_descriptor_layout);
     }
-
-    // create pipeline
-    try defaultPipeline();
-    // create some buffers
-
 }
 
 fn vk_debug(
@@ -258,8 +226,6 @@ pub fn deinit() void {
     };
 
 
-    pipeline.deinit(device);
-
     for (frames) |*f| {
         f.deinit(device);
     }
@@ -282,6 +248,11 @@ pub fn deinit() void {
         device.vkd.destroyFramebuffer(device.logical, fb, null);
     }
     fb_cache.deinit();
+
+    for (pipeline_cache.values()) |pl| {
+        pl.deinit(device);
+    }
+    pipeline_cache.deinit();
 
     swapchain.deinit(device, allocator);
 
@@ -306,11 +277,6 @@ fn resize(ev: Events.Event) void {
 
 /// aquires next image
 pub fn beginFrame() !void {
-    if (recreating_swapchain) {
-        std.log.info("waiting for swapchain", .{});
-        try device.vkd.deviceWaitIdle(device.logical);
-    }
-
     if (size_gen != last_size_gen) {
         try device.vkd.deviceWaitIdle(device.logical);
         try recreateSwapchain();
@@ -346,8 +312,6 @@ pub fn endFrame() !void {
     }
     var cb: *CommandBuffer = &getCurrentFrame().cmdbuf;
 
-    // --------
-
     // waits for the this stage to write
     const wait_stage = [_]vk.PipelineStageFlags{.{ .color_attachment_output_bit = true }};
 
@@ -382,17 +346,11 @@ pub fn endFrame() !void {
 }
 
 fn recreateSwapchain() !void {
-    if (recreating_swapchain) {
-        std.log.warn("already recreating", .{});
-        return;
-    }
-
     if (cached_width == 0 or cached_height == 0) {
         std.log.info("dimesnsion is zero so, no", .{});
         return;
     }
 
-    recreating_swapchain = true;
     std.log.info("recreating swapchain", .{});
 
     try device.vkd.deviceWaitIdle(device.logical);
@@ -426,40 +384,44 @@ fn recreateSwapchain() !void {
         f.cmdbuf = try CommandBuffer.init(device, device.command_pool, true);
     }
 
-    recreating_swapchain = false;
     std.log.info("done recreating swapchain", .{});
 
 }
 
-/// creates the default pipeline
-fn defaultPipeline() !void {
-    pipeline = try createPipeline(.{
-        .vertex = .{ .path = "assets/builtin.vert.spv" },
-        .fragment = .{ .path = "assets/builtin.frag.spv" },
-    });
-}
 
-/// This will be an api around descriptor sets and stuff
-pub const ShaderInfo = struct {
-    pub const Input = struct { type: enum {
-        buffer,
-    } };
+pub const PipelineInfo = struct {
+    /// This will be an api around descriptor sets and stuff
+    pub const Stage = struct {
+        pub const Input = struct {
+            type: enum {
+                buffer,
+            }
+        };
 
-    path: []const u8,
-    inputs: []const Input = &[_]Input{},
-    //outputs?
+        path: []const u8,
+        //inputs: []const Input = &[_]Input{},
+    };
+
+    vertex: ?Stage,
+    fragment: ?Stage,
 };
 
 /// Creates a user defined pipeline
 pub fn createPipeline(
-    /// stages of the pipeline
-    /// specified (for now) as strings of the shader file paths
-    stages: struct {
-        vertex: ?ShaderInfo,
-        fragment: ?ShaderInfo,
-    },
+    rpi: RenderPassInfo,
+    info: PipelineInfo
 ) !Pipeline {
-    _ = stages;
+    // get renderpass
+    var rp: RenderPass = undefined;
+
+    // TODO: make these functions of somewhere
+    if (renderpass_cache.get(rpi)) |cached| {
+        rp = cached;
+    } else {
+        var new = try RenderPass.init(swapchain, device, rpi);
+        try renderpass_cache.putNoClobber(rpi, new);
+        rp = new;
+    }
 
     const viewport = vk.Viewport{ .x = 0, .y = @intToFloat(f32, fb_height), .width = @intToFloat(f32, fb_width), .height = -@intToFloat(f32, fb_height), .min_depth = 0, .max_depth = 1 };
 
@@ -475,20 +437,20 @@ pub fn createPipeline(
     var shader_modules: [3]vk.ShaderModule = undefined;
     var n_stages: usize = 0;
 
-    if (stages.vertex) |vert| {
+    if (info.vertex) |vert| {
         const shader_info = try Shader.createAndLoad(device, vert.path, .{ .vertex_bit = true }, allocator);
         stage_ci[n_stages] = shader_info.info;
         shader_modules[n_stages] = shader_info.module;
         n_stages += 1;
     }
-    if (stages.fragment) |frag| {
+    if (info.fragment) |frag| {
         const shader_info = try Shader.createAndLoad(device, frag.path, .{ .fragment_bit = true }, allocator);
         stage_ci[n_stages] = shader_info.info;
         shader_modules[n_stages] = shader_info.module;
         n_stages += 1;
     }
 
-    const pl = Pipeline.init(device, default_renderpass, &[_]vk.DescriptorSetLayout{global_descriptor_layout}, &[_]vk.PushConstantRange{.{
+    const pl = Pipeline.init(device, rp, &[_]vk.DescriptorSetLayout{global_descriptor_layout}, &[_]vk.PushConstantRange{.{
         .stage_flags = .{ .vertex_bit = true },
         .offset = 0,
         .size = @intCast(u32, @sizeOf(MeshPushConstants)),
@@ -501,21 +463,15 @@ pub fn createPipeline(
     return pl;
 }
 
-pub fn upload(pool: vk.CommandPool, buffer: Buffer, comptime T: type, items: []const T) !void {
-    const size = @sizeOf(T) * items.len;
-    const staging_buffer = try Buffer.init(
-        device,
-        size,
-        .{ .transfer_src_bit = true },
-        .{ .host_visible_bit = true, .host_coherent_bit = true },
-        true,
-    );
-    defer staging_buffer.deinit(device);
 
-    try staging_buffer.load(device, T, items, 0);
 
-    try Buffer.copyTo(device, pool, device.graphics.?, staging_buffer, 0, buffer, 0, size);
-}
+
+
+
+/// descriptor set layout for global data (i.e. camera transform)
+var global_descriptor_layout: vk.DescriptorSetLayout = .null_handle;
+/// pool from which we allocate all descriptor sets
+var global_descriptor_pool: vk.DescriptorPool = .null_handle;
 
 fn createDescriptors() !void {
     // create a descriptor pool for the frame data
@@ -569,6 +525,11 @@ pub fn updateUniform(transform: Mat4) void {
     getCurrentFrame().updateDescriptorSets(device) catch unreachable;
 }
 
+/// Index to look up mesh data in shader
+pub const MeshPushConstants = struct {
+    index: u32,
+};
+
 /// What you need for a single frame
 const FrameData = struct {
     /// Semaphore signaled when the frame is finished rendering
@@ -578,9 +539,14 @@ const FrameData = struct {
     /// fence to wait on for this frame to finish rendering
     render_fence: Fence,
 
-    // maybe add a command pool?
+    // TODO: maybe add a command pool?
     /// Command buffer for this frame
     cmdbuf: CommandBuffer,
+
+    /// Has this frame begun rendering?
+    begun: bool = false,
+
+    // EVERYTHING BELOW HERE SHOULD BE MOVED SOMEWHERE ELSE
 
     /// descriptor set for this frame
     global_descriptor_set: vk.DescriptorSet,
@@ -594,7 +560,6 @@ const FrameData = struct {
 
     model_data: [100]Mat4 = undefined,
 
-    begun: bool = false,
 
     const CameraData = struct {
         projection: Mat4 = Mat4.perspective(mmath.util.rad(70), 800.0/600.0, 0.1, 1000),
@@ -708,3 +673,4 @@ const FrameData = struct {
         device.vkd.updateDescriptorSets(device.logical, writes.len, &writes, 0, undefined);
     }
 };
+
