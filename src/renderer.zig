@@ -8,6 +8,9 @@ const Events = @import("events.zig");
 const mmath = @import("math.zig");
 const Mat4 = mmath.Mat4;
 const Vec3 = mmath.Vec3;
+const containers = @import("./containers.zig");
+const FreeList = containers.FreeList;
+const Cache = containers.Cache;
 
 // TODO: should this be its own module?
 pub const mesh = @import("./renderer/mesh.zig");
@@ -29,7 +32,6 @@ pub const Semaphore = @import("./renderer/semaphore.zig").Semaphore;
 pub const Shader = @import("./renderer/shader.zig").Shader;
 pub const Pipeline = @import("./renderer/pipeline.zig").Pipeline;
 pub const Buffer = @import("./renderer/buffer.zig").Buffer;
-pub const FreeList = @import("./containers.zig").FreeList;
 
 // TODO: set this in a config
 const required_layers = [_][*:0]const u8{"VK_LAYER_KHRONOS_validation"};
@@ -82,17 +84,6 @@ var frames: [2]FrameData = undefined;
 pub inline fn getCurrentFrame() *FrameData {
     return &frames[frame_number % frames.len];
 }
-
-// caches and managers of that sort
-
-/// cache for renderpasses
-pub var renderpass_cache: std.ArrayHashMap(RenderPassInfo, RenderPass, RenderPassInfo.Context, false) = undefined;
-pub var fb_cache: std.ArrayHashMap(RenderPassInfo, vk.Framebuffer, RenderPassInfo.Context, false) = undefined;
-
-pub var pipeline_cache: std.AutoArrayHashMap(PipelineInfo, Pipeline) = undefined;
-
-// buffer manager
-pub var buffer_manager: FreeList(Buffer) = undefined;
 
 // initialize the renderer
 pub fn init(provided_allocator: Allocator, app_name: [*:0]const u8, window: Platform.Window) !void {
@@ -187,10 +178,10 @@ pub fn init(provided_allocator: Allocator, app_name: [*:0]const u8, window: Plat
 
 
     // setup caches
-    renderpass_cache = std.ArrayHashMap(RenderPassInfo, RenderPass, RenderPassInfo.Context, false).init(allocator);
-    fb_cache = std.ArrayHashMap(RenderPassInfo, vk.Framebuffer, RenderPassInfo.Context, false).init(allocator);
+    renderpass_cache.init(allocator);
+    fb_cache.init(allocator);
 
-    pipeline_cache = std.AutoArrayHashMap(PipelineInfo, Pipeline).init(allocator);
+    pipeline_cache.init(allocator);
 
     // HERE IS WHERE SETUP SHOULD END
 
@@ -239,19 +230,10 @@ pub fn deinit() void {
     device.vkd.destroyDescriptorSetLayout(device.logical, global_descriptor_layout, null);
 
 
-    for (renderpass_cache.values()) |rp| {
-        rp.deinit(device);
-    }
     renderpass_cache.deinit();
 
-    for (fb_cache.values()) |fb| {
-        device.vkd.destroyFramebuffer(device.logical, fb, null);
-    }
     fb_cache.deinit();
 
-    for (pipeline_cache.values()) |pl| {
-        pl.deinit(device);
-    }
     pipeline_cache.deinit();
 
     swapchain.deinit(device, allocator);
@@ -373,10 +355,7 @@ fn recreateSwapchain() !void {
     }
 
     // destroy old framebuffers
-    for (fb_cache.values()) |fb| {
-        device.vkd.destroyFramebuffer(device.logical, fb, null);
-    }
-    fb_cache.clearRetainingCapacity();
+    fb_cache.clear();
 
     // create the command buffers
     for (frames) |*f| {
@@ -387,6 +366,57 @@ fn recreateSwapchain() !void {
     std.log.info("done recreating swapchain", .{});
 
 }
+
+// caches and managers of that sort
+/// cache for renderpasses
+pub var renderpass_cache = Cache(RenderPassInfo, RenderPass, RenderPassInfo.Context, struct {
+    pub fn create (rpi: RenderPassInfo) !RenderPass {
+        return RenderPass.init(swapchain, device, rpi);
+    }
+
+    pub fn destroy(rp: RenderPass) void {
+        rp.deinit(device);
+    }
+}){};
+pub var fb_cache = Cache(RenderPassInfo, vk.Framebuffer, RenderPassInfo.Context, struct {
+    pub fn create (rpi: RenderPassInfo) !vk.Framebuffer {
+        const attachments = [_]vk.ImageView{
+            rpi.color_attachments[0].view,
+            rpi.depth_attachment.?.view
+        };
+
+        var rp: RenderPass = try renderpass_cache.request(.{rpi});
+
+        return try device.vkd.createFramebuffer(device.logical, &.{
+            .flags = .{},
+            .render_pass = rp.handle,
+            .attachment_count = attachments.len,
+            .p_attachments = @ptrCast([*]const vk.ImageView, &attachments),
+            .width = fb_width,
+            .height = fb_height,
+            .layers = 1,
+        }, null);
+    }
+    
+    pub fn destroy(fb: vk.Framebuffer) void {
+        device.vkd.destroyFramebuffer(device.logical, fb, null);
+    }
+}
+){};
+
+pub var pipeline_cache = Cache(PipelineInfo, Pipeline, null, struct {
+    pub const create = createPipeline;
+
+    pub fn destroy(pl: Pipeline) void {
+        pl.deinit(device);
+    }
+}){};
+
+// buffer manager
+pub var buffer_manager: FreeList(Buffer) = undefined;
+
+
+
 
 
 pub const PipelineInfo = struct {
@@ -408,20 +438,11 @@ pub const PipelineInfo = struct {
 
 /// Creates a user defined pipeline
 pub fn createPipeline(
+    info: PipelineInfo,
     rpi: RenderPassInfo,
-    info: PipelineInfo
 ) !Pipeline {
     // get renderpass
-    var rp: RenderPass = undefined;
-
-    // TODO: make these functions of somewhere
-    if (renderpass_cache.get(rpi)) |cached| {
-        rp = cached;
-    } else {
-        var new = try RenderPass.init(swapchain, device, rpi);
-        try renderpass_cache.putNoClobber(rpi, new);
-        rp = new;
-    }
+    var rp: RenderPass = try renderpass_cache.request(.{rpi});
 
     const viewport = vk.Viewport{ .x = 0, .y = @intToFloat(f32, fb_height), .width = @intToFloat(f32, fb_width), .height = -@intToFloat(f32, fb_height), .min_depth = 0, .max_depth = 1 };
 

@@ -145,36 +145,8 @@ pub const CommandBuffer = struct {
 
         Renderer.device.vkd.cmdSetScissor(self.handle, 0, 1, @ptrCast([*]const vk.Rect2D, &scissor));
 
-        var rp: RenderPass = undefined;
-        var fb: vk.Framebuffer = undefined;
-
-        // TODO: make these functions of somewhere
-        if (Renderer.renderpass_cache.get(rpi)) |cached| {
-            rp = cached;
-        } else {
-            var new = try Renderer.RenderPass.init(Renderer.swapchain, Renderer.device, rpi);
-            try Renderer.renderpass_cache.putNoClobber(rpi, new);
-            rp = new;
-        }
-
-        if (Renderer.fb_cache.get(rpi)) |cached| {
-            fb = cached;
-        } else {
-            // TODO: dont hard code
-            const attachments = [_]vk.ImageView{ rpi.color_attachments[0].view, rpi.depth_attachment.?.view };
-
-            const framebuffer: vk.Framebuffer = try Renderer.device.vkd.createFramebuffer(Renderer.device.logical, &.{
-                .flags = .{},
-                .render_pass = rp.handle,
-                .attachment_count = attachments.len,
-                .p_attachments = @ptrCast([*]const vk.ImageView, &attachments),
-                .width = Renderer.fb_width,
-                .height = Renderer.fb_height,
-                .layers = 1,
-            }, null);
-            try Renderer.fb_cache.putNoClobber(rpi, framebuffer);
-            fb = framebuffer;
-        }
+        var rp: RenderPass = try Renderer.renderpass_cache.request(.{rpi});
+        var fb: vk.Framebuffer = try Renderer.fb_cache.request(.{rpi});
 
         var num_clear: u32 = 0;
 

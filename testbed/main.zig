@@ -100,8 +100,7 @@ pub fn main() !void {
         .fragment = .{ .path = "assets/builtin.frag.spv" },
     };
 
-    const pipeline = try Renderer.createPipeline(rpi, pli);
-    try Renderer.pipeline_cache.putNoClobber(pli, pipeline);
+    const pipeline = try Renderer.pipeline_cache.request(.{pli, rpi});
 
     // used for rotating the octahedron
     var f: f32 = 0;
