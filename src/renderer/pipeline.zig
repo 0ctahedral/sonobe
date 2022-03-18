@@ -5,6 +5,24 @@ const RenderPass = @import("renderpass.zig").RenderPass;
 const CommandBuffer = @import("commandbuffer.zig").CommandBuffer;
 const Vertex = @import("mesh.zig").Vertex;
 
+pub const PipelineInfo = struct {
+    /// This will be an api around descriptor sets and stuff
+    pub const Stage = struct {
+        pub const Input = struct {
+            type: enum {
+                buffer,
+            }
+        };
+
+        path: []const u8,
+        //inputs: []const Input = &[_]Input{},
+    };
+
+    vertex: ?Stage,
+    fragment: ?Stage,
+};
+
+
 pub const Pipeline = struct {
     const Self = @This();
 

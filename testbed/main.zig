@@ -100,7 +100,7 @@ pub fn main() !void {
         .fragment = .{ .path = "assets/builtin.frag.spv" },
     };
 
-    const pipeline = try Renderer.pipeline_cache.request(.{pli, rpi});
+    _ = try Renderer.pipeline_cache.request(.{pli, rpi});
 
     // used for rotating the octahedron
     var f: f32 = 0;
@@ -130,6 +130,8 @@ pub fn main() !void {
             };
             try cmd.beginRenderPass(rpi);
 
+            cmd.usePipeline(pli);
+
             // TODO: this will be abstracted away into the scene stuff later
             Renderer.getCurrentFrame().*.model_data[0] = Mat4.scale(Vec3.new(2, 2, 2))
                 .mul(Mat4.rotate(.y, f))
@@ -137,9 +139,8 @@ pub fn main() !void {
 
 
             // TODO: this will be part of the pipeline stuff
-            try Renderer.getCurrentFrame().updateDescriptorSets();
+            try Renderer.getCurrentFrame().updateDescriptorSets(pli);
 
-            cmd.usePipeline(pipeline);
 
             cmd.pushConstant(Renderer.MeshPushConstants, Renderer.MeshPushConstants{ .index = 0 });
 

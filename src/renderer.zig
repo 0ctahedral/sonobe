@@ -31,6 +31,7 @@ pub const Fence = @import("./renderer/fence.zig").Fence;
 pub const Semaphore = @import("./renderer/semaphore.zig").Semaphore;
 pub const Shader = @import("./renderer/shader.zig").Shader;
 pub const Pipeline = @import("./renderer/pipeline.zig").Pipeline;
+pub const PipelineInfo = @import("./renderer/pipeline.zig").PipelineInfo;
 pub const Buffer = @import("./renderer/buffer.zig").Buffer;
 
 // TODO: set this in a config
@@ -186,11 +187,11 @@ pub fn init(provided_allocator: Allocator, app_name: [*:0]const u8, window: Plat
     // HERE IS WHERE SETUP SHOULD END
 
     // descriptors should be created by the pipeline
-    try createDescriptors();
+    try createDescriptorPools();
 
     // create frame objects
     for (frames) |*f| {
-        f.* = try FrameData.init(device, global_descriptor_pool, global_descriptor_layout);
+        f.* = try FrameData.init(device);
     }
 }
 
@@ -227,7 +228,7 @@ pub fn deinit() void {
     buffer_manager.deinit();
 
     device.vkd.destroyDescriptorPool(device.logical, global_descriptor_pool, null);
-    device.vkd.destroyDescriptorSetLayout(device.logical, global_descriptor_layout, null);
+
 
 
     renderpass_cache.deinit();
@@ -412,29 +413,9 @@ pub var pipeline_cache = Cache(PipelineInfo, Pipeline, null, struct {
     }
 }){};
 
+
 // buffer manager
 pub var buffer_manager: FreeList(Buffer) = undefined;
-
-
-
-
-
-pub const PipelineInfo = struct {
-    /// This will be an api around descriptor sets and stuff
-    pub const Stage = struct {
-        pub const Input = struct {
-            type: enum {
-                buffer,
-            }
-        };
-
-        path: []const u8,
-        //inputs: []const Input = &[_]Input{},
-    };
-
-    vertex: ?Stage,
-    fragment: ?Stage,
-};
 
 /// Creates a user defined pipeline
 pub fn createPipeline(
@@ -471,51 +452,9 @@ pub fn createPipeline(
         n_stages += 1;
     }
 
-    const pl = Pipeline.init(device, rp, &[_]vk.DescriptorSetLayout{global_descriptor_layout}, &[_]vk.PushConstantRange{.{
-        .stage_flags = .{ .vertex_bit = true },
-        .offset = 0,
-        .size = @intCast(u32, @sizeOf(MeshPushConstants)),
-    }}, stage_ci[0..n_stages], viewport, scissor, false);
-
-    for (shader_modules[0..n_stages]) |stage| {
-        device.vkd.destroyShaderModule(device.logical, stage, null);
-    }
-
-    return pl;
-}
-
-
-
-
-
-
-/// descriptor set layout for global data (i.e. camera transform)
-var global_descriptor_layout: vk.DescriptorSetLayout = .null_handle;
-/// pool from which we allocate all descriptor sets
-var global_descriptor_pool: vk.DescriptorPool = .null_handle;
-
-fn createDescriptors() !void {
-    // create a descriptor pool for the frame data
-    const sizes = [_]vk.DescriptorPoolSize{
-        .{
-            .@"type" = .uniform_buffer,
-            .descriptor_count = frames.len,
-        },
-        .{
-            .@"type" = .storage_buffer,
-            .descriptor_count = frames.len,
-        },
-    };
-
-    global_descriptor_pool = try device.vkd.createDescriptorPool(device.logical, &.{
-        .flags = .{},
-        .max_sets = frames.len,
-        .pool_size_count = sizes.len,
-        .p_pool_sizes = &sizes,
-    }, null);
-
-    // attempt at bindless aproach
-    const global_bindings = [_]vk.DescriptorSetLayoutBinding{
+    // TODO: generate from PipelineInfo
+    // create descriptor set binding and layout for this type
+    const bindings = [_]vk.DescriptorSetLayoutBinding{
         // camera
         .{
             .binding = 0,
@@ -534,10 +473,62 @@ fn createDescriptors() !void {
         },
     };
 
-    global_descriptor_layout = try device.vkd.createDescriptorSetLayout(device.logical, &.{
+    const descriptor_layout = try device.vkd.createDescriptorSetLayout(device.logical, &.{
         .flags = .{},
-        .binding_count = global_bindings.len,
-        .p_bindings = &global_bindings,
+        .binding_count = bindings.len,
+        .p_bindings = &bindings,
+    }, null);
+
+    for (frames) |*f| {
+        _ = try f.descriptor_set_cache.request(.{info, 
+            global_descriptor_pool, &[_]vk.DescriptorSetLayout{descriptor_layout}
+        });
+    }
+
+
+    const pl = Pipeline.init(device, rp, &[_]vk.DescriptorSetLayout{descriptor_layout}, &[_]vk.PushConstantRange{.{
+        .stage_flags = .{ .vertex_bit = true },
+        .offset = 0,
+        .size = @intCast(u32, @sizeOf(MeshPushConstants)),
+    }}, stage_ci[0..n_stages], viewport, scissor, false);
+
+    for (shader_modules[0..n_stages]) |stage| {
+        device.vkd.destroyShaderModule(device.logical, stage, null);
+    }
+
+    //device.vkd.destroyDescriptorSetLayout(device.logical, descriptor_layout, null);
+
+    return pl;
+}
+
+
+
+
+
+
+/// descriptor set layout for global data (i.e. camera transform)
+/// pool from which we allocate all descriptor sets
+var global_descriptor_pool: vk.DescriptorPool = .null_handle;
+
+fn createDescriptorPools() !void {
+    // create a descriptor pool for the frame data
+    const sizes = [_]vk.DescriptorPoolSize{
+        .{
+            .@"type" = .uniform_buffer,
+            .descriptor_count = 10,
+        },
+        .{
+            .@"type" = .storage_buffer,
+            .descriptor_count = 10,
+        },
+    };
+
+    global_descriptor_pool = try device.vkd.createDescriptorPool(device.logical, &.{
+        .flags = .{},
+        // TODO: don't hardcode
+        .max_sets = 10,
+        .pool_size_count = sizes.len,
+        .p_pool_sizes = &sizes,
     }, null);
 }
 
@@ -567,10 +558,28 @@ const FrameData = struct {
     /// Has this frame begun rendering?
     begun: bool = false,
 
-    // EVERYTHING BELOW HERE SHOULD BE MOVED SOMEWHERE ELSE
 
     /// descriptor set for this frame
-    global_descriptor_set: vk.DescriptorSet,
+    descriptor_set_cache: Cache(PipelineInfo, vk.DescriptorSet, null, struct {
+        pub fn create(info: PipelineInfo, descriptor_pool: vk.DescriptorPool, layouts: []vk.DescriptorSetLayout) !vk.DescriptorSet {
+            _ = info;
+
+            var ret: vk.DescriptorSet = .null_handle;
+            try device.vkd.allocateDescriptorSets(device.logical, &.{
+                .descriptor_pool = descriptor_pool,
+                .descriptor_set_count = 1,
+                .p_set_layouts = layouts.ptr,
+            }, @ptrCast([*]vk.DescriptorSet, &ret));
+
+            return ret;
+        }
+
+        pub fn destroy(d: vk.DescriptorSet) void {
+            _ = d;
+        }
+    }) = .{},
+
+    // EVERYTHING BELOW HERE SHOULD BE MOVED SOMEWHERE ELSE
 
     /// buffer of data in ds for this frame
     global_buffer: Buffer,
@@ -591,7 +600,7 @@ const FrameData = struct {
 
     const Self = @This();
 
-    pub fn init(dev: Device, descriptor_pool: vk.DescriptorPool, layout: vk.DescriptorSetLayout) !Self {
+    pub fn init(dev: Device) !Self {
         var self: Self = undefined;
 
         self.image_avail_semaphore = try Semaphore.init(dev);
@@ -605,6 +614,9 @@ const FrameData = struct {
 
         self.cmdbuf = try CommandBuffer.init(dev, dev.command_pool, true);
         errdefer self.cmdbuf.deinit(dev, dev.command_pool);
+
+
+        self.descriptor_set_cache.init(allocator);
 
         // create the buffer
         self.global_buffer = try Buffer.init(dev, @sizeOf(CameraData), .{ .transfer_dst_bit = true, .uniform_buffer_bit = true }, .{
@@ -620,28 +632,17 @@ const FrameData = struct {
             .host_coherent_bit = true,
         }, true);
 
-        // allocate the sets
-        const layouts = [_]vk.DescriptorSetLayout{
-            layout,
-        };
-
-        try dev.vkd.allocateDescriptorSets(dev.logical, &.{
-            .descriptor_pool = descriptor_pool,
-            .descriptor_set_count = 1,
-            .p_set_layouts = layouts[0..],
-        }, @ptrCast([*]vk.DescriptorSet, &self.global_descriptor_set));
-
         self.cam_data = CameraData{};
         self.model_data[0] = Mat4.translate(Vec3.new(0, 100, 0));
         self.model_data[1] = Mat4.scale(mmath.Vec3.new(100, 100, 100))
             .mul(Mat4.translate(.{ .x = 500, .y = 250 }));
 
-        try self.updateDescriptorSets();
 
         return self;
     }
 
     pub fn deinit(self: *Self, dev: Device) void {
+        self.descriptor_set_cache.deinit();
         self.model_buffer.deinit(dev);
         self.global_buffer.deinit(dev);
         self.image_avail_semaphore.deinit(dev);
@@ -652,9 +653,12 @@ const FrameData = struct {
 
     pub fn updateDescriptorSets(
         self: Self,
+        pli: PipelineInfo,
     ) !void {
         try self.global_buffer.load(device, CameraData, &[_]CameraData{self.cam_data}, 0);
         try self.model_buffer.load(device, Mat4, self.model_data[0..], 0);
+
+        const ds = self.descriptor_set_cache.get(pli).?;
 
         const cam_infos = [_]vk.DescriptorBufferInfo{
             .{
@@ -672,7 +676,7 @@ const FrameData = struct {
         };
 
         const writes = [_]vk.WriteDescriptorSet{ .{
-            .dst_set = self.global_descriptor_set,
+            .dst_set = ds,
             .dst_binding = 0,
             .dst_array_element = 0,
             .descriptor_count = cam_infos.len,
@@ -681,7 +685,7 @@ const FrameData = struct {
             .p_buffer_info = cam_infos[0..],
             .p_texel_buffer_view = undefined,
         }, .{
-            .dst_set = self.global_descriptor_set,
+            .dst_set = ds,
             .dst_binding = 1,
             .dst_array_element = 0,
             .descriptor_count = model_infos.len,
@@ -694,4 +698,5 @@ const FrameData = struct {
         device.vkd.updateDescriptorSets(device.logical, writes.len, &writes, 0, undefined);
     }
 };
+
 

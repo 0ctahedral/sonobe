@@ -7,7 +7,7 @@ const Device = @import("device.zig").Device;
 const RenderPass = @import("renderpass.zig").RenderPass;
 const RenderPassInfo = @import("renderpass.zig").RenderPassInfo;
 const Renderer = @import("../renderer.zig");
-const Pipeline = @import("pipeline.zig").Pipeline;
+const PipelineInfo = @import("pipeline.zig").PipelineInfo;
 const Buffer = @import("buffer.zig").Buffer;
 
 pub const CommandBuffer = struct {
@@ -19,7 +19,8 @@ pub const CommandBuffer = struct {
 
     state: State = .not_allocated,
 
-    pipeline: Pipeline = .{},
+    pipeline_info: PipelineInfo = undefined,
+    renderpass_info: RenderPassInfo = undefined,
 
     const Self = @This();
 
@@ -168,6 +169,7 @@ pub const CommandBuffer = struct {
             } 
         };
 
+        self.renderpass_info = rpi;
         
         Renderer.device.vkd.cmdBeginRenderPass(self.handle, &.{
             .render_pass = rp.handle,
@@ -186,11 +188,12 @@ pub const CommandBuffer = struct {
 
     pub fn usePipeline(
         self: *Self,
-        pl: Pipeline
+        pli: PipelineInfo
     ) void {
         // TODO: make the bindtype part of the pipeline struct
+        self.pipeline_info = pli;
+        const pl = Renderer.pipeline_cache.request(.{pli, self.renderpass_info}) catch unreachable;
         Renderer.device.vkd.cmdBindPipeline(self.handle, .graphics, pl.handle);
-        self.pipeline = pl;
     }
 
     pub fn pushConstant(
@@ -198,8 +201,9 @@ pub const CommandBuffer = struct {
         comptime T: type,
         value: anytype
     ) void {
+        const pl = Renderer.pipeline_cache.request(.{self.pipeline_info, self.renderpass_info}) catch unreachable;
         Renderer.device.vkd.cmdPushConstants(self.handle,
-            self.pipeline.layout,
+            pl.layout,
             .{ .vertex_bit = true }, 0, @intCast(u32, @sizeOf(T)), &value);
     }
 
@@ -211,14 +215,17 @@ pub const CommandBuffer = struct {
         first: u32,
         offset: u32,
     ) void {
+        const pl = Renderer.pipeline_cache.request(.{self.pipeline_info, self.renderpass_info}) catch unreachable;
+
+        const ds = Renderer.getCurrentFrame().descriptor_set_cache.get(self.pipeline_info).?;
 
         Renderer.device.vkd.cmdBindDescriptorSets(
             self.handle,
             .graphics,
-            self.pipeline.layout,
+            pl.layout,
             0,
             1,
-            @ptrCast([*]const vk.DescriptorSet, &Renderer.getCurrentFrame().global_descriptor_set),
+            @ptrCast([*]const vk.DescriptorSet, &ds),
             0,
             undefined,
         );

@@ -39,6 +39,11 @@ pub fn Cache(
             return t;
         }
 
+        /// get a T or null if we don't have it
+        pub fn get(self: Self, info: I) ?T {
+            return self.map.get(info);
+        }
+
         /// clears cache and maintains capacity
         pub fn clear(self: *Self) void {
             for (self.map.values()) |v| {
