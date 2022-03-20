@@ -125,6 +125,7 @@ pub fn init(provided_allocator: Allocator, app_name: [*:0]const u8, window: Plat
     }, null);
 
     // load dispatch functions which require instance
+    //vki = InstanceDispatch.loadNoFail(instance, vk_proc);
     vki = try InstanceDispatch.load(instance, vk_proc);
     errdefer vki.destroyInstance(instance, null);
 
@@ -177,7 +178,6 @@ pub fn init(provided_allocator: Allocator, app_name: [*:0]const u8, window: Plat
     // should we just be suballocating one buffer?
     buffer_manager = try FreeList(Buffer).init(allocator, 10);
 
-
     // setup caches
     renderpass_cache.init(allocator);
     fb_cache.init(allocator);
@@ -217,7 +217,6 @@ pub fn deinit() void {
         unreachable;
     };
 
-
     for (frames) |*f| {
         f.deinit(device);
     }
@@ -228,8 +227,6 @@ pub fn deinit() void {
     buffer_manager.deinit();
 
     device.vkd.destroyDescriptorPool(device.logical, global_descriptor_pool, null);
-
-
 
     renderpass_cache.deinit();
 
@@ -365,13 +362,12 @@ fn recreateSwapchain() !void {
     }
 
     std.log.info("done recreating swapchain", .{});
-
 }
 
 // caches and managers of that sort
 /// cache for renderpasses
 pub var renderpass_cache = Cache(RenderPassInfo, RenderPass, RenderPassInfo.Context, struct {
-    pub fn create (rpi: RenderPassInfo) !RenderPass {
+    pub fn create(rpi: RenderPassInfo) !RenderPass {
         return RenderPass.init(swapchain, device, rpi);
     }
 
@@ -380,11 +376,8 @@ pub var renderpass_cache = Cache(RenderPassInfo, RenderPass, RenderPassInfo.Cont
     }
 }){};
 pub var fb_cache = Cache(RenderPassInfo, vk.Framebuffer, RenderPassInfo.Context, struct {
-    pub fn create (rpi: RenderPassInfo) !vk.Framebuffer {
-        const attachments = [_]vk.ImageView{
-            rpi.color_attachments[0].view,
-            rpi.depth_attachment.?.view
-        };
+    pub fn create(rpi: RenderPassInfo) !vk.Framebuffer {
+        const attachments = [_]vk.ImageView{ rpi.color_attachments[0].view, rpi.depth_attachment.?.view };
 
         var rp: RenderPass = try renderpass_cache.request(.{rpi});
 
@@ -398,12 +391,11 @@ pub var fb_cache = Cache(RenderPassInfo, vk.Framebuffer, RenderPassInfo.Context,
             .layers = 1,
         }, null);
     }
-    
+
     pub fn destroy(fb: vk.Framebuffer) void {
         device.vkd.destroyFramebuffer(device.logical, fb, null);
     }
-}
-){};
+}){};
 
 pub var pipeline_cache = Cache(PipelineInfo, Pipeline, null, struct {
     pub const create = createPipeline;
@@ -412,7 +404,6 @@ pub var pipeline_cache = Cache(PipelineInfo, Pipeline, null, struct {
         pl.deinit(device);
     }
 }){};
-
 
 // buffer manager
 pub var buffer_manager: FreeList(Buffer) = undefined;
@@ -480,11 +471,8 @@ pub fn createPipeline(
     }, null);
 
     for (frames) |*f| {
-        _ = try f.descriptor_set_cache.request(.{info, 
-            global_descriptor_pool, &[_]vk.DescriptorSetLayout{descriptor_layout}
-        });
+        _ = try f.descriptor_set_cache.request(.{ info, global_descriptor_pool, &[_]vk.DescriptorSetLayout{descriptor_layout} });
     }
-
 
     const pl = Pipeline.init(device, rp, &[_]vk.DescriptorSetLayout{descriptor_layout}, &[_]vk.PushConstantRange{.{
         .stage_flags = .{ .vertex_bit = true },
@@ -500,11 +488,6 @@ pub fn createPipeline(
 
     return pl;
 }
-
-
-
-
-
 
 /// descriptor set layout for global data (i.e. camera transform)
 /// pool from which we allocate all descriptor sets
@@ -558,7 +541,6 @@ const FrameData = struct {
     /// Has this frame begun rendering?
     begun: bool = false,
 
-
     /// descriptor set for this frame
     descriptor_set_cache: Cache(PipelineInfo, vk.DescriptorSet, null, struct {
         pub fn create(info: PipelineInfo, descriptor_pool: vk.DescriptorPool, layouts: []vk.DescriptorSetLayout) !vk.DescriptorSet {
@@ -590,11 +572,10 @@ const FrameData = struct {
 
     model_data: [100]Mat4 = undefined,
 
-
     const CameraData = struct {
-        projection: Mat4 = Mat4.perspective(mmath.util.rad(70), 800.0/600.0, 0.1, 1000),
+        projection: Mat4 = Mat4.perspective(mmath.util.rad(70), 800.0 / 600.0, 0.1, 1000),
         //projection: Mat4 = Mat4.ortho(0, 800.0, 0, 600.0, -100, 100),
-        view: Mat4 = Mat4.translate(.{.x=0, .y=0, .z=2}).inv(),
+        view: Mat4 = Mat4.translate(.{ .x = 0, .y = 0, .z = 2 }).inv(),
         //view: Mat4 = Mat4.translate(.{ .x = 0, .y = 0, .z = 0 }),
     };
 
@@ -614,7 +595,6 @@ const FrameData = struct {
 
         self.cmdbuf = try CommandBuffer.init(dev, dev.command_pool, true);
         errdefer self.cmdbuf.deinit(dev, dev.command_pool);
-
 
         self.descriptor_set_cache.init(allocator);
 
@@ -636,7 +616,6 @@ const FrameData = struct {
         self.model_data[0] = Mat4.translate(Vec3.new(0, 100, 0));
         self.model_data[1] = Mat4.scale(mmath.Vec3.new(100, 100, 100))
             .mul(Mat4.translate(.{ .x = 500, .y = 250 }));
-
 
         return self;
     }
@@ -698,5 +677,3 @@ const FrameData = struct {
         device.vkd.updateDescriptorSets(device.logical, writes.len, &writes, 0, undefined);
     }
 };
-
-

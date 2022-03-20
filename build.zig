@@ -1,4 +1,5 @@
 const std = @import("std");
+const builtin = @import("builtin");
 const Builder = std.build.Builder;
 
 const vkgen = @import("deps/vulkan-zig/generator/index.zig");
@@ -28,6 +29,7 @@ pub fn build(b: *Builder) void {
 /// add this library package to the executable
 /// and link dependencies
 fn link(b: *Builder, step: *std.build.LibExeObjStep) void {
+    _ = b;
     // packages
     const gen = vkgen.VkGenerateStep.init(b, "deps/vulkan-zig/examples/vk.xml", "vk.zig");
     step.addPackage(.{
@@ -38,6 +40,17 @@ fn link(b: *Builder, step: *std.build.LibExeObjStep) void {
     // links / c stuff
     step.linkLibC();
     step.addIncludeDir(prefix ++ "/include");
+
+    // add stuff for macos
+    switch (builtin.target.os.tag) {
+        .macos => {
+            step.addCSourceFile("./src/platform/macos.m", &[_][]const u8{});
+            step.linkFramework("AppKit");
+            step.linkFramework("QuartzCore");
+        },
+        else => .{},
+    }
+
     // TODO: configure this by os
     const lib_names = [_][]const u8{
         "xcb",

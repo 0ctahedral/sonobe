@@ -7,7 +7,11 @@ const Events = @import("events.zig");
 
 pub const Window = @import("platform/window.zig");
 
-const backend = @import("platform/linux.zig");
+const backend = switch (builtin.target.os.tag) {
+    .macos => @import("platform/macos.zig"),
+    .linux => @import("platform/linux.zig"),
+    else => unreachable,
+};
 
 pub var is_running = true;
 
@@ -17,7 +21,7 @@ var libvk: std.DynLib = undefined;
 var vk_get_proc: vk.PfnGetInstanceProcAddr = undefined;
 
 pub const vkprefix = switch (builtin.target.os.tag) {
-    .macos => "VK_EXT_metal_surface",
+    .macos => "./deps/vulkan/macos",
     .linux => "./deps/vulkan/x86_64",
     else => unreachable,
 };
@@ -34,7 +38,8 @@ pub const required_exts = [_][*:0]const u8{
 
 /// Initialize the platform layer
 pub fn init() !void {
-    libvk = try std.DynLib.open(vkprefix ++ "/lib/libvulkan.so");
+    //libvk = try std.DynLib.open(vkprefix ++ "/lib/libvulkan.so");
+    libvk = try std.DynLib.open(vkprefix ++ "/lib/libvulkan.dylib");
 
     if (libvk.lookup(vk.PfnGetInstanceProcAddr, "vkGetInstanceProcAddr")) |pfn| {
         vk_get_proc = pfn;
@@ -54,7 +59,9 @@ pub fn flush() bool {
     var rev: ?Events.WindowResizeEvent = null;
     while (backend.nextEvent()) |ev| {
         switch (ev) {
-            .Quit => is_running = false,
+            .Quit => {
+                is_running = false;
+            },
             .WindowClose => |id| std.log.info("window {} closed", .{id}),
             .WindowResize => |r| {
                 rev = r;
@@ -66,7 +73,7 @@ pub fn flush() bool {
     if (rev) |r| {
         Events.send(Events.Event{ .WindowResize = r });
         //Renderer.resize(r.w, r.h);
-        return false;
+        //return false;
     }
 
     return true;
@@ -82,6 +89,6 @@ pub fn createWindowSurface(vki: InstanceDispatch, instance: vk.Instance, window:
     return backend.createWindowSurface(vki, instance, window);
 }
 
-pub fn createWindow(title: []const u8, width: u32, height: u32) anyerror!Window {
+pub fn createWindow(title: [*:0]const u8, width: u32, height: u32) anyerror!Window {
     return backend.createWindow(title, width, height);
 }

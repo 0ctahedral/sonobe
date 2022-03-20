@@ -48,11 +48,8 @@ pub fn main() !void {
     try Renderer.init(allocator, app_name, window);
     errdefer Renderer.deinit();
 
-
     // TODO: should this go in the platform?
     var frame_timer = try std.time.Timer.start();
-
-
 
     // create the buffers for scene data
     const vertex_buf_size = @sizeOf(Vertex) * 1024 * 1024;
@@ -71,22 +68,23 @@ pub fn main() !void {
         .transfer_dst_bit = true,
     }, .{ .device_local_bit = true }, true);
 
-
     // upload to the buffers
     try vert_buf.stagedLoad(Vertex, octahedron_mesh.verts, 0);
     try ind_buf.stagedLoad(u32, octahedron_mesh.inds, 0);
 
     // create the renderpass
-    var rpi = Renderer.RenderPassInfo{
-        .n_color_attachments = 1,
-        .clear_flags = .{
-            .color = true,
-            .depth = true,
-            .stencil = true,
-        }
-    };
+    var rpi = Renderer.RenderPassInfo{ .n_color_attachments = 1, .clear_flags = .{
+        .color = true,
+        .depth = true,
+        .stencil = true,
+    } };
     rpi.color_attachments[0] = &Renderer.swapchain.images[Renderer.image_index];
-    rpi.clear_colors[0] = .{  .float_32 = .{ 0, 0.1, 0, 0, } };
+    rpi.clear_colors[0] = .{ .float_32 = .{
+        0,
+        0.1,
+        0,
+        0,
+    } };
 
     rpi.depth_attachment = &Renderer.swapchain.depth;
     rpi.clear_depth = .{
@@ -100,7 +98,7 @@ pub fn main() !void {
         .fragment = .{ .path = "assets/builtin.frag.spv" },
     };
 
-    _ = try Renderer.pipeline_cache.request(.{pli, rpi});
+    _ = try Renderer.pipeline_cache.request(.{ pli, rpi });
 
     // used for rotating the octahedron
     var f: f32 = 0;
@@ -111,17 +109,20 @@ pub fn main() !void {
         const dt = @intToFloat(f32, frame_timer.read()) / @intToFloat(f32, std.time.ns_per_s);
         frame_timer.reset();
 
-
         f += std.math.pi * dt;
 
         try Renderer.beginFrame();
 
         {
-
             var cmd = &Renderer.getCurrentFrame().cmdbuf;
             try cmd.begin(.{});
             rpi.color_attachments[0] = &Renderer.swapchain.images[Renderer.image_index];
-            rpi.clear_colors[0] = .{  .float_32 = .{ 0, 0.1, 0, 0, } };
+            rpi.clear_colors[0] = .{ .float_32 = .{
+                0,
+                0.1,
+                0,
+                0,
+            } };
 
             rpi.depth_attachment = &Renderer.swapchain.depth;
             rpi.clear_depth = .{
@@ -137,10 +138,8 @@ pub fn main() !void {
                 .mul(Mat4.rotate(.y, f))
                 .mul(Mat4.translate(Vec3.new(0, 0, -10)));
 
-
             // TODO: this will be part of the pipeline stuff
             try Renderer.getCurrentFrame().updateDescriptorSets(pli);
-
 
             cmd.pushConstant(Renderer.MeshPushConstants, Renderer.MeshPushConstants{ .index = 0 });
 
@@ -148,7 +147,6 @@ pub fn main() !void {
 
             cmd.endRenderPass();
             try cmd.end();
-
         }
 
         try Renderer.endFrame();
