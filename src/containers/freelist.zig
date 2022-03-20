@@ -1,7 +1,7 @@
 const std = @import("std");
 const expect = std.testing.expect;
 const Allocator = std.mem.Allocator;
-/// areana allocated free list
+
 pub fn FreeList(
     comptime T: type,
 ) type {
@@ -27,9 +27,7 @@ pub fn FreeList(
         /// head is the first element
         mem: []Item,
 
-        allocator: Allocator,
-
-        // TODO: iterator of non free items?
+        allocator: ?Allocator,
 
         /// initialize with storage
         pub fn init(allocator: Allocator, size: usize) !Self {
@@ -47,17 +45,42 @@ pub fn FreeList(
             return self;
         }
 
+        // TODO: this should be default
+        pub fn initArena(mem: []T) !Self {
+            const size = mem.len;
+
+            var ptr = @ptrCast([*]Item, mem.ptr);
+
+            var self = Self{
+                .allocator = null,
+                .mem = ptr[0..size],
+            };
+            // TODO: is this necessary?
+            for (self.mem) |*u, i| {
+                u.* = .{ .next = @intCast(u32, i) + 1 };
+            }
+            // set head
+            self.mem[0] = .{ .next = 1 };
+            self.mem[size - 1] = .{ .next = 0 };
+            return self;
+        }
+
         pub inline fn allocAny(self: *Self) !*anyopaque {
             @ptrCast(*anyopaque, self.alloc());
         }
 
         pub fn alloc(self: *Self) !*T {
+            const slot = try self.allocIndex();
+            return &self.mem[slot].item;
+        }
+
+        pub fn allocIndex(self: *Self) !Index {
             const slot = self.mem[0].next;
             self.mem[0].next = self.mem[@as(usize, slot)].next;
             // if the head is pointing to itself then the buffer is full
             if (slot > 0) {
                 self.mem[slot] = .{ .item = undefined };
-                return &self.mem[slot].item;
+                return slot;
             }
 
             // TODO: resize?
@@ -70,13 +93,20 @@ pub fn FreeList(
 
         pub fn freeAny(self: *Self, item_ptr: *anyopaque) void {
             const index = (@ptrToInt(item_ptr) - @ptrToInt(self.mem.ptr)) / @sizeOf(Item);
+            self.freeIndex(@intCast(u32, index));
+        }
+
+        pub fn freeIndex(self: *Self, idx: Index) void {
+            const index = @as(usize, idx);
             // insert at the front of the list
             self.mem[index] = .{ .next = self.mem[0].next };
             self.mem[0].next = @intCast(u32, index);
         }
 
         pub fn deinit(self: *Self) void {
-            self.allocator.free(self.mem);
+            if (self.allocator) |a| {
+                a.free(self.mem);
+            }
         }
 
         const Iter = struct {
@@ -121,6 +151,19 @@ test "init" {
     defer fl.deinit();
 
     try expect(@sizeOf(FooList.Item) == @sizeOf(foo));
+}
+
+test "init arena" {
+    const FooList = FreeList(foo);
+
+    var data = try std.testing.allocator.alloc(foo, 100);
+    defer std.testing.allocator.free(data);
+
+    var fl = try FooList.initArena(data);
+    defer fl.deinit();
+
+    try expect(@sizeOf(FooList.Item) == @sizeOf(foo));
+    try expect(fl.mem.len == 100);
 }
 
 test "addressing" {
@@ -171,5 +214,4 @@ test "iter" {
     const f3 = iter.next();
     try expect(@ptrToInt(f3) == @ptrToInt(p3));
     try expect(iter.next() == null);
-
 }

@@ -1,26 +1,30 @@
 const std = @import("std");
 const vk = @import("vulkan");
 const InstanceDispatch = @import("../renderer/dispatch_types.zig").InstanceDispatch;
-const Window = @import("window.zig");
 const Event = @import("../events.zig").Event;
-
-const macos_state = extern struct {
-    app_delegate: *anyopaque,
-    wnd_delegate: *anyopaque,
-};
+const Window = @import("window.zig");
+const FreeList = @import("../containers/freelist.zig").FreeList;
 
 extern fn startup(state: *macos_state) bool;
 extern fn shutdown(state: *macos_state) void;
 extern fn create_window(title: [*:0]const u8, w: i32, h: i32, wd: *WinData) bool;
 pub extern fn pump_messages(state: *macos_state) bool;
 
+const macos_state = extern struct {
+    app_delegate: *anyopaque,
+    wnd_delegate: *anyopaque,
+};
+
 var state: macos_state = undefined;
 
 var num_living: usize = 0;
+var windows: FreeList(WinData) = undefined;
+var window_store: [10]WinData = undefined;
 
 pub fn init() anyerror!void {
     std.log.info("macos startup", .{});
     _ = startup(&state);
+    windows = try FreeList(WinData).initArena(&window_store);
 }
 
 pub fn deinit() void {
@@ -49,16 +53,16 @@ pub const WinData = struct {
     layer: *vk.CAMetalLayer,
 };
 
-var wd: WinData = undefined;
-
 pub fn createWindow(title: [*:0]const u8, w: u32, h: u32) !Window {
-    if (!create_window(title, @intCast(i32, w), @intCast(i32, h), &wd)) {
+    const id: u32 = try windows.allocIndex();
+    var wd = &window_store[id];
+
+    if (!create_window(title, @intCast(i32, w), @intCast(i32, h), wd)) {
         return error.FailedWindow;
     }
-    // TODO: is this dumb?
-    const id: u32 = @truncate(u32, @ptrToInt(wd.window));
-    std.log.debug("opening {x}", .{id});
+
     num_living += 1;
+
     return Window{
         .handle = @intToEnum(Window.Handle, id),
     };
@@ -71,9 +75,9 @@ export fn close_window(ptr: *anyopaque) void {
 }
 
 pub fn createWindowSurface(vki: InstanceDispatch, instance: vk.Instance, win: Window) !vk.SurfaceKHR {
-    _ = win;
+    const idx = @enumToInt(win.handle);
     return vki.createMetalSurfaceEXT(instance, &.{
         .flags = .{},
-        .p_layer = wd.layer,
+        .p_layer = window_store[idx].layer,
     }, null);
 }

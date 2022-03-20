@@ -26,6 +26,12 @@ pub const vkprefix = switch (builtin.target.os.tag) {
     else => unreachable,
 };
 
+pub const vkdl = switch (builtin.target.os.tag) {
+    .macos => "./deps/vulkan/macos/lib/libvulkan.dylib",
+    .linux => "./deps/vulkan/x86_64/lib/libvulkan.so",
+    else => unreachable,
+};
+
 pub const required_exts = [_][*:0]const u8{
     vk.extension_info.ext_debug_utils.name,
     "VK_KHR_surface",
@@ -38,8 +44,7 @@ pub const required_exts = [_][*:0]const u8{
 
 /// Initialize the platform layer
 pub fn init() !void {
-    //libvk = try std.DynLib.open(vkprefix ++ "/lib/libvulkan.so");
-    libvk = try std.DynLib.open(vkprefix ++ "/lib/libvulkan.dylib");
+    libvk = try std.DynLib.open(vkdl);
 
     if (libvk.lookup(vk.PfnGetInstanceProcAddr, "vkGetInstanceProcAddr")) |pfn| {
         vk_get_proc = pfn;
