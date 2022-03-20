@@ -9,6 +9,7 @@ const RenderPassInfo = @import("renderpass.zig").RenderPassInfo;
 const Renderer = @import("../renderer.zig");
 const PipelineInfo = @import("pipeline.zig").PipelineInfo;
 const Buffer = @import("buffer.zig").Buffer;
+const Vec3 = @import("../math.zig").Vec3;
 
 pub const CommandBuffer = struct {
 
@@ -152,25 +153,23 @@ pub const CommandBuffer = struct {
         var num_clear: u32 = 0;
 
         var clear_values: [RenderPassInfo.MAX_ATTATCHMENTS + 1]vk.ClearValue = undefined;
-        for (rpi.clear_colors[0..rpi.n_color_attachments])  |clear, i| {
-            clear_values[i] = vk.ClearValue{ .color = clear };
+        for (rpi.clear_colors[0..rpi.n_color_attachments]) |clear, i| {
+            clear_values[i] = vk.ClearValue{ .color = .{ .float_32 = clear } };
             num_clear += 1;
         }
 
         if (rpi.depth_attachment) |_| {
-            clear_values[rpi.n_color_attachments] = vk.ClearValue{ .depth_stencil = rpi.clear_depth};
+            clear_values[rpi.n_color_attachments] = vk.ClearValue{ .depth_stencil = rpi.clear_depth };
             num_clear += 1;
         }
 
-        const area = vk.Rect2D{
-            .offset = .{ .x = 0, .y = 0 }, .extent = .{
-                .width = Renderer.fb_width,
-                .height = Renderer.fb_height,
-            } 
-        };
+        const area = vk.Rect2D{ .offset = .{ .x = 0, .y = 0 }, .extent = .{
+            .width = Renderer.fb_width,
+            .height = Renderer.fb_height,
+        } };
 
         self.renderpass_info = rpi;
-        
+
         Renderer.device.vkd.cmdBeginRenderPass(self.handle, &.{
             .render_pass = rp.handle,
             .framebuffer = fb,
@@ -186,25 +185,16 @@ pub const CommandBuffer = struct {
         Renderer.device.vkd.cmdEndRenderPass(self.handle);
     }
 
-    pub fn usePipeline(
-        self: *Self,
-        pli: PipelineInfo
-    ) void {
+    pub fn usePipeline(self: *Self, pli: PipelineInfo) void {
         // TODO: make the bindtype part of the pipeline struct
         self.pipeline_info = pli;
-        const pl = Renderer.pipeline_cache.request(.{pli, self.renderpass_info}) catch unreachable;
+        const pl = Renderer.pipeline_cache.request(.{ pli, self.renderpass_info }) catch unreachable;
         Renderer.device.vkd.cmdBindPipeline(self.handle, .graphics, pl.handle);
     }
 
-    pub fn pushConstant(
-        self: *Self,
-        comptime T: type,
-        value: anytype
-    ) void {
-        const pl = Renderer.pipeline_cache.request(.{self.pipeline_info, self.renderpass_info}) catch unreachable;
-        Renderer.device.vkd.cmdPushConstants(self.handle,
-            pl.layout,
-            .{ .vertex_bit = true }, 0, @intCast(u32, @sizeOf(T)), &value);
+    pub fn pushConstant(self: *Self, comptime T: type, value: anytype) void {
+        const pl = Renderer.pipeline_cache.request(.{ self.pipeline_info, self.renderpass_info }) catch unreachable;
+        Renderer.device.vkd.cmdPushConstants(self.handle, pl.layout, .{ .vertex_bit = true }, 0, @intCast(u32, @sizeOf(T)), &value);
     }
 
     pub fn drawIndexed(
@@ -215,7 +205,7 @@ pub const CommandBuffer = struct {
         first: u32,
         offset: u32,
     ) void {
-        const pl = Renderer.pipeline_cache.request(.{self.pipeline_info, self.renderpass_info}) catch unreachable;
+        const pl = Renderer.pipeline_cache.request(.{ self.pipeline_info, self.renderpass_info }) catch unreachable;
 
         const ds = Renderer.getCurrentFrame().descriptor_set_cache.get(self.pipeline_info).?;
 
@@ -237,6 +227,4 @@ pub const CommandBuffer = struct {
         // actually draw
         Renderer.device.vkd.cmdDrawIndexed(self.handle, num_indices, 1, first, @intCast(i32, offset), 0);
     }
-
-
 };

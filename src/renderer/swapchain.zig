@@ -19,6 +19,8 @@ pub const Swapchain = struct {
 
     images: []Image = undefined,
 
+    image_index: usize = 0,
+
     depth: Image = undefined,
 
     const Self = @This();
@@ -167,18 +169,8 @@ pub const Swapchain = struct {
         //graphics_queue: Queue,
         present_queue: Queue,
         render_complete: Semaphore,
-        idx: u32,
     ) !void {
-        const result = try dev.vkd.queuePresentKHR(
-            present_queue.handle,
-            &.{
-                .wait_semaphore_count = 1,
-                .p_wait_semaphores = render_complete.ptr(),
-                .swapchain_count = 1,
-                .p_swapchains = @ptrCast([*]const vk.SwapchainKHR, &self.handle),
-                .p_image_indices = @ptrCast([*]const u32, &idx),
-                .p_results = null
-            });
+        const result = try dev.vkd.queuePresentKHR(present_queue.handle, &.{ .wait_semaphore_count = 1, .p_wait_semaphores = render_complete.ptr(), .swapchain_count = 1, .p_swapchains = @ptrCast([*]const vk.SwapchainKHR, &self.handle), .p_image_indices = @ptrCast([*]const u32, &@intCast(u32, self.image_index)), .p_results = null });
 
         switch (result) {
             .success => {},
@@ -190,11 +182,11 @@ pub const Swapchain = struct {
     }
 
     pub fn acquireNext(
-        self: Self,
+        self: *Self,
         dev: Device,
         semaphore: Semaphore,
         fence: Fence,
-    ) !u32 {
+    ) !void {
         const result = try dev.vkd.acquireNextImageKHR(
             dev.logical,
             self.handle,
@@ -203,14 +195,15 @@ pub const Swapchain = struct {
             fence.handle,
         );
 
-        switch (result.result) {
-            .success => {
-                return result.image_index;
-            },
-            .suboptimal_khr => {
-                return result.image_index;
-            },
+        self.image_index = switch (result.result) {
+            .success => result.image_index,
+            .suboptimal_khr => result.image_index,
             else => unreachable,
-        }
+        };
+    }
+
+    /// Helper to return the current image in the swapchain
+    pub fn getCurrentImage(self: Self) *Image {
+        return &self.images[self.image_index];
     }
 };

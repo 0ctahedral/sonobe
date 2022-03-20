@@ -78,30 +78,29 @@ pub fn main() !void {
         .depth = true,
         .stencil = true,
     } };
-    rpi.color_attachments[0] = &Renderer.swapchain.images[Renderer.image_index];
-    rpi.clear_colors[0] = .{ .float_32 = .{
-        0,
-        0.1,
-        0,
-        0,
-    } };
+    rpi.clear_colors[0] = .{ 0, 0.1, 0.0, 0 };
 
-    rpi.depth_attachment = &Renderer.swapchain.depth;
     rpi.clear_depth = .{
         .depth = 1.0,
         .stencil = 0,
     };
 
     // create the shader pipeline
-    const pli = .{
+    const pli1 = .{
         .vertex = .{ .path = "assets/builtin.vert.spv" },
         .fragment = .{ .path = "assets/builtin.frag.spv" },
     };
 
-    _ = try Renderer.pipeline_cache.request(.{ pli, rpi });
+    const pli2 = .{
+        .vertex = .{ .path = "assets/builtin.vert.spv" },
+        .fragment = .{ .path = "assets/builtin.frag.spv" },
+        .wireframe = true,
+    };
 
     // used for rotating the octahedron
     var f: f32 = 0;
+
+    var pli: Renderer.PipelineInfo = pli1;
 
     while (Platform.is_running) {
         _ = Platform.flush();
@@ -114,23 +113,27 @@ pub fn main() !void {
         try Renderer.beginFrame();
 
         {
+            if (f > 10) {
+                pli = pli2;
+            } else {
+                pli = pli1;
+            }
+
+            // get the command buffer and start  it
             var cmd = &Renderer.getCurrentFrame().cmdbuf;
             try cmd.begin(.{});
-            rpi.color_attachments[0] = &Renderer.swapchain.images[Renderer.image_index];
-            rpi.clear_colors[0] = .{ .float_32 = .{
-                0,
-                0.1,
-                0,
-                0,
-            } };
 
+            // get the current images for this frame
+            rpi.color_attachments[0] = Renderer.swapchain.getCurrentImage();
             rpi.depth_attachment = &Renderer.swapchain.depth;
-            rpi.clear_depth = .{
-                .depth = 1.0,
-                .stencil = 0,
-            };
+
+            // here we can change the clear color for some added interest
+            rpi.clear_colors[0] = .{ 0, 0.1, (@sin(f) / 2.0) + 0.5, 0 };
+
+            // start the renderpass
             try cmd.beginRenderPass(rpi);
 
+            // use the shaders we declared earlier
             cmd.usePipeline(pli);
 
             // TODO: this will be abstracted away into the scene stuff later

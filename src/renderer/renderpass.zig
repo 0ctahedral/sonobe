@@ -8,8 +8,6 @@ const Swapchain = @import("swapchain.zig").Swapchain;
 const CommandBuffer = @import("commandbuffer.zig").CommandBuffer;
 const Image = @import("image.zig").Image;
 
-
-
 // TODO: cache this type somewhere so that we don't remake the renderpasses
 /// Info for creating a renderpass
 /// collects setup so that we can just make it when binding
@@ -20,7 +18,7 @@ pub const RenderPassInfo = struct {
     n_color_attachments: u32 = 0,
     color_attachments: [MAX_ATTATCHMENTS]*const Image = undefined,
     // colors to clear each image
-    clear_colors: [MAX_ATTATCHMENTS]vk.ClearColorValue = undefined,
+    clear_colors: [MAX_ATTATCHMENTS][4]f32 = undefined,
 
     depth_attachment: ?*const Image = null,
     clear_depth: vk.ClearDepthStencilValue = undefined,
@@ -37,24 +35,22 @@ pub const RenderPassInfo = struct {
     };
 
     /// used for hashing renderpass info
-    pub const Context = struct{
+    pub const Context = struct {
         //const Context = @This();
         const K = RenderPassInfo;
         pub fn hash(self: Context, k: K) u32 {
             var h = std.hash.Wyhash.init(0);
             _ = self;
             // things to hash
-            // color_attachments layouts? 
-            // depth_attachment layout? 
+            // color_attachments layouts?
+            // depth_attachment layout?
             // num layers (don't have yet)
             // TODO: subpasses
             // TODO: formats
             // num color_attachments
             // depth stencil value
             h.update(std.mem.asBytes(&k.n_color_attachments));
-            h.update(std.mem.asBytes(&k.clear_colors));
             h.update(std.mem.asBytes(&k.clear_flags));
-            h.update(std.mem.asBytes(&k.clear_depth));
             for (k.color_attachments[0..k.n_color_attachments]) |att| {
                 h.update(std.mem.asBytes(att));
             }
@@ -74,10 +70,9 @@ pub const RenderPassInfo = struct {
                 return false;
             }
 
-            return match 
-                and (a.depth_attachment != null and b.depth_attachment != null)
-                and std.meta.eql(a.clear_flags, b.clear_flags)
-                and std.mem.eql(f32, a.clear_colors[0].float_32[0..4], b.clear_colors[0].float_32[0..4]);
+            return match and
+                (a.depth_attachment != null and b.depth_attachment != null) and
+                std.meta.eql(a.clear_flags, b.clear_flags) and true;
         }
     };
 };
@@ -89,20 +84,18 @@ pub const RenderPass = struct {
 
     // TODO: take in pass info instead
     pub fn init(
-        swapchain: Swapchain,
         device: Device,
         rpi: RenderPassInfo,
     ) !Self {
-
         var attachment_descriptions: [RenderPassInfo.MAX_ATTATCHMENTS + 1]vk.AttachmentDescription = undefined;
         var color_attachment_refs: [RenderPassInfo.MAX_ATTATCHMENTS]vk.AttachmentReference = undefined;
 
-        for (rpi.color_attachments[0..rpi.n_color_attachments])  |at, i| {
+        for (rpi.color_attachments[0..rpi.n_color_attachments]) |at, i| {
             _ = at;
             // create a description of all the color attachments
             attachment_descriptions[i] = vk.AttachmentDescription{
                 .flags = .{},
-                .format = swapchain.surface_format.format,
+                .format = at.format,
                 .samples = .{ .@"1_bit" = true },
                 .load_op = if (rpi.clear_flags.color) .clear else .load,
                 .store_op = .store,
@@ -121,7 +114,7 @@ pub const RenderPass = struct {
             };
         }
 
-        var depth_attachment_ref: ?*const vk.AttachmentReference = null; 
+        var depth_attachment_ref: ?*const vk.AttachmentReference = null;
 
         if (rpi.depth_attachment) |at| {
             _ = at;
@@ -137,15 +130,13 @@ pub const RenderPass = struct {
                 .initial_layout = .@"undefined",
                 // TODO: add next pass option
                 .final_layout = .depth_stencil_attachment_optimal,
-            }; 
+            };
 
             depth_attachment_ref = &.{
                 .attachment = @intCast(u32, rpi.n_color_attachments),
                 .layout = .depth_stencil_attachment_optimal,
             };
         }
-
-
 
         const subpass = vk.SubpassDescription{
             .flags = .{},
@@ -181,7 +172,7 @@ pub const RenderPass = struct {
 
         var total_attachments: u32 = rpi.n_color_attachments;
         if (rpi.depth_attachment) |_| {
-            total_attachments+= 1;
+            total_attachments += 1;
         }
 
         const rp = try device.vkd.createRenderPass(device.logical, &.{

@@ -60,11 +60,6 @@ pub var swapchain: Swapchain = undefined;
 /// monotonically increasing frame number
 pub var frame_number: usize = 0;
 
-// TODO: make this part of the frame struct
-/// index of the image in the swapchain we are currently
-/// rendering to
-pub var image_index: usize = 0;
-
 /// generation of this resize
 var size_gen: usize = 0;
 var last_size_gen: usize = 0;
@@ -267,9 +262,7 @@ pub fn beginFrame() !void {
 
     try getCurrentFrame().render_fence.wait(device, std.math.maxInt(u64));
 
-    if (swapchain.acquireNext(device, getCurrentFrame().image_avail_semaphore, Fence{})) |idx| {
-        image_index = idx;
-    } else |err| {
+    swapchain.acquireNext(device, getCurrentFrame().image_avail_semaphore, Fence{}) catch |err| {
         switch (err) {
             error.OutOfDateKHR => {
                 std.log.warn("failed to aquire, booting", .{});
@@ -279,7 +272,7 @@ pub fn beginFrame() !void {
             },
             else => |narrow| return narrow,
         }
-    }
+    };
 
     // reset the fence now that we've waited for it
     try getCurrentFrame().render_fence.reset(device);
@@ -313,7 +306,7 @@ pub fn endFrame() !void {
     cb.updateSubmitted();
 
     // present that shit
-    swapchain.present(device, device.present.?, getCurrentFrame().queue_complete_semaphore, @intCast(u32, image_index)) catch |err| {
+    swapchain.present(device, device.present.?, getCurrentFrame().queue_complete_semaphore) catch |err| {
         switch (err) {
             error.SuboptimalKHR, error.OutOfDateKHR => {
                 std.log.warn("swapchain out of date in end frame", .{});
@@ -368,7 +361,7 @@ fn recreateSwapchain() !void {
 /// cache for renderpasses
 pub var renderpass_cache = Cache(RenderPassInfo, RenderPass, RenderPassInfo.Context, struct {
     pub fn create(rpi: RenderPassInfo) !RenderPass {
-        return RenderPass.init(swapchain, device, rpi);
+        return RenderPass.init(device, rpi);
     }
 
     pub fn destroy(rp: RenderPass) void {
@@ -478,7 +471,7 @@ pub fn createPipeline(
         .stage_flags = .{ .vertex_bit = true },
         .offset = 0,
         .size = @intCast(u32, @sizeOf(MeshPushConstants)),
-    }}, stage_ci[0..n_stages], viewport, scissor, false);
+    }}, stage_ci[0..n_stages], viewport, scissor, info.wireframe);
 
     for (shader_modules[0..n_stages]) |stage| {
         device.vkd.destroyShaderModule(device.logical, stage, null);

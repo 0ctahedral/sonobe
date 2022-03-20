@@ -63,22 +63,29 @@ fn link(b: *Builder, step: *std.build.LibExeObjStep) void {
 
 // TODO: make this compile all shaders in the folder
 fn compileBuiltinShaders(b: *Builder, step: *std.build.LibExeObjStep) void {
-    const compile_vert = b.addSystemCommand(&[_][]const u8{
-        prefix ++ "/bin/glslc",
-        "-fshader-stage=vert",
-        "assets/builtin.vert.glsl",
-        "-o",
-        "assets/builtin.vert.spv",
-    });
+    const shader_names = [_][]const u8{
+        "assets/builtin",
+        "assets/test",
+    };
 
-    const compile_frag = b.addSystemCommand(&[_][]const u8{
-        prefix ++ "/bin/glslc",
-        "-fshader-stage=frag",
-        "assets/builtin.frag.glsl",
-        "-o",
-        "assets/builtin.frag.spv",
-    });
+    inline for (shader_names) |name| {
+        const compile_vert = b.addSystemCommand(&[_][]const u8{
+            prefix ++ "/bin/glslc",
+            "-fshader-stage=vert",
+            name ++ ".vert.glsl",
+            "-o",
+            name ++ ".vert.spv",
+        });
 
-    step.step.dependOn(&compile_vert.step);
-    step.step.dependOn(&compile_frag.step);
+        const compile_frag = b.addSystemCommand(&[_][]const u8{
+            prefix ++ "/bin/glslc",
+            "-fshader-stage=frag",
+            name ++ ".frag.glsl",
+            "-o",
+            name ++ ".frag.spv",
+        });
+
+        step.step.dependOn(&compile_vert.step);
+        step.step.dependOn(&compile_frag.step);
+    }
 }
