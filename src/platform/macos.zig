@@ -53,11 +53,11 @@ pub const WinData = struct {
     layer: *vk.CAMetalLayer,
 };
 
-pub fn createWindow(title: [*:0]const u8, w: u32, h: u32) !Window {
+pub fn createWindow(title: []const u8, w: u32, h: u32) !Window {
     const id: u32 = try windows.allocIndex();
     var wd = &window_store[id];
 
-    if (!create_window(title, @intCast(i32, w), @intCast(i32, h), wd)) {
+    if (!create_window(@ptrCast([*:0]const u8, title.ptr), @intCast(i32, w), @intCast(i32, h), wd)) {
         return error.FailedWindow;
     }
 

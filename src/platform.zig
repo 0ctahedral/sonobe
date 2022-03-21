@@ -94,6 +94,6 @@ pub fn createWindowSurface(vki: InstanceDispatch, instance: vk.Instance, window:
     return backend.createWindowSurface(vki, instance, window);
 }
 
-pub fn createWindow(title: [*:0]const u8, width: u32, height: u32) anyerror!Window {
+pub fn createWindow(title: []const u8, width: u32, height: u32) anyerror!Window {
     return backend.createWindow(title, width, height);
 }

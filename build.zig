@@ -48,7 +48,7 @@ fn link(b: *Builder, step: *std.build.LibExeObjStep) void {
             step.linkFramework("AppKit");
             step.linkFramework("QuartzCore");
         },
-        else => .{},
+        else => {},
     }
 
     // TODO: configure this by os
