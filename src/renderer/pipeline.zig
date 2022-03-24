@@ -4,22 +4,87 @@ const Device = @import("device.zig").Device;
 const RenderPass = @import("renderpass.zig").RenderPass;
 const CommandBuffer = @import("commandbuffer.zig").CommandBuffer;
 const Vertex = @import("mesh.zig").Vertex;
+const Renderer = @import("../renderer.zig");
 
 pub const PipelineInfo = struct {
+    pub const Resource = struct {
+        type: enum {
+            /// uniform buffer
+            uniform,
+            /// storage buffer
+            storage,
+            /// texture sampler
+            sampler,
+        },
+
+        stage: enum {
+            vertex,
+            fragment,
+            compute,
+            all,
+        },
+    };
+
+    pub const Constant = struct {
+        size: u32,
+
+        stage: enum {
+            vertex,
+            fragment,
+            compute,
+            all,
+        },
+    };
+
     /// This will be an api around descriptor sets and stuff
     pub const Stage = struct {
-        pub const Input = struct { type: enum {
-            buffer,
-        } };
-
         path: []const u8,
-        //inputs: []const Input = &[_]Input{},
     };
+
+    constants: []const Constant,
+
+    resources: []const Resource,
 
     wireframe: bool = false,
 
     vertex: ?Stage,
     fragment: ?Stage,
+
+    pub const Context = struct {
+        const K = PipelineInfo;
+        pub fn hash(self: Context, k: K) u32 {
+            var h = std.hash.Wyhash.init(0);
+            _ = self;
+
+            h.update(std.mem.asBytes(&k.vertex));
+            h.update(std.mem.asBytes(&k.fragment));
+            h.update(std.mem.asBytes(&k.wireframe));
+
+            for (k.resources) |res| {
+                h.update(std.mem.asBytes(&res));
+            }
+
+            return @truncate(u32, h.final());
+        }
+
+        pub fn eql(self: Context, a: K, b: K) bool {
+            _ = self;
+            var match = a.resources.len == b.resources.len;
+
+            if (match) {
+                for (a.resources) |res, i| {
+                    match = match and std.meta.eql(res, b.resources[i]);
+                }
+            } else {
+                return false;
+            }
+
+            return match and (a.wireframe == b.wireframe) and
+                std.meta.eql(a.vertex, b.vertex) and
+                std.meta.eql(a.fragment, b.fragment);
+        }
+    };
+
 };
 
 pub const Pipeline = struct {
@@ -27,18 +92,103 @@ pub const Pipeline = struct {
 
     handle: vk.Pipeline = .null_handle,
     layout: vk.PipelineLayout = .null_handle,
+    // TODO: max descriptor sets and stuff
+    descriptor_layouts: [1]vk.DescriptorSetLayout,
+    // TODO: freelist of descriptors?
 
     pub fn init(
         dev: Device,
         renderpass: RenderPass,
-        descriptor_set_layouts: []const vk.DescriptorSetLayout,
-        push_constants: []const vk.PushConstantRange,
-        stages: []const vk.PipelineShaderStageCreateInfo,
+        info: PipelineInfo,
         viewport: vk.Viewport,
         scissor: vk.Rect2D,
         wireframe: bool,
+        allocator: std.mem.Allocator,
     ) !Self {
         var self: Self = undefined;
+
+        var stage_ci: [3]vk.PipelineShaderStageCreateInfo = undefined;
+        var shader_modules: [3]vk.ShaderModule = undefined;
+        var n_stages: usize = 0;
+
+        if (info.vertex) |vert| {
+            const shader_info = try loadSpv(dev, vert.path, .{ .vertex_bit = true }, allocator);
+            stage_ci[n_stages] = shader_info.info;
+            shader_modules[n_stages] = shader_info.module;
+            n_stages += 1;
+        }
+
+        if (info.fragment) |frag| {
+            const shader_info = try loadSpv(dev, frag.path, .{ .fragment_bit = true }, allocator);
+            stage_ci[n_stages] = shader_info.info;
+            shader_modules[n_stages] = shader_info.module;
+            n_stages += 1;
+        }
+
+        var stages: []const vk.PipelineShaderStageCreateInfo = stage_ci[0..n_stages];
+
+        defer {
+            for (shader_modules[0..n_stages]) |stage| {
+            dev.vkd.destroyShaderModule(dev.logical, stage, null);
+        }}
+
+        // TODO: make a max bindings
+        var bindings: [10]vk.DescriptorSetLayoutBinding = undefined;
+        for (info.resources) |in, i| {
+
+            const stage: vk.ShaderStageFlags = switch (in.stage) {
+                .vertex => .{ .vertex_bit = true},
+                .fragment => .{ .fragment_bit = true},
+                .compute => .{ .compute_bit = true},
+                .all => .{
+                    .vertex_bit = true,
+                    .fragment_bit = true,
+                    .compute_bit = true,
+                },
+            };
+
+            bindings[i] = .{
+                .binding = @intCast(u32,i),
+                .descriptor_type = switch (in.type) {
+                    .uniform => .uniform_buffer,
+                    .storage => .storage_buffer,
+                    else => @panic("implement more descriptor types"),
+                },
+                .descriptor_count = 1,
+                .stage_flags = stage,
+                .p_immutable_samplers = null,
+            };
+        }
+
+
+        var push_constants: [10]vk.PushConstantRange = undefined;
+        for (info.constants) |c, i| {
+            const const_stage: vk.ShaderStageFlags = switch (c.stage) {
+                .vertex => .{ .vertex_bit = true},
+                .fragment => .{ .fragment_bit = true},
+                .compute => .{ .compute_bit = true},
+                .all => .{
+                    .vertex_bit = true,
+                    .fragment_bit = true,
+                    .compute_bit = true,
+                },
+            };
+
+            push_constants[i] = .{
+                .offset = 0,
+                .stage_flags = const_stage,
+                .size = c.size,
+            };
+        }
+
+
+
+        const descriptor_layout = try dev.vkd.createDescriptorSetLayout(dev.logical, &.{
+            .flags = .{},
+            .binding_count = @intCast(u32, info.resources.len),
+            .p_bindings = &bindings,
+        }, null);
+        self.descriptor_layouts[0] = descriptor_layout;
 
         const viewport_state = vk.PipelineViewportStateCreateInfo{
             .flags = .{},
@@ -128,12 +278,14 @@ pub const Pipeline = struct {
             .primitive_restart_enable = vk.FALSE,
         };
 
+
+
         self.layout = try dev.vkd.createPipelineLayout(dev.logical, &.{
             .flags = .{},
-            .set_layout_count = @intCast(u32, descriptor_set_layouts.len),
-            .p_set_layouts = descriptor_set_layouts.ptr,
-            .push_constant_range_count = @intCast(u32, push_constants.len),
-            .p_push_constant_ranges = push_constants.ptr,
+            .set_layout_count = @intCast(u32, self.descriptor_layouts.len),
+            .p_set_layouts = self.descriptor_layouts[0..],
+            .push_constant_range_count = @intCast(u32, info.constants.len),
+            .p_push_constant_ranges = &push_constants,
         }, null);
 
         const gpci = vk.GraphicsPipelineCreateInfo{
@@ -181,7 +333,45 @@ pub const Pipeline = struct {
         self: Self,
         dev: Device,
     ) void {
+        for (self.descriptor_layouts) |desc| {
+            dev.vkd.destroyDescriptorSetLayout(dev.logical, desc, null);
+        }
         dev.vkd.destroyPipeline(dev.logical, self.handle, null);
         dev.vkd.destroyPipelineLayout(dev.logical, self.layout, null);
     }
 };
+
+pub const ShaderInfo = struct {
+    module: vk.ShaderModule,
+    info: vk.PipelineShaderStageCreateInfo,
+};
+
+pub fn loadSpv(dev: Device, path: []const u8, stage: vk.ShaderStageFlags, allocator: std.mem.Allocator) !ShaderInfo {
+    std.log.info("finding file: {s}", .{path});
+
+    const f = try std.fs.cwd().openFile(path, .{ .read = true });
+    defer f.close();
+
+    const data = try allocator.alloc(u8, (try f.stat()).size);
+
+    _ = try f.readAll(data);
+
+    const mod = try dev.vkd.createShaderModule(dev.logical, &.{
+        .flags = .{},
+        .code_size = data.len,
+        .p_code = @ptrCast([*]const u32, @alignCast(4, data)),
+    }, null);
+
+    const ci = vk.PipelineShaderStageCreateInfo{
+        .flags = .{},
+        .stage = stage,
+        .module = mod,
+        .p_name = "main",
+        .p_specialization_info = null,
+    };
+
+    return ShaderInfo{
+        .module = mod,
+        .info = ci,
+    };
+}

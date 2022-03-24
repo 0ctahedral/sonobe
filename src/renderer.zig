@@ -29,7 +29,6 @@ pub const RenderPassInfo = @import("./renderer/renderpass.zig").RenderPassInfo;
 pub const CommandBuffer = @import("./renderer/commandbuffer.zig").CommandBuffer;
 pub const Fence = @import("./renderer/fence.zig").Fence;
 pub const Semaphore = @import("./renderer/semaphore.zig").Semaphore;
-pub const Shader = @import("./renderer/shader.zig").Shader;
 pub const Pipeline = @import("./renderer/pipeline.zig").Pipeline;
 pub const PipelineInfo = @import("./renderer/pipeline.zig").PipelineInfo;
 pub const Buffer = @import("./renderer/buffer.zig").Buffer;
@@ -390,7 +389,7 @@ pub var fb_cache = Cache(RenderPassInfo, vk.Framebuffer, RenderPassInfo.Context,
     }
 }){};
 
-pub var pipeline_cache = Cache(PipelineInfo, Pipeline, null, struct {
+pub var pipeline_cache = Cache(PipelineInfo, Pipeline, PipelineInfo.Context, struct {
     pub const create = createPipeline;
 
     pub fn destroy(pl: Pipeline) void {
@@ -419,65 +418,12 @@ pub fn createPipeline(
         },
     };
 
-    var stage_ci: [3]vk.PipelineShaderStageCreateInfo = undefined;
-    var shader_modules: [3]vk.ShaderModule = undefined;
-    var n_stages: usize = 0;
+    var pl = try Pipeline.init(device, rp, info, viewport, scissor, info.wireframe, allocator);
 
-    if (info.vertex) |vert| {
-        const shader_info = try Shader.createAndLoad(device, vert.path, .{ .vertex_bit = true }, allocator);
-        stage_ci[n_stages] = shader_info.info;
-        shader_modules[n_stages] = shader_info.module;
-        n_stages += 1;
-    }
-    if (info.fragment) |frag| {
-        const shader_info = try Shader.createAndLoad(device, frag.path, .{ .fragment_bit = true }, allocator);
-        stage_ci[n_stages] = shader_info.info;
-        shader_modules[n_stages] = shader_info.module;
-        n_stages += 1;
-    }
-
-    // TODO: generate from PipelineInfo
-    // create descriptor set binding and layout for this type
-    const bindings = [_]vk.DescriptorSetLayoutBinding{
-        // camera
-        .{
-            .binding = 0,
-            .descriptor_type = .uniform_buffer,
-            .descriptor_count = 1,
-            .stage_flags = .{ .vertex_bit = true },
-            .p_immutable_samplers = null,
-        },
-        // storage for model matricies
-        .{
-            .binding = 1,
-            .descriptor_type = .storage_buffer,
-            .descriptor_count = 1,
-            .stage_flags = .{ .vertex_bit = true },
-            .p_immutable_samplers = null,
-        },
-    };
-
-    const descriptor_layout = try device.vkd.createDescriptorSetLayout(device.logical, &.{
-        .flags = .{},
-        .binding_count = bindings.len,
-        .p_bindings = &bindings,
-    }, null);
 
     for (frames) |*f| {
-        _ = try f.descriptor_set_cache.request(.{ info, global_descriptor_pool, &[_]vk.DescriptorSetLayout{descriptor_layout} });
+        _ = try f.descriptor_set_cache.request(.{ info, global_descriptor_pool, pl.descriptor_layouts[0..] });
     }
-
-    const pl = Pipeline.init(device, rp, &[_]vk.DescriptorSetLayout{descriptor_layout}, &[_]vk.PushConstantRange{.{
-        .stage_flags = .{ .vertex_bit = true },
-        .offset = 0,
-        .size = @intCast(u32, @sizeOf(MeshPushConstants)),
-    }}, stage_ci[0..n_stages], viewport, scissor, info.wireframe);
-
-    for (shader_modules[0..n_stages]) |stage| {
-        device.vkd.destroyShaderModule(device.logical, stage, null);
-    }
-
-    //device.vkd.destroyDescriptorSetLayout(device.logical, descriptor_layout, null);
 
     return pl;
 }
@@ -535,7 +481,7 @@ const FrameData = struct {
     begun: bool = false,
 
     /// descriptor set for this frame
-    descriptor_set_cache: Cache(PipelineInfo, vk.DescriptorSet, null, struct {
+    descriptor_set_cache: Cache(PipelineInfo, vk.DescriptorSet, PipelineInfo.Context, struct {
         pub fn create(info: PipelineInfo, descriptor_pool: vk.DescriptorPool, layouts: []vk.DescriptorSetLayout) !vk.DescriptorSet {
             _ = info;
 

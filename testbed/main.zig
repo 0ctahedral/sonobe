@@ -87,20 +87,28 @@ pub fn main() !void {
 
     // create the shader pipeline
     const pli1 = .{
-        .vertex = .{ .path = "assets/builtin.vert.spv" },
-        .fragment = .{ .path = "assets/builtin.frag.spv" },
-    };
+        .resources = &.{
+            .{ .type = .uniform, .stage = .vertex, },
+            .{ .type = .storage, .stage = .vertex, },
+        },
 
-    const pli2 = .{
-        .vertex = .{ .path = "assets/builtin.vert.spv" },
-        .fragment = .{ .path = "assets/builtin.frag.spv" },
-        .wireframe = true,
+        .constants = &.{
+            .{
+                .size = @sizeOf(Renderer.MeshPushConstants),
+                .stage = .vertex,
+            }
+        },
+
+        .vertex = .{
+            .path = "assets/builtin.vert.spv",
+        },
+        .fragment = .{ .path = "assets/builtin.frag.spv",},
     };
 
     // used for rotating the octahedron
     var f: f32 = 0;
 
-    var pli: Renderer.PipelineInfo = pli1;
+    //var pli: Renderer.PipelineInfo = pli1;
 
     while (Platform.is_running) {
         _ = Platform.flush();
@@ -113,12 +121,6 @@ pub fn main() !void {
         try Renderer.beginFrame();
 
         {
-            if (f > 10) {
-                pli = pli2;
-            } else {
-                pli = pli1;
-            }
-
             // get the command buffer and start  it
             var cmd = &Renderer.getCurrentFrame().cmdbuf;
             try cmd.begin(.{});
@@ -134,7 +136,7 @@ pub fn main() !void {
             try cmd.beginRenderPass(rpi);
 
             // use the shaders we declared earlier
-            cmd.usePipeline(pli);
+            cmd.usePipeline(pli1);
 
             // TODO: this will be abstracted away into the scene stuff later
             Renderer.getCurrentFrame().*.model_data[0] = Mat4.scale(Vec3.new(2, 2, 2))
@@ -142,7 +144,7 @@ pub fn main() !void {
                 .mul(Mat4.translate(Vec3.new(0, 0, -10)));
 
             // TODO: this will be part of the pipeline stuff
-            try Renderer.getCurrentFrame().updateDescriptorSets(pli);
+            try Renderer.getCurrentFrame().updateDescriptorSets(pli1);
 
             cmd.pushConstant(Renderer.MeshPushConstants, Renderer.MeshPushConstants{ .index = 0 });
 

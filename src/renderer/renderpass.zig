@@ -36,7 +36,6 @@ pub const RenderPassInfo = struct {
 
     /// used for hashing renderpass info
     pub const Context = struct {
-        //const Context = @This();
         const K = RenderPassInfo;
         pub fn hash(self: Context, k: K) u32 {
             var h = std.hash.Wyhash.init(0);
