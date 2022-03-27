@@ -418,7 +418,7 @@ pub fn createPipeline(
         },
     };
 
-    var pl = try Pipeline.init(device, rp, info, viewport, scissor, info.wireframe, allocator);
+    var pl = try Pipeline.init(device, rp, info, global_descriptor_pool, viewport, scissor, info.wireframe, allocator);
 
 
     for (frames) |*f| {
@@ -465,7 +465,7 @@ pub const MeshPushConstants = struct {
 };
 
 /// What you need for a single frame
-const FrameData = struct {
+pub const FrameData = struct {
     /// Semaphore signaled when the frame is finished rendering
     queue_complete_semaphore: Semaphore,
     /// semaphore signaled when the frame has been presented by the swapchain
@@ -511,7 +511,7 @@ const FrameData = struct {
 
     model_data: [100]Mat4 = undefined,
 
-    const CameraData = struct {
+    pub const CameraData = struct {
         projection: Mat4 = Mat4.perspective(mmath.util.rad(70), 800.0 / 600.0, 0.1, 1000),
         //projection: Mat4 = Mat4.ortho(0, 800.0, 0, 600.0, -100, 100),
         view: Mat4 = Mat4.translate(.{ .x = 0, .y = 0, .z = 2 }).inv(),
@@ -576,7 +576,10 @@ const FrameData = struct {
         try self.global_buffer.load(device, CameraData, &[_]CameraData{self.cam_data}, 0);
         try self.model_buffer.load(device, Mat4, self.model_data[0..], 0);
 
-        const ds = self.descriptor_set_cache.get(pli).?;
+        const pl = pipeline_cache.get(pli).?;
+        const ds = pl.descriptors[swapchain.image_index];
+
+        //const ds = self.descriptor_set_cache.get(pli).?;
 
         const cam_infos = [_]vk.DescriptorBufferInfo{
             .{

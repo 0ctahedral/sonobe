@@ -17,23 +17,13 @@ pub const PipelineInfo = struct {
             sampler,
         },
 
-        stage: enum {
-            vertex,
-            fragment,
-            compute,
-            all,
-        },
+        stage: vk.ShaderStageFlags,
     };
 
     pub const Constant = struct {
         size: u32,
 
-        stage: enum {
-            vertex,
-            fragment,
-            compute,
-            all,
-        },
+        stage: vk.ShaderStageFlags,
     };
 
     /// This will be an api around descriptor sets and stuff
@@ -94,12 +84,14 @@ pub const Pipeline = struct {
     layout: vk.PipelineLayout = .null_handle,
     // TODO: max descriptor sets and stuff
     descriptor_layouts: [1]vk.DescriptorSetLayout,
-    // TODO: freelist of descriptors?
+    // TODO: freelist of descriptors? max frames?
+    descriptors: [3]vk.DescriptorSet,
 
     pub fn init(
         dev: Device,
         renderpass: RenderPass,
         info: PipelineInfo,
+        descriptor_pool: vk.DescriptorPool,
         viewport: vk.Viewport,
         scissor: vk.Rect2D,
         wireframe: bool,
@@ -136,17 +128,6 @@ pub const Pipeline = struct {
         var bindings: [10]vk.DescriptorSetLayoutBinding = undefined;
         for (info.resources) |in, i| {
 
-            const stage: vk.ShaderStageFlags = switch (in.stage) {
-                .vertex => .{ .vertex_bit = true},
-                .fragment => .{ .fragment_bit = true},
-                .compute => .{ .compute_bit = true},
-                .all => .{
-                    .vertex_bit = true,
-                    .fragment_bit = true,
-                    .compute_bit = true,
-                },
-            };
-
             bindings[i] = .{
                 .binding = @intCast(u32,i),
                 .descriptor_type = switch (in.type) {
@@ -155,7 +136,7 @@ pub const Pipeline = struct {
                     else => @panic("implement more descriptor types"),
                 },
                 .descriptor_count = 1,
-                .stage_flags = stage,
+                .stage_flags = in.stage,
                 .p_immutable_samplers = null,
             };
         }
@@ -163,20 +144,9 @@ pub const Pipeline = struct {
 
         var push_constants: [10]vk.PushConstantRange = undefined;
         for (info.constants) |c, i| {
-            const const_stage: vk.ShaderStageFlags = switch (c.stage) {
-                .vertex => .{ .vertex_bit = true},
-                .fragment => .{ .fragment_bit = true},
-                .compute => .{ .compute_bit = true},
-                .all => .{
-                    .vertex_bit = true,
-                    .fragment_bit = true,
-                    .compute_bit = true,
-                },
-            };
-
             push_constants[i] = .{
                 .offset = 0,
-                .stage_flags = const_stage,
+                .stage_flags = c.stage,
                 .size = c.size,
             };
         }
@@ -189,6 +159,18 @@ pub const Pipeline = struct {
             .p_bindings = &bindings,
         }, null);
         self.descriptor_layouts[0] = descriptor_layout;
+
+
+        for (self.descriptors) |*desc| {
+            try dev.vkd.allocateDescriptorSets(dev.logical, &.{
+                .descriptor_pool = descriptor_pool,
+                .descriptor_set_count = 1,
+                .p_set_layouts = &self.descriptor_layouts,
+            }, @ptrCast([*]vk.DescriptorSet, desc));
+        }
+        _ = descriptor_pool;
+        std.log.debug("got here", .{});
+
 
         const viewport_state = vk.PipelineViewportStateCreateInfo{
             .flags = .{},

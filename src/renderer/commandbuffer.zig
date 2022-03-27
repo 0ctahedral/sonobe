@@ -10,6 +10,7 @@ const Renderer = @import("../renderer.zig");
 const PipelineInfo = @import("pipeline.zig").PipelineInfo;
 const Buffer = @import("buffer.zig").Buffer;
 const Vec3 = @import("../math.zig").Vec3;
+const Mat4 = @import("../math.zig").Mat4;
 
 pub const CommandBuffer = struct {
 
@@ -192,9 +193,64 @@ pub const CommandBuffer = struct {
         Renderer.device.vkd.cmdBindPipeline(self.handle, .graphics, pl.handle);
     }
 
-    pub fn pushConstant(self: *Self, comptime T: type, value: anytype) void {
+    pub fn pushConstant(self: *Self, i: usize, value: anytype) void {
         const pl = Renderer.pipeline_cache.request(.{ self.pipeline_info, self.renderpass_info }) catch unreachable;
-        Renderer.device.vkd.cmdPushConstants(self.handle, pl.layout, .{ .vertex_bit = true }, 0, @intCast(u32, @sizeOf(T)), &value);
+        Renderer.device.vkd.cmdPushConstants(
+            self.handle,
+            pl.layout,
+            self.pipeline_info.constants[i].stage,
+            0,
+            self.pipeline_info.constants[i].size,
+            &value
+        );
+    }
+
+    pub fn writeDesc(
+        self: *Self,
+        global_buffer: Buffer,
+        model_buffer: Buffer,
+    ) void {
+        const pl = Renderer.pipeline_cache.request(.{ self.pipeline_info, self.renderpass_info }) catch unreachable;
+
+        const ds = pl.descriptors[Renderer.swapchain.image_index];
+
+
+        const cam_infos = [_]vk.DescriptorBufferInfo{
+            .{
+                .buffer = global_buffer.handle,
+                .offset = 0,
+                .range = @sizeOf(Renderer.FrameData.CameraData),
+            },
+        };
+        const model_infos = [_]vk.DescriptorBufferInfo{
+            .{
+                .buffer = model_buffer.handle,
+                .offset = 0,
+                .range = @sizeOf(@TypeOf([100]Mat4)),
+            },
+        };
+
+        const writes = [_]vk.WriteDescriptorSet{ .{
+            .dst_set = ds,
+            .dst_binding = 0,
+            .dst_array_element = 0,
+            .descriptor_count = cam_infos.len,
+            .descriptor_type = .uniform_buffer,
+            .p_image_info = undefined,
+            .p_buffer_info = cam_infos[0..],
+            .p_texel_buffer_view = undefined,
+        }, .{
+            .dst_set = ds,
+            .dst_binding = 1,
+            .dst_array_element = 0,
+            .descriptor_count = model_infos.len,
+            .descriptor_type = .storage_buffer,
+            .p_image_info = undefined,
+            .p_buffer_info = model_infos[0..],
+            .p_texel_buffer_view = undefined,
+        } };
+
+        Renderer.device.vkd.updateDescriptorSets(Renderer.device.logical, writes.len, &writes, 0, undefined);
     }
 
     pub fn drawIndexed(
@@ -207,7 +263,7 @@ pub const CommandBuffer = struct {
     ) void {
         const pl = Renderer.pipeline_cache.request(.{ self.pipeline_info, self.renderpass_info }) catch unreachable;
 
-        const ds = Renderer.getCurrentFrame().descriptor_set_cache.get(self.pipeline_info).?;
+        const ds = pl.descriptors[Renderer.swapchain.image_index];
 
         Renderer.device.vkd.cmdBindDescriptorSets(
             self.handle,

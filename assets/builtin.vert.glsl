@@ -1,8 +1,10 @@
 #version 450
 #extension GL_ARB_separate_shader_objects : enable
 
+
 // vertex data
 layout(location = 0) in vec3 a_pos;
+layout (location = 0) out vec3 outColor;
 
 layout (set = 0, binding = 0) uniform global_uniform_object {
   mat4 projection;
@@ -11,7 +13,8 @@ layout (set = 0, binding = 0) uniform global_uniform_object {
 
 layout( push_constant ) uniform PushConstants
 {
-	uint model_idx;
+	vec3 m_color;
+  uint model_idx;
 };
 
 // data from bound buffers
@@ -27,5 +30,6 @@ layout (set = 0, binding = 1) buffer cbuf {
 
 
 void main() {
+    outColor = m_color;
     gl_Position = projection * view * objects[model_idx].model * vec4(a_pos, 1.0);    
 }

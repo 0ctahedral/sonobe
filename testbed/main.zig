@@ -33,6 +33,12 @@ const octahedron_mesh = Mesh{
     .inds = &.{ 0, 1, 6, 1, 3, 7, 0, 2, 8, 3, 4, 9, 0, 5, 10, 3, 1, 11, 0, 4, 12, 3, 5, 13, 1, 2, 6, 2, 0, 6, 3, 2, 7, 2, 1, 7, 2, 4, 8, 4, 0, 8, 4, 2, 9, 2, 3, 9, 5, 1, 10, 1, 0, 10, 1, 5, 11, 5, 3, 11, 4, 5, 12, 5, 0, 12, 5, 4, 13, 4, 3, 13 },
 };
 
+
+pub const MyConsts = struct {
+    color: Vec3 = Vec3.new(1, 1, 0),
+    index: u32,
+};
+
 pub fn main() !void {
     // SETUP
     const allocator = std.testing.allocator;
@@ -88,14 +94,14 @@ pub fn main() !void {
     // create the shader pipeline
     const pli1 = .{
         .resources = &.{
-            .{ .type = .uniform, .stage = .vertex, },
-            .{ .type = .storage, .stage = .vertex, },
+            .{ .type = .uniform, .stage = .{ .vertex_bit = true }, },
+            .{ .type = .storage, .stage = .{ .vertex_bit = true }, },
         },
 
         .constants = &.{
             .{
-                .size = @sizeOf(Renderer.MeshPushConstants),
-                .stage = .vertex,
+                .size = @sizeOf(MyConsts),
+                .stage = .{ .vertex_bit = true },
             }
         },
 
@@ -139,14 +145,21 @@ pub fn main() !void {
             cmd.usePipeline(pli1);
 
             // TODO: this will be abstracted away into the scene stuff later
-            Renderer.getCurrentFrame().*.model_data[0] = Mat4.scale(Vec3.new(2, 2, 2))
+            const model = Mat4.scale(Vec3.new(2, 2, 2))
                 .mul(Mat4.rotate(.y, f))
                 .mul(Mat4.translate(Vec3.new(0, 0, -10)));
+            Renderer.getCurrentFrame().*.model_data[0] = model;
 
             // TODO: this will be part of the pipeline stuff
-            try Renderer.getCurrentFrame().updateDescriptorSets(pli1);
+            //try Renderer.getCurrentFrame().updateDescriptorSets(pli1, ds);
+            cmd.writeDesc(
+                    Renderer.getCurrentFrame().global_buffer,
+                    Renderer.getCurrentFrame().model_buffer,
+                );
 
-            cmd.pushConstant(Renderer.MeshPushConstants, Renderer.MeshPushConstants{ .index = 0 });
+            //cmd.writeDesc();
+
+            cmd.pushConstant(0, MyConsts{ .index = 0, .color = Vec3.new(1, @sin(f), 0) });
 
             cmd.drawIndexed(octahedron_mesh.inds.len, vert_buf.*, ind_buf.*, 0, 0);
 
