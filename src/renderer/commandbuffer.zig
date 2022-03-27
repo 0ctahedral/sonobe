@@ -187,9 +187,9 @@ pub const CommandBuffer = struct {
     }
 
     pub fn usePipeline(self: *Self, pli: PipelineInfo) void {
-        // TODO: make the bindtype part of the pipeline struct
         self.pipeline_info = pli;
         const pl = Renderer.pipeline_cache.request(.{ pli, self.renderpass_info }) catch unreachable;
+        // TODO: make the bindtype part of the pipeline struct
         Renderer.device.vkd.cmdBindPipeline(self.handle, .graphics, pl.handle);
     }
 
@@ -198,42 +198,60 @@ pub const CommandBuffer = struct {
         Renderer.device.vkd.cmdPushConstants(self.handle, pl.layout, self.pipeline_info.constants[i].stage, 0, self.pipeline_info.constants[i].size, &value);
     }
 
-    pub fn writeDesc(
-        self: *Self,
-        global_buffer: Buffer,
-        model_buffer: Buffer,
-    ) void {
-        const pl = Renderer.pipeline_cache.request(.{ self.pipeline_info, self.renderpass_info }) catch unreachable;
+    pub fn allocUniform(self: *Self, set: u32, binding: u32, data: anytype) !void {
+        const T = @TypeOf(data);
 
-        const ds = pl.descriptors[Renderer.swapchain.image_index];
+        // TODO: this should be allocating from a bufferpool
+        try Renderer.getCurrentFrame().ubo_pool.load(Renderer.device, T, &[_]T{data}, 0);
 
-        const cam_infos = [_]vk.DescriptorBufferInfo{
+        var pl = Renderer.pipeline_cache.request(.{ self.pipeline_info, self.renderpass_info }) catch unreachable;
+        const ds = pl.getDescriptors()[set];
+
+        const buf_infos = [_]vk.DescriptorBufferInfo{
             .{
-                .buffer = global_buffer.handle,
+                .buffer = Renderer.getCurrentFrame().ubo_pool.handle,
                 .offset = 0,
-                .range = @sizeOf(Renderer.FrameData.CameraData),
+                .range = @sizeOf(T),
             },
         };
-        const model_infos = [_]vk.DescriptorBufferInfo{
-            .{
-                .buffer = model_buffer.handle,
-                .offset = 0,
-                .range = @sizeOf([100]Mat4),
-            },
-        };
+
+        _ = set;
 
         const writes = [_]vk.WriteDescriptorSet{ .{
             .dst_set = ds,
-            .dst_binding = 0,
+            .dst_binding = binding,
             .dst_array_element = 0,
-            .descriptor_count = cam_infos.len,
+            .descriptor_count = buf_infos.len,
             .descriptor_type = .uniform_buffer,
             .p_image_info = undefined,
-            .p_buffer_info = cam_infos[0..],
+            .p_buffer_info = buf_infos[0..],
             .p_texel_buffer_view = undefined,
-        }, .{
+        }, };
+
+        // TODO: this will be more efficient if we do all updates at the end of the frame
+        Renderer.device.vkd.updateDescriptorSets(Renderer.device.logical, writes.len, &writes, 0, undefined);
+    }
+
+    pub fn setBuffer(
+        self: *Self,
+        set: u32, binding: u32, 
+        buffer: Buffer,
+    ) void {
+        var pl = Renderer.pipeline_cache.request(.{ self.pipeline_info, self.renderpass_info }) catch unreachable;
+
+        const ds = pl.getDescriptors()[set];
+
+        const model_infos = [_]vk.DescriptorBufferInfo{
+            .{
+                .buffer = buffer.handle,
+                .offset = 0,
+                .range = buffer.size,
+            },
+        };
+
+        const writes = [_]vk.WriteDescriptorSet{.{
             .dst_set = ds,
-            .dst_binding = 1,
+            .dst_binding = binding,
             .dst_array_element = 0,
             .descriptor_count = model_infos.len,
             .descriptor_type = .storage_buffer,
@@ -253,17 +271,17 @@ pub const CommandBuffer = struct {
         first: u32,
         offset: u32,
     ) void {
-        const pl = Renderer.pipeline_cache.request(.{ self.pipeline_info, self.renderpass_info }) catch unreachable;
+        var pl = Renderer.pipeline_cache.request(.{ self.pipeline_info, self.renderpass_info }) catch unreachable;
 
-        const ds = pl.descriptors[Renderer.swapchain.image_index];
+        const ds = pl.getDescriptors();
 
         Renderer.device.vkd.cmdBindDescriptorSets(
             self.handle,
             .graphics,
             pl.layout,
             0,
-            1,
-            @ptrCast([*]const vk.DescriptorSet, &ds),
+            @intCast(u32, ds.len),
+            ds.ptr,
             0,
             undefined,
         );

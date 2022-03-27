@@ -420,10 +420,6 @@ pub fn createPipeline(
 
     var pl = try Pipeline.init(device, rp, info, global_descriptor_pool, viewport, scissor, info.wireframe, allocator);
 
-    for (frames) |*f| {
-        _ = try f.descriptor_set_cache.request(.{ info, global_descriptor_pool, pl.descriptor_layouts[0..] });
-    }
-
     return pl;
 }
 
@@ -453,16 +449,6 @@ fn createDescriptorPools() !void {
     }, null);
 }
 
-pub fn updateUniform(transform: Mat4) void {
-    getCurrentFrame().*.model_data[0] = transform;
-    getCurrentFrame().updateDescriptorSets(device) catch unreachable;
-}
-
-/// Index to look up mesh data in shader
-pub const MeshPushConstants = struct {
-    index: u32,
-};
-
 /// What you need for a single frame
 pub const FrameData = struct {
     /// Semaphore signaled when the frame is finished rendering
@@ -479,43 +465,7 @@ pub const FrameData = struct {
     /// Has this frame begun rendering?
     begun: bool = false,
 
-    /// descriptor set for this frame
-    descriptor_set_cache: Cache(PipelineInfo, vk.DescriptorSet, PipelineInfo.Context, struct {
-        pub fn create(info: PipelineInfo, descriptor_pool: vk.DescriptorPool, layouts: []vk.DescriptorSetLayout) !vk.DescriptorSet {
-            _ = info;
-
-            var ret: vk.DescriptorSet = .null_handle;
-            try device.vkd.allocateDescriptorSets(device.logical, &.{
-                .descriptor_pool = descriptor_pool,
-                .descriptor_set_count = 1,
-                .p_set_layouts = layouts.ptr,
-            }, @ptrCast([*]vk.DescriptorSet, &ret));
-
-            return ret;
-        }
-
-        pub fn destroy(d: vk.DescriptorSet) void {
-            _ = d;
-        }
-    }) = .{},
-
-    // EVERYTHING BELOW HERE SHOULD BE MOVED SOMEWHERE ELSE
-
-    /// buffer of data in ds for this frame
-    global_buffer: Buffer,
-
-    model_buffer: Buffer,
-
-    cam_data: CameraData,
-
-    model_data: [100]Mat4 = undefined,
-
-    pub const CameraData = struct {
-        projection: Mat4 = Mat4.perspective(mmath.util.rad(70), 800.0 / 600.0, 0.1, 1000),
-        //projection: Mat4 = Mat4.ortho(0, 800.0, 0, 600.0, -100, 100),
-        view: Mat4 = Mat4.translate(.{ .x = 0, .y = 0, .z = 2 }).inv(),
-        //view: Mat4 = Mat4.translate(.{ .x = 0, .y = 0, .z = 0 }),
-    };
+    ubo_pool: Buffer,
 
     const Self = @This();
 
@@ -534,93 +484,24 @@ pub const FrameData = struct {
         self.cmdbuf = try CommandBuffer.init(dev, dev.command_pool, true);
         errdefer self.cmdbuf.deinit(dev, dev.command_pool);
 
-        self.descriptor_set_cache.init(allocator);
-
         // create the buffer
-        self.global_buffer = try Buffer.init(dev, @sizeOf(CameraData), .{ .transfer_dst_bit = true, .uniform_buffer_bit = true }, .{
+        self.ubo_pool = try Buffer.init(dev, 200, .{ .transfer_dst_bit = true, .uniform_buffer_bit = true }, .{
             .host_visible_bit = true,
             .host_coherent_bit = true,
         }, true);
 
-        self.model_buffer = try Buffer.init(dev, @sizeOf(@TypeOf(self.model_data)), .{
-            .storage_buffer_bit = true,
-            .transfer_dst_bit = true,
-        }, .{
-            .host_visible_bit = true,
-            .host_coherent_bit = true,
-        }, true);
-
-        self.cam_data = CameraData{};
-        self.model_data[0] = Mat4.translate(Vec3.new(0, 100, 0));
-        self.model_data[1] = Mat4.scale(mmath.Vec3.new(100, 100, 100))
-            .mul(Mat4.translate(.{ .x = 500, .y = 250 }));
 
         return self;
     }
 
     pub fn deinit(self: *Self, dev: Device) void {
-        self.descriptor_set_cache.deinit();
-        self.model_buffer.deinit(dev);
-        self.global_buffer.deinit(dev);
         self.image_avail_semaphore.deinit(dev);
         self.queue_complete_semaphore.deinit(dev);
         self.render_fence.deinit(dev);
         self.cmdbuf.deinit(dev, dev.command_pool);
+
+
+        self.ubo_pool.deinit(dev);
     }
 
-    // TODO: get rid of
-    pub fn load(self: Self) !void {
-        try self.global_buffer.load(device, CameraData, &[_]CameraData{self.cam_data}, 0);
-        try self.model_buffer.load(device, Mat4, self.model_data[0..], 0);
-    }
-
-    pub fn updateDescriptorSets(
-        self: Self,
-        pli: PipelineInfo,
-    ) !void {
-        try self.global_buffer.load(device, CameraData, &[_]CameraData{self.cam_data}, 0);
-        try self.model_buffer.load(device, Mat4, self.model_data[0..], 0);
-
-        const pl = pipeline_cache.get(pli).?;
-        const ds = pl.descriptors[swapchain.image_index];
-
-        //const ds = self.descriptor_set_cache.get(pli).?;
-
-        const cam_infos = [_]vk.DescriptorBufferInfo{
-            .{
-                .buffer = self.global_buffer.handle,
-                .offset = 0,
-                .range = @sizeOf(CameraData),
-            },
-        };
-        const model_infos = [_]vk.DescriptorBufferInfo{
-            .{
-                .buffer = self.model_buffer.handle,
-                .offset = 0,
-                .range = @sizeOf(@TypeOf(self.model_data)),
-            },
-        };
-
-        const writes = [_]vk.WriteDescriptorSet{ .{
-            .dst_set = ds,
-            .dst_binding = 0,
-            .dst_array_element = 0,
-            .descriptor_count = cam_infos.len,
-            .descriptor_type = .uniform_buffer,
-            .p_image_info = undefined,
-            .p_buffer_info = cam_infos[0..],
-            .p_texel_buffer_view = undefined,
-        }, .{
-            .dst_set = ds,
-            .dst_binding = 1,
-            .dst_array_element = 0,
-            .descriptor_count = model_infos.len,
-            .descriptor_type = .storage_buffer,
-            .p_image_info = undefined,
-            .p_buffer_info = model_infos[0..],
-            .p_texel_buffer_view = undefined,
-        } };
-
-        device.vkd.updateDescriptorSets(device.logical, writes.len, &writes, 0, undefined);
-    }
 };

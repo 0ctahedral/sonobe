@@ -6,7 +6,6 @@ const Queue = @import("device.zig").Queue;
 const CommandBuffer = @import("commandbuffer.zig").CommandBuffer;
 const Renderer = @import("../renderer.zig");
 
-// this will go somewhere else too
 pub const Buffer = struct {
     handle: vk.Buffer,
     usage: vk.BufferUsageFlags,

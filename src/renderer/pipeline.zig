@@ -80,12 +80,14 @@ pub const PipelineInfo = struct {
 pub const Pipeline = struct {
     const Self = @This();
 
+    // TOOD: up this to device min
+    const MAX_DESCRIPTORS = 1;
+
     handle: vk.Pipeline = .null_handle,
     layout: vk.PipelineLayout = .null_handle,
-    // TODO: max descriptor sets and stuff
-    descriptor_layouts: [1]vk.DescriptorSetLayout,
+    descriptor_layouts: [MAX_DESCRIPTORS]vk.DescriptorSetLayout,
     // TODO: freelist of descriptors? max frames?
-    descriptors: [3]vk.DescriptorSet,
+    descriptors: [3][MAX_DESCRIPTORS]vk.DescriptorSet,
 
     pub fn init(
         dev: Device,
@@ -320,6 +322,10 @@ pub const Pipeline = struct {
         }
         dev.vkd.destroyPipeline(dev.logical, self.handle, null);
         dev.vkd.destroyPipelineLayout(dev.logical, self.layout, null);
+    }
+
+    pub fn getDescriptors(self: *Self) []vk.DescriptorSet {
+        return &self.descriptors[Renderer.swapchain.image_index];
     }
 };
 

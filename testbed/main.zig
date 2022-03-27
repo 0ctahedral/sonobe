@@ -9,6 +9,7 @@ const Quad = Renderer.mesh.Quad;
 const mmath = octal.mmath;
 const Mat4 = mmath.Mat4;
 const Vec3 = mmath.Vec3;
+const Buffer = Renderer.Buffer;
 
 const app_name = "octal: triangle test";
 
@@ -37,6 +38,15 @@ pub const MyConsts = struct {
     color: Vec3 = Vec3.new(1, 1, 0),
     index: u32,
 };
+
+// TODO: make a camera type
+const CameraData = struct {
+    projection: Mat4 = Mat4.perspective(mmath.util.rad(70), 800.0 / 600.0, 0.1, 1000),
+    //projection: Mat4 = Mat4.ortho(0, 800.0, 0, 600.0, -100, 100),
+    view: Mat4 = Mat4.translate(.{ .x = 0, .y = 0, .z = 2 }).inv(),
+    //view: Mat4 = Mat4.translate(.{ .x = 0, .y = 0, .z = 0 }),
+};
+
 
 pub fn main() !void {
     // SETUP
@@ -119,7 +129,16 @@ pub fn main() !void {
     // used for rotating the octahedron
     var f: f32 = 0;
 
-    //var pli: Renderer.PipelineInfo = pli1;
+    // buffer for ssbo
+    var model_buffer = try Buffer.init(Renderer.device, @sizeOf(Mat4), .{
+        .storage_buffer_bit = true,
+        .transfer_dst_bit = true,
+    }, .{
+        .host_visible_bit = true,
+        .host_coherent_bit = true,
+    }, true);
+
+    var cam_data = CameraData{};
 
     while (Platform.is_running) {
         _ = Platform.flush();
@@ -149,26 +168,16 @@ pub fn main() !void {
             // use the shaders we declared earlier
             cmd.usePipeline(pli1);
 
-            // TODO: this will be abstracted away into the scene stuff later
+            // set the model matrix for this object
             const model = Mat4.scale(Vec3.new(2, 2, 2))
                 .mul(Mat4.rotate(.y, f))
                 .mul(Mat4.translate(Vec3.new(0, 0, -10)));
-            Renderer.getCurrentFrame().*.model_data[0] = model;
+            try model_buffer.load(Renderer.device, Mat4, &[_]Mat4{model}, 0);
+            cmd.setBuffer(0, 1, model_buffer);
 
-            try Renderer.getCurrentFrame().load();
-
-            // TODO: really this should be
-            //
-            //cmd.set_buffer(
-            //    0, // set
-            //    0, // binidng
-            //    Renderer.getCurrentFrame().model_buffer,
-            //);
-
-            cmd.writeDesc(
-                Renderer.getCurrentFrame().global_buffer,
-                Renderer.getCurrentFrame().model_buffer,
-            );
+            // upload camera data for this frame
+            // this is transient so in can use a uniform
+            try cmd.allocUniform(0, 0, cam_data);
 
             cmd.pushConstant(0, MyConsts{ .index = 0, .color = Vec3.new(1, @sin(f), 0) });
 
