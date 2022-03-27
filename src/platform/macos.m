@@ -99,9 +99,18 @@ bool create_window(char* title, int w, int h, struct win_data* data) {
     [data->window setDelegate:state_ptr->wnd_delegate];
     [data->window setAcceptsMouseMovedEvents:YES];
     [data->window setRestorable:NO];
-
-
     [data->window makeKeyAndOrderFront:nil];
+
+    [data->window setStyleMask:
+        NSWindowStyleMaskTitled
+        |NSWindowStyleMaskResizable
+        |NSWindowStyleMaskFullSizeContentView
+        |NSWindowStyleMaskClosable
+        |NSWindowStyleMaskMiniaturizable
+    ];
+    data->window.titlebarAppearsTransparent = true;
+
+
     }
 
     return true;
