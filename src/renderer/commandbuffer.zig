@@ -195,14 +195,7 @@ pub const CommandBuffer = struct {
 
     pub fn pushConstant(self: *Self, i: usize, value: anytype) void {
         const pl = Renderer.pipeline_cache.request(.{ self.pipeline_info, self.renderpass_info }) catch unreachable;
-        Renderer.device.vkd.cmdPushConstants(
-            self.handle,
-            pl.layout,
-            self.pipeline_info.constants[i].stage,
-            0,
-            self.pipeline_info.constants[i].size,
-            &value
-        );
+        Renderer.device.vkd.cmdPushConstants(self.handle, pl.layout, self.pipeline_info.constants[i].stage, 0, self.pipeline_info.constants[i].size, &value);
     }
 
     pub fn writeDesc(
@@ -213,7 +206,6 @@ pub const CommandBuffer = struct {
         const pl = Renderer.pipeline_cache.request(.{ self.pipeline_info, self.renderpass_info }) catch unreachable;
 
         const ds = pl.descriptors[Renderer.swapchain.image_index];
-
 
         const cam_infos = [_]vk.DescriptorBufferInfo{
             .{
@@ -226,7 +218,7 @@ pub const CommandBuffer = struct {
             .{
                 .buffer = model_buffer.handle,
                 .offset = 0,
-                .range = @sizeOf(@TypeOf([100]Mat4)),
+                .range = @sizeOf([100]Mat4),
             },
         };
 

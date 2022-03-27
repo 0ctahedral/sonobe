@@ -420,7 +420,6 @@ pub fn createPipeline(
 
     var pl = try Pipeline.init(device, rp, info, global_descriptor_pool, viewport, scissor, info.wireframe, allocator);
 
-
     for (frames) |*f| {
         _ = try f.descriptor_set_cache.request(.{ info, global_descriptor_pool, pl.descriptor_layouts[0..] });
     }
@@ -567,6 +566,12 @@ pub const FrameData = struct {
         self.queue_complete_semaphore.deinit(dev);
         self.render_fence.deinit(dev);
         self.cmdbuf.deinit(dev, dev.command_pool);
+    }
+
+    // TODO: get rid of
+    pub fn load(self: Self) !void {
+        try self.global_buffer.load(device, CameraData, &[_]CameraData{self.cam_data}, 0);
+        try self.model_buffer.load(device, Mat4, self.model_data[0..], 0);
     }
 
     pub fn updateDescriptorSets(

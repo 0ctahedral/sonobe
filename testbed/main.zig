@@ -33,7 +33,6 @@ const octahedron_mesh = Mesh{
     .inds = &.{ 0, 1, 6, 1, 3, 7, 0, 2, 8, 3, 4, 9, 0, 5, 10, 3, 1, 11, 0, 4, 12, 3, 5, 13, 1, 2, 6, 2, 0, 6, 3, 2, 7, 2, 1, 7, 2, 4, 8, 4, 0, 8, 4, 2, 9, 2, 3, 9, 5, 1, 10, 1, 0, 10, 1, 5, 11, 5, 3, 11, 4, 5, 12, 5, 0, 12, 5, 4, 13, 4, 3, 13 },
 };
 
-
 pub const MyConsts = struct {
     color: Vec3 = Vec3.new(1, 1, 0),
     index: u32,
@@ -94,21 +93,27 @@ pub fn main() !void {
     // create the shader pipeline
     const pli1 = .{
         .resources = &.{
-            .{ .type = .uniform, .stage = .{ .vertex_bit = true }, },
-            .{ .type = .storage, .stage = .{ .vertex_bit = true }, },
+            .{
+                .type = .uniform,
+                .stage = .{ .vertex_bit = true },
+            },
+            .{
+                .type = .storage,
+                .stage = .{ .vertex_bit = true },
+            },
         },
 
-        .constants = &.{
-            .{
-                .size = @sizeOf(MyConsts),
-                .stage = .{ .vertex_bit = true },
-            }
-        },
+        .constants = &.{.{
+            .size = @sizeOf(MyConsts),
+            .stage = .{ .vertex_bit = true },
+        }},
 
         .vertex = .{
             .path = "assets/builtin.vert.spv",
         },
-        .fragment = .{ .path = "assets/builtin.frag.spv",},
+        .fragment = .{
+            .path = "assets/builtin.frag.spv",
+        },
     };
 
     // used for rotating the octahedron
@@ -150,14 +155,20 @@ pub fn main() !void {
                 .mul(Mat4.translate(Vec3.new(0, 0, -10)));
             Renderer.getCurrentFrame().*.model_data[0] = model;
 
-            // TODO: this will be part of the pipeline stuff
-            //try Renderer.getCurrentFrame().updateDescriptorSets(pli1, ds);
-            cmd.writeDesc(
-                    Renderer.getCurrentFrame().global_buffer,
-                    Renderer.getCurrentFrame().model_buffer,
-                );
+            try Renderer.getCurrentFrame().load();
 
-            //cmd.writeDesc();
+            // TODO: really this should be
+            //
+            //cmd.set_buffer(
+            //    0, // set
+            //    0, // binidng
+            //    Renderer.getCurrentFrame().model_buffer,
+            //);
+
+            cmd.writeDesc(
+                Renderer.getCurrentFrame().global_buffer,
+                Renderer.getCurrentFrame().model_buffer,
+            );
 
             cmd.pushConstant(0, MyConsts{ .index = 0, .color = Vec3.new(1, @sin(f), 0) });
 
