@@ -5,20 +5,25 @@ const Window = @import("window.zig");
 const vk = @import("vulkan");
 const InstanceDispatch = @import("../renderer/dispatch_types.zig").InstanceDispatch;
 const Event = @import("../events.zig").Event;
+const FreeList = @import("../containers/freelist.zig").FreeList;
 
 var display: *xcb.Display = undefined;
 var connection: *xcb.xcb_connection_t = undefined;
 var screen: *xcb.xcb_screen_t = undefined;
 
-var windows: struct {
+var windows: FreeList(WinData) = undefined;
+var window_store: [10]WinData = undefined;
+// number of windows still living
+var num_living: usize = 0;
+
+const WinData = struct {
     /// idx of the next open spot
-    idx: usize = 0,
-    // number of windows still living
-    num_living: usize = 0,
-    handles: [32]xcb.xcb_window_t = undefined,
-    wm_dels: [32]xcb.xcb_atom_t = undefined,
-    wm_protos: [32]xcb.xcb_atom_t = undefined,
-} = .{};
+    handle: xcb.xcb_window_t = undefined,
+    wm_del: xcb.xcb_atom_t = undefined,
+    wm_proto: xcb.xcb_atom_t = undefined,
+    w: u32 = 0,
+    h: u32 = 0,
+};
 
 pub fn init() anyerror!void {
     std.log.info("linux startup", .{});
@@ -32,6 +37,8 @@ pub fn init() anyerror!void {
     var itr: xcb.xcb_screen_iterator_t = xcb.xcb_setup_roots_iterator(xcb.xcb_get_setup(connection));
     // Use the last screen
     screen = @ptrCast(*xcb.xcb_screen_t, itr.data);
+
+    windows = FreeList(WinData).initArena(&window_store);
 }
 
 pub fn deinit() void {
@@ -65,15 +72,16 @@ pub fn nextEvent() ?Event {
             xcb.XCB_CLIENT_MESSAGE => {
                 const cm = @ptrCast(*xcb.xcb_client_message_event_t, ev);
                 std.log.info("wm window close event: {}", .{cm});
-                for (windows.handles) |*handle, i| {
+
+                for (window_store) |wd, i| {
                     if (
                     //handle.* != .null_handle and
-                    cm.window == handle.* and
-                        cm.*.data.data32[0] == windows.wm_dels[i])
+                    cm.window == wd.handle and
+                        cm.*.data.data32[0] == wd.wm_del)
                     {
-                        _ = xcb.xcb_destroy_window(connection, handle.*);
-                        windows.num_living -= 1;
-                        if (windows.num_living == 0) {
+                        _ = xcb.xcb_destroy_window(connection, wd.handle);
+                        num_living -= 1;
+                        if (num_living == 0) {
                             return Event{ .Quit = .{} };
                         }
                         return Event{ .WindowClose = @intToEnum(Window.Handle, i) };
@@ -104,12 +112,21 @@ pub fn nextEvent() ?Event {
             //            // for resizes
             xcb.XCB_CONFIGURE_NOTIFY => {
                 const cn = @ptrCast(*xcb.xcb_configure_notify_event_t, ev);
-                ret = Event{ .WindowResize = .{
-                    .x = cn.x,
-                    .y = cn.y,
-                    .w = cn.width,
-                    .h = cn.height,
-                } };
+
+                for (window_store) |*wd, i| {
+                    _ = i;
+                    if (cn.window == wd.handle and (wd.w != cn.width and wd.h != cn.height))
+                    {
+                        wd.w = cn.width;
+                        wd.h = cn.height;
+                        ret = Event{ .WindowResize = .{
+                            .x = cn.x,
+                            .y = cn.y,
+                            .w = cn.width,
+                            .h = cn.height,
+                        } };
+                    }
+                }
             },
             //else => |ev| std.log.info("event: {}", .{ev}),
             //else => std.log.info("event: {}", .{ev}),
@@ -165,22 +182,33 @@ pub fn createWindow(title: []const u8, w: u32, h: u32) !Window {
     }
 
     std.log.info("linux create window # {}", .{window});
-    windows.idx += 1;
-    windows.handles[windows.idx] = window;
-    windows.wm_dels[windows.idx] = wm_del;
-    windows.wm_protos[windows.idx] = wm_proto;
-    windows.num_living += 1;
+
+    const id: u32 = try windows.allocIndex();
+
+    window_store[id].handle = window;
+    window_store[id].wm_del = wm_del;
+    window_store[id].wm_proto = wm_proto;
+    window_store[id].w = w;
+    window_store[id].h = h;
+
+    num_living += 1;
 
     return Window{
-        .handle = @intToEnum(Window.Handle, windows.idx),
+        .handle = @intToEnum(Window.Handle, id),
+        .getSizeFn = getWindowSize,
     };
+}
+
+fn getWindowSize(win: Window) Window.Extent {
+    const wd = window_store[@enumToInt(win.handle)];
+    return .{ .w = wd.w, .h = wd.h };
 }
 
 pub fn createWindowSurface(vki: InstanceDispatch, instance: vk.Instance, win: Window) !vk.SurfaceKHR {
     var surf = vki.createXcbSurfaceKHR(instance, &.{
         .flags = .{},
         .connection = @ptrCast(*vk.xcb_connection_t, connection),
-        .window = windows.handles[@enumToInt(win.handle)],
+        .window = window_store[@enumToInt(win.handle)].handle,
     }, null);
     return surf;
 }

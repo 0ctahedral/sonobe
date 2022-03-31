@@ -134,15 +134,16 @@ pub const CommandBuffer = struct {
         rpi: RenderPassInfo,
     ) !void {
         // set the viewport
-        const viewport = vk.Viewport{ .x = 0, .y = @intToFloat(f32, Renderer.fb_height), .width = @intToFloat(f32, Renderer.fb_width), .height = -@intToFloat(f32, Renderer.fb_height), .min_depth = 0, .max_depth = 1 };
+        const dim = Renderer.mywindow.getSize();
+        const viewport = vk.Viewport{ .x = 0, .y = @intToFloat(f32, dim.h), .width = @intToFloat(f32, dim.w), .height = -@intToFloat(f32, dim.h), .min_depth = 0, .max_depth = 1 };
         Renderer.device.vkd.cmdSetViewport(self.handle, 0, 1, @ptrCast([*]const vk.Viewport, &viewport));
 
         // set the scissor (region we are clipping)
         const scissor = vk.Rect2D{
             .offset = .{ .x = 0, .y = 0 },
             .extent = .{
-                .width = Renderer.fb_width,
-                .height = Renderer.fb_height,
+                .width = dim.w,
+                .height = dim.h,
             },
         };
 
@@ -165,8 +166,8 @@ pub const CommandBuffer = struct {
         }
 
         const area = vk.Rect2D{ .offset = .{ .x = 0, .y = 0 }, .extent = .{
-            .width = Renderer.fb_width,
-            .height = Renderer.fb_height,
+            .width = dim.w,
+            .height = dim.h,
         } };
 
         self.renderpass_info = rpi;

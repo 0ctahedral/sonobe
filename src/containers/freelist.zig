@@ -46,7 +46,7 @@ pub fn FreeList(
         }
 
         // TODO: this should be default
-        pub fn initArena(mem: []T) !Self {
+        pub fn initArena(mem: []T) Self {
             const size = mem.len;
 
             var ptr = @ptrCast([*]Item, mem.ptr);

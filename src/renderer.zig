@@ -80,9 +80,13 @@ pub inline fn getCurrentFrame() *FrameData {
     return &frames[frame_number % frames.len];
 }
 
+pub var mywindow: Platform.Window = undefined;
+
 // initialize the renderer
 pub fn init(provided_allocator: Allocator, app_name: [*:0]const u8, window: Platform.Window) !void {
     allocator = provided_allocator;
+
+    mywindow = window;
 
     var vk_proc = Platform.getInstanceProcAddress();
 
@@ -161,7 +165,9 @@ pub fn init(provided_allocator: Allocator, app_name: [*:0]const u8, window: Plat
     }, instance, vki, surface, allocator);
     errdefer device.deinit();
 
-    swapchain = try Swapchain.init(vki, device, surface, fb_width, fb_height, allocator);
+    const dim = mywindow.getSize();
+
+    swapchain = try Swapchain.init(vki, device, surface, dim.w, dim.w, allocator);
     errdefer swapchain.deinit(device, allocator);
 
     // subscribe to resize events
@@ -199,7 +205,7 @@ fn vk_debug(
     _ = message_types;
     _ = p_callback_data;
     _ = p_user_data;
-    std.log.info("{s}", .{p_callback_data.?.*.p_message});
+    //std.log.info("{s}", .{p_callback_data.?.*.p_message});
     return vk.FALSE;
 }
 
@@ -239,14 +245,8 @@ pub fn deinit() void {
 }
 
 fn resize(ev: Events.Event) void {
-    const w = ev.WindowResize.w;
-    const h = ev.WindowResize.h;
-    cached_width = w;
-    cached_height = h;
-    fb_width = w;
-    fb_height = h;
+    _ = ev;
     size_gen += 1;
-    std.log.warn("resize triggered: {}x{}, gen: {}", .{ w, h, size_gen });
 }
 
 /// aquires next image
@@ -318,7 +318,13 @@ pub fn endFrame() !void {
 }
 
 fn recreateSwapchain() !void {
-    if (cached_width == 0 or cached_height == 0) {
+    //if (cached_width == 0 or cached_height == 0) {
+    //    std.log.info("dimesnsion is zero so, no", .{});
+    //    return;
+    //}
+    const dim = mywindow.getSize();
+
+    if (dim.w == 0 or dim.h == 0) {
         std.log.info("dimesnsion is zero so, no", .{});
         return;
     }
@@ -328,13 +334,14 @@ fn recreateSwapchain() !void {
     try device.vkd.deviceWaitIdle(device.logical);
     std.log.info("device done waiting", .{});
 
-    try swapchain.recreate(vki, device, surface, cached_width, cached_height, allocator);
 
-    fb_width = cached_width;
-    fb_height = cached_height;
+    try swapchain.recreate(vki, device, surface, dim.w, dim.h, allocator);
 
-    cached_width = 0;
-    cached_height = 0;
+    //fb_width = cached_width;
+    //fb_height = cached_height;
+
+    //cached_width = 0;
+    //cached_height = 0;
 
     last_size_gen = size_gen;
 
@@ -373,13 +380,14 @@ pub var fb_cache = Cache(RenderPassInfo, vk.Framebuffer, RenderPassInfo.Context,
 
         var rp: RenderPass = try renderpass_cache.request(.{rpi});
 
+        const dim = mywindow.getSize();
         return try device.vkd.createFramebuffer(device.logical, &.{
             .flags = .{},
             .render_pass = rp.handle,
             .attachment_count = attachments.len,
             .p_attachments = @ptrCast([*]const vk.ImageView, &attachments),
-            .width = fb_width,
-            .height = fb_height,
+            .width = dim.w,
+            .height = dim.h,
             .layers = 1,
         }, null);
     }
@@ -408,13 +416,16 @@ pub fn createPipeline(
     // get renderpass
     var rp: RenderPass = try renderpass_cache.request(.{rpi});
 
-    const viewport = vk.Viewport{ .x = 0, .y = @intToFloat(f32, fb_height), .width = @intToFloat(f32, fb_width), .height = -@intToFloat(f32, fb_height), .min_depth = 0, .max_depth = 1 };
+
+    const dim = mywindow.getSize();
+
+    const viewport = vk.Viewport{ .x = 0, .y = @intToFloat(f32, dim.h), .width = @intToFloat(f32, dim.w), .height = -@intToFloat(f32, dim.h), .min_depth = 0, .max_depth = 1 };
 
     const scissor = vk.Rect2D{
         .offset = .{ .x = 0, .y = 0 },
         .extent = .{
-            .width = fb_width,
-            .height = fb_height,
+            .width = dim.w,
+            .height = dim.h,
         },
     };
 
