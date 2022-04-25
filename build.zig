@@ -1,4 +1,5 @@
 const std = @import("std");
+const builtin = @import("builtin");
 const Builder = std.build.Builder;
 
 const vkgen = @import("deps/vulkan-zig/generator/index.zig");
@@ -28,6 +29,7 @@ pub fn build(b: *Builder) void {
 /// add this library package to the executable
 /// and link dependencies
 fn link(b: *Builder, step: *std.build.LibExeObjStep) void {
+    _ = b;
     // packages
     const gen = vkgen.VkGenerateStep.init(b, "deps/vulkan-zig/examples/vk.xml", "vk.zig");
     step.addPackage(.{
@@ -38,6 +40,17 @@ fn link(b: *Builder, step: *std.build.LibExeObjStep) void {
     // links / c stuff
     step.linkLibC();
     step.addIncludeDir(prefix ++ "/include");
+
+    // add stuff for macos
+    switch (builtin.target.os.tag) {
+        .macos => {
+            step.addCSourceFile("./src/platform/macos.m", &[_][]const u8{});
+            step.linkFramework("AppKit");
+            step.linkFramework("QuartzCore");
+        },
+        else => {},
+    }
+
     // TODO: configure this by os
     const lib_names = [_][]const u8{
         "xcb",
@@ -50,22 +63,29 @@ fn link(b: *Builder, step: *std.build.LibExeObjStep) void {
 
 // TODO: make this compile all shaders in the folder
 fn compileBuiltinShaders(b: *Builder, step: *std.build.LibExeObjStep) void {
-    const compile_vert = b.addSystemCommand(&[_][]const u8{
-        prefix ++ "/bin/glslc",
-        "-fshader-stage=vert",
-        "assets/builtin.vert.glsl",
-        "-o",
-        "assets/builtin.vert.spv",
-    });
+    const shader_names = [_][]const u8{
+        "assets/builtin",
+        "assets/test",
+    };
 
-    const compile_frag = b.addSystemCommand(&[_][]const u8{
-        prefix ++ "/bin/glslc",
-        "-fshader-stage=frag",
-        "assets/builtin.frag.glsl",
-        "-o",
-        "assets/builtin.frag.spv",
-    });
+    inline for (shader_names) |name| {
+        const compile_vert = b.addSystemCommand(&[_][]const u8{
+            prefix ++ "/bin/glslc",
+            "-fshader-stage=vert",
+            name ++ ".vert.glsl",
+            "-o",
+            name ++ ".vert.spv",
+        });
 
-    step.step.dependOn(&compile_vert.step);
-    step.step.dependOn(&compile_frag.step);
+        const compile_frag = b.addSystemCommand(&[_][]const u8{
+            prefix ++ "/bin/glslc",
+            "-fshader-stage=frag",
+            name ++ ".frag.glsl",
+            "-o",
+            name ++ ".frag.spv",
+        });
+
+        step.step.dependOn(&compile_vert.step);
+        step.step.dependOn(&compile_frag.step);
+    }
 }

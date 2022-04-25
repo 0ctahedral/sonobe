@@ -1,0 +1,83 @@
+const std = @import("std");
+const vk = @import("vulkan");
+const InstanceDispatch = @import("../renderer/dispatch_types.zig").InstanceDispatch;
+const Event = @import("../events.zig").Event;
+const Window = @import("window.zig");
+const FreeList = @import("../containers/freelist.zig").FreeList;
+
+extern fn startup(state: *macos_state) bool;
+extern fn shutdown(state: *macos_state) void;
+extern fn create_window(title: [*:0]const u8, w: i32, h: i32, wd: *WinData) bool;
+pub extern fn pump_messages(state: *macos_state) bool;
+
+const macos_state = extern struct {
+    app_delegate: *anyopaque,
+    wnd_delegate: *anyopaque,
+};
+
+var state: macos_state = undefined;
+
+var num_living: usize = 0;
+var windows: FreeList(WinData) = undefined;
+var window_store: [10]WinData = undefined;
+
+pub fn init() anyerror!void {
+    std.log.info("macos startup", .{});
+    _ = startup(&state);
+    windows = try FreeList(WinData).initArena(&window_store);
+}
+
+pub fn deinit() void {
+    std.log.info("macos shutdown", .{});
+    shutdown(&state);
+}
+
+pub fn nextEvent() ?Event {
+    while (pump_messages(&state)) {
+        if (num_living == 0) {
+            return Event{ .Quit = .{} };
+        }
+    }
+    return null;
+}
+
+export fn mouse_move(x: i16, y: i16) void {
+    _ = x;
+    _ = y;
+    //std.log.debug("mouse at: {} {}", .{ x, y });
+}
+
+pub const WinData = struct {
+    window: *anyopaque,
+    view: *anyopaque,
+    layer: *vk.CAMetalLayer,
+};
+
+pub fn createWindow(title: []const u8, w: u32, h: u32) !Window {
+    const id: u32 = try windows.allocIndex();
+    var wd = &window_store[id];
+
+    if (!create_window(@ptrCast([*:0]const u8, title.ptr), @intCast(i32, w), @intCast(i32, h), wd)) {
+        return error.FailedWindow;
+    }
+
+    num_living += 1;
+
+    return Window{
+        .handle = @intToEnum(Window.Handle, id),
+    };
+}
+
+export fn close_window(ptr: *anyopaque) void {
+    const id: u32 = @truncate(u32, @ptrToInt(ptr));
+    std.log.debug("closing {x}", .{id});
+    num_living -= 1;
+}
+
+pub fn createWindowSurface(vki: InstanceDispatch, instance: vk.Instance, win: Window) !vk.SurfaceKHR {
+    const idx = @enumToInt(win.handle);
+    return vki.createMetalSurfaceEXT(instance, &.{
+        .flags = .{},
+        .p_layer = window_store[idx].layer,
+    }, null);
+}
