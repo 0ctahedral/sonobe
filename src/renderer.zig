@@ -348,6 +348,7 @@ pub fn endFrame() !void {
         switch (err) {
             error.SuboptimalKHR, error.OutOfDateKHR => {
                 std.log.warn("swapchain out of date in end frame", .{});
+                try recreateSwapchain();
             },
             else => |narrow| return narrow,
         }
@@ -439,16 +440,6 @@ pub fn createPipeline(
 ) !Pipeline {
     _ = stages;
 
-    const viewport = vk.Viewport{ .x = 0, .y = @intToFloat(f32, fb_height), .width = @intToFloat(f32, fb_width), .height = -@intToFloat(f32, fb_height), .min_depth = 0, .max_depth = 1 };
-
-    const scissor = vk.Rect2D{
-        .offset = .{ .x = 0, .y = 0 },
-        .extent = .{
-            .width = fb_width,
-            .height = fb_height,
-        },
-    };
-
     var stage_ci: [3]vk.PipelineShaderStageCreateInfo = undefined;
     var shader_modules: [3]vk.ShaderModule = undefined;
     var n_stages: usize = 0;
@@ -470,7 +461,7 @@ pub fn createPipeline(
         .stage_flags = .{ .vertex_bit = true },
         .offset = 0,
         .size = @intCast(u32, @sizeOf(MeshPushConstants)),
-    }}, stage_ci[0..n_stages], viewport, scissor, false);
+    }}, stage_ci[0..n_stages], false);
 
     for (shader_modules[0..n_stages]) |stage| {
         device.vkd.destroyShaderModule(device.logical, stage, null);

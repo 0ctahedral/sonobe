@@ -17,19 +17,9 @@ pub const Pipeline = struct {
         descriptor_set_layouts: []const vk.DescriptorSetLayout,
         push_constants: []const vk.PushConstantRange,
         stages: []const vk.PipelineShaderStageCreateInfo,
-        viewport: vk.Viewport,
-        scissor: vk.Rect2D,
         wireframe: bool,
     ) !Self {
         var self: Self = undefined;
-
-        const viewport_state = vk.PipelineViewportStateCreateInfo{
-            .flags = .{},
-            .viewport_count = 1,
-            .p_viewports = @ptrCast([*]const vk.Viewport, &viewport), 
-            .scissor_count = 1,
-            .p_scissors = @ptrCast([*]const vk.Rect2D, &scissor),
-        };
 
         const rasterization_ci = vk.PipelineRasterizationStateCreateInfo{
             .flags = .{},
@@ -89,6 +79,14 @@ pub const Pipeline = struct {
             .blend_constants = [_]f32{ 0, 0, 0, 0 },
         };
 
+        const viewport_state = vk.PipelineViewportStateCreateInfo{
+            .flags = .{},
+            .viewport_count = 0,
+            .p_viewports = undefined,
+            .scissor_count = 0,
+            .p_scissors = undefined,
+        };
+
         // dynamic state allows us to change stuff without recreating pipeline
         const dynamic_state = [_]vk.DynamicState{ .viewport, .scissor, .line_width };
 
@@ -105,8 +103,6 @@ pub const Pipeline = struct {
             .vertex_attribute_description_count = @intCast(u32, Vertex.attribute_description.len),
             .p_vertex_attribute_descriptions = &Vertex.attribute_description,
         };
-
-
 
         const input_assembly = vk.PipelineInputAssemblyStateCreateInfo{
             .flags = .{},
