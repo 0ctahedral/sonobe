@@ -23,6 +23,7 @@ static platform_state* state_ptr;
 
 void mouse_move(int16_t, int16_t);
 
+
 bool startup(platform_state* state) {
 
     @autoreleasepool {
@@ -65,6 +66,10 @@ struct win_data {
     ContentView* view;
     CAMetalLayer* layer;
 };
+
+
+struct win_data* find_win(NSWindow* window);
+void resize_window(NSWindow*, uint16_t, uint16_t);
 
 bool create_window(char* title, int w, int h, struct win_data* data) {
 
@@ -214,24 +219,16 @@ void close_window(NSWindow*);
 
 - (BOOL)windowShouldClose:(NSWindow*)sender {
     close_window(sender);
-
-    /*
-    event_context data = {};
-    event_fire(EVENT_CODE_APPLICATION_QUIT, 0, data);
-    */
-
     return YES;
 }
 
 - (void)windowDidResize:(NSNotification *)notification {
-    /*
-    event_context context;
-    const NSRect contentRect = [state_ptr->view frame];
-    const NSRect framebufferRect = [state_ptr->view convertRectToBacking:contentRect];
-    context.data.u16[0] = (u16)framebufferRect.size.width;
-    context.data.u16[1] = (u16)framebufferRect.size.height;
-    event_fire(EVENT_CODE_RESIZED, 0, context);
-    */
+    struct win_data* wd = find_win(notification.object);
+    if (wd) {
+      const NSRect contentRect = [wd->view frame];
+      const NSRect fbRect = [wd->view convertRectToBacking:contentRect];
+      resize_window(notification.object, (uint16_t) fbRect.size.width, (uint16_t)fbRect.size.height);
+    }
 }
 
 - (void)windowDidMiniaturize:(NSNotification *)notification {

@@ -27,7 +27,9 @@ pub const Swapchain = struct {
 
     /// initialize/create a swapchian object
     pub fn init(vki: InstanceDispatch, dev: Device, surface: vk.SurfaceKHR, w: u32, h: u32, allocator: std.mem.Allocator) !Self {
-        return try create(vki, dev, surface, w, h, allocator);
+        var self = Self{};
+        try self.create(vki, dev, surface, w, h, allocator);
+        return self;
     }
 
     /// shutdown a swapchian object
@@ -37,9 +39,7 @@ pub const Swapchain = struct {
     }
 
     /// create our swapchain
-    fn create(vki: InstanceDispatch, dev: Device, surface: vk.SurfaceKHR, w: u32, h: u32, allocator: std.mem.Allocator) !Self {
-        var self: Self = .{};
-
+    fn create(self: *Self, vki: InstanceDispatch, dev: Device, surface: vk.SurfaceKHR, w: u32, h: u32, allocator: std.mem.Allocator) !void {
         var extent = vk.Extent2D{ .width = w, .height = h };
 
         // find the format
@@ -77,19 +77,12 @@ pub const Swapchain = struct {
         // get the actual extent of the window
         const caps = try vki.getPhysicalDeviceSurfaceCapabilitiesKHR(dev.physical, surface);
 
-        if (caps.current_extent.width != 0xFFFF_FFFF) {
-            extent = caps.current_extent;
-        }
         extent.width = std.math.clamp(extent.width, caps.min_image_extent.width, caps.max_image_extent.width);
         extent.height = std.math.clamp(extent.height, caps.min_image_extent.height, caps.max_image_extent.height);
 
         if (extent.width == 0 or extent.height == 0) {
             return error.InvalidSurfaceDimensions;
         }
-
-        //self.extent = actual_extent;
-
-        //std.log.info("given extent: {} actual extent: {}", .{ extent, self.extent });
 
         // get the image count
         var image_count = caps.min_image_count + 1;
@@ -100,6 +93,8 @@ pub const Swapchain = struct {
 
         const qfi = [_]u32{ dev.graphics.?.idx, dev.present.?.idx };
         const sharing_mode: vk.SharingMode = if (dev.graphics.?.idx == dev.present.?.idx) .exclusive else .concurrent;
+
+        const old_handle = self.handle;
 
         // create the handle
         self.handle = try dev.vkd.createSwapchainKHR(dev.logical, &.{
@@ -119,8 +114,13 @@ pub const Swapchain = struct {
             .composite_alpha = .{ .opaque_bit_khr = true },
             .present_mode = self.present_mode,
             .clipped = vk.TRUE,
-            .old_swapchain = self.handle,
+            .old_swapchain = old_handle,
         }, null);
+
+        if (old_handle != .null_handle) {
+            std.log.info("destroying old handle", .{});
+            dev.vkd.destroySwapchainKHR(dev.logical, old_handle, null);
+        }
 
         // make the images and views
         var imgs: [8]vk.Image = undefined;
@@ -140,8 +140,6 @@ pub const Swapchain = struct {
 
         // create the depth image
         self.depth = try Image.init(dev, .@"2d", extent, dev.depth_format, .optimal, .{ .depth_stencil_attachment_bit = true }, .{ .device_local_bit = true }, .{ .depth_bit = true });
-
-        return self;
     }
 
     /// destroy our swapchain
@@ -154,12 +152,11 @@ pub const Swapchain = struct {
             img.deinit(dev);
         }
         self.depth.deinit(dev);
-        dev.vkd.destroySwapchainKHR(dev.logical, self.handle, null);
     }
 
     pub fn recreate(self: *Self, vki: InstanceDispatch, dev: Device, surface: vk.SurfaceKHR, w: u32, h: u32, allocator: std.mem.Allocator) !void {
         self.destroy(dev);
-        self.* = try create(vki, dev, surface, w, h, allocator);
+        try self.create(vki, dev, surface, w, h, allocator);
     }
 
     /// present an image to the swapchain
@@ -173,10 +170,7 @@ pub const Swapchain = struct {
         const result = try dev.vkd.queuePresentKHR(present_queue.handle, &.{ .wait_semaphore_count = 1, .p_wait_semaphores = render_complete.ptr(), .swapchain_count = 1, .p_swapchains = @ptrCast([*]const vk.SwapchainKHR, &self.handle), .p_image_indices = @ptrCast([*]const u32, &@intCast(u32, self.image_index)), .p_results = null });
 
         switch (result) {
-            .success => {},
-            .suboptimal_khr => {
-                return error.SuboptimalKHR;
-            },
+            .success, .suboptimal_khr => {},
             else => unreachable,
         }
     }

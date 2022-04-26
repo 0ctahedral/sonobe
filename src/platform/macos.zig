@@ -32,10 +32,17 @@ pub fn deinit() void {
     shutdown(&state);
 }
 
+var next_event: ?Event = null;
+
 pub fn nextEvent() ?Event {
+    next_event = null;
     while (pump_messages(&state)) {
         if (num_living == 0) {
             return Event{ .Quit = .{} };
+        }
+
+        if (next_event) |ne| {
+            return ne;
         }
     }
     return null;
@@ -44,7 +51,6 @@ pub fn nextEvent() ?Event {
 export fn mouse_move(x: i16, y: i16) void {
     _ = x;
     _ = y;
-    //std.log.debug("mouse at: {} {}", .{ x, y });
 }
 
 pub const WinData = struct {
@@ -52,6 +58,16 @@ pub const WinData = struct {
     view: *anyopaque,
     layer: *vk.CAMetalLayer,
 };
+
+export fn find_win(window: *anyopaque) ?*WinData {
+    var iter = windows.iter();
+    while (iter.next()) |wd| {
+        if (@ptrToInt(wd.window) == @ptrToInt(window)) {
+            return wd;
+        }
+    }
+    return null;
+}
 
 pub fn createWindow(title: []const u8, w: u32, h: u32) !Window {
     const id: u32 = try windows.allocIndex();
@@ -72,6 +88,13 @@ export fn close_window(ptr: *anyopaque) void {
     const id: u32 = @truncate(u32, @ptrToInt(ptr));
     std.log.debug("closing {x}", .{id});
     num_living -= 1;
+}
+
+export fn resize_window(ptr: *anyopaque, w: u16, h: u16) void {
+    const wd = find_win(ptr).?;
+    next_event = Event{ .WindowResize = .{ .w = w, .h = h } };
+    _ = wd;
+    //std.log.info("win: {} resized to {}x{}", .{ wd, w, h });
 }
 
 pub fn createWindowSurface(vki: InstanceDispatch, instance: vk.Instance, win: Window) !vk.SurfaceKHR {

@@ -239,10 +239,10 @@ pub fn deinit() void {
 }
 
 fn resize(ev: Events.Event) void {
-    const w = ev.WindowResize.w;
-    const h = ev.WindowResize.h;
-    cached_width = w;
-    cached_height = h;
+    const w = @intCast(u32, ev.WindowResize.w);
+    const h = @intCast(u32, ev.WindowResize.h);
+    //cached_width = w;
+    //cached_height = h;
     fb_width = w;
     fb_height = h;
     size_gen += 1;
@@ -251,14 +251,6 @@ fn resize(ev: Events.Event) void {
 
 /// aquires next image
 pub fn beginFrame() !void {
-    if (size_gen != last_size_gen) {
-        try device.vkd.deviceWaitIdle(device.logical);
-        try recreateSwapchain();
-        std.log.info("resized, booting frame", .{});
-        getCurrentFrame().*.begun = false;
-        return;
-    }
-
     try getCurrentFrame().render_fence.wait(device, std.math.maxInt(u64));
 
     swapchain.acquireNext(device, getCurrentFrame().image_avail_semaphore, Fence{}) catch |err| {
@@ -305,20 +297,26 @@ pub fn endFrame() !void {
     cb.updateSubmitted();
 
     // present that shit
-    swapchain.present(device, device.present.?, getCurrentFrame().queue_complete_semaphore) catch |err| {
+    if (swapchain.present(device, device.present.?, getCurrentFrame().queue_complete_semaphore)) {
+        if (size_gen != last_size_gen) {
+            try recreateSwapchain();
+            std.log.info("resized, booting frame", .{});
+        }
+    } else |err| {
         switch (err) {
-            error.SuboptimalKHR, error.OutOfDateKHR => {
+            error.OutOfDateKHR => {
                 std.log.warn("swapchain out of date in end frame", .{});
+                _ = try recreateSwapchain();
             },
             else => |narrow| return narrow,
         }
-    };
+    }
 
     frame_number += 1;
 }
 
 fn recreateSwapchain() !void {
-    if (cached_width == 0 or cached_height == 0) {
+    if (fb_width == 0 or fb_height == 0) {
         std.log.info("dimesnsion is zero so, no", .{});
         return;
     }
@@ -328,10 +326,10 @@ fn recreateSwapchain() !void {
     try device.vkd.deviceWaitIdle(device.logical);
     std.log.info("device done waiting", .{});
 
-    try swapchain.recreate(vki, device, surface, cached_width, cached_height, allocator);
+    try swapchain.recreate(vki, device, surface, fb_width, fb_height, allocator);
 
-    fb_width = cached_width;
-    fb_height = cached_height;
+    //fb_width = cached_width;
+    //fb_height = cached_height;
 
     cached_width = 0;
     cached_height = 0;
@@ -490,7 +488,6 @@ pub const FrameData = struct {
             .host_coherent_bit = true,
         }, true);
 
-
         return self;
     }
 
@@ -500,8 +497,6 @@ pub const FrameData = struct {
         self.render_fence.deinit(dev);
         self.cmdbuf.deinit(dev, dev.command_pool);
 
-
         self.ubo_pool.deinit(dev);
     }
-
 };
