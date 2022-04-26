@@ -74,7 +74,6 @@ pub const PipelineInfo = struct {
                 std.meta.eql(a.fragment, b.fragment);
         }
     };
-
 };
 
 pub const Pipeline = struct {
@@ -94,8 +93,6 @@ pub const Pipeline = struct {
         renderpass: RenderPass,
         info: PipelineInfo,
         descriptor_pool: vk.DescriptorPool,
-        viewport: vk.Viewport,
-        scissor: vk.Rect2D,
         wireframe: bool,
         allocator: std.mem.Allocator,
     ) !Self {
@@ -123,15 +120,15 @@ pub const Pipeline = struct {
 
         defer {
             for (shader_modules[0..n_stages]) |stage| {
-            dev.vkd.destroyShaderModule(dev.logical, stage, null);
-        }}
+                dev.vkd.destroyShaderModule(dev.logical, stage, null);
+            }
+        }
 
         // TODO: make a max bindings
         var bindings: [10]vk.DescriptorSetLayoutBinding = undefined;
         for (info.resources) |in, i| {
-
             bindings[i] = .{
-                .binding = @intCast(u32,i),
+                .binding = @intCast(u32, i),
                 .descriptor_type = switch (in.type) {
                     .uniform => .uniform_buffer,
                     .storage => .storage_buffer,
@@ -143,7 +140,6 @@ pub const Pipeline = struct {
             };
         }
 
-
         var push_constants: [10]vk.PushConstantRange = undefined;
         for (info.constants) |c, i| {
             push_constants[i] = .{
@@ -153,15 +149,12 @@ pub const Pipeline = struct {
             };
         }
 
-
-
         const descriptor_layout = try dev.vkd.createDescriptorSetLayout(dev.logical, &.{
             .flags = .{},
             .binding_count = @intCast(u32, info.resources.len),
             .p_bindings = &bindings,
         }, null);
         self.descriptor_layouts[0] = descriptor_layout;
-
 
         for (self.descriptors) |*desc| {
             try dev.vkd.allocateDescriptorSets(dev.logical, &.{
@@ -172,15 +165,6 @@ pub const Pipeline = struct {
         }
         _ = descriptor_pool;
         std.log.debug("got here", .{});
-
-
-        const viewport_state = vk.PipelineViewportStateCreateInfo{
-            .flags = .{},
-            .viewport_count = 1,
-            .p_viewports = @ptrCast([*]const vk.Viewport, &viewport),
-            .scissor_count = 1,
-            .p_scissors = @ptrCast([*]const vk.Rect2D, &scissor),
-        };
 
         const rasterization_ci = vk.PipelineRasterizationStateCreateInfo{
             .flags = .{},
@@ -239,6 +223,14 @@ pub const Pipeline = struct {
             .blend_constants = [_]f32{ 0, 0, 0, 0 },
         };
 
+        const viewport_state = vk.PipelineViewportStateCreateInfo{
+            .flags = .{},
+            .viewport_count = 1,
+            .p_viewports = undefined,
+            .scissor_count = 1,
+            .p_scissors = undefined,
+        };
+
         // dynamic state allows us to change stuff without recreating pipeline
         const dynamic_state = [_]vk.DynamicState{ .viewport, .scissor, .line_width };
 
@@ -261,8 +253,6 @@ pub const Pipeline = struct {
             .topology = .triangle_list,
             .primitive_restart_enable = vk.FALSE,
         };
-
-
 
         self.layout = try dev.vkd.createPipelineLayout(dev.logical, &.{
             .flags = .{},

@@ -251,6 +251,11 @@ fn resize(ev: Events.Event) void {
 
 /// aquires next image
 pub fn beginFrame() !void {
+    if (size_gen != last_size_gen) {
+        try recreateSwapchain();
+        std.log.info("resized, booting frame", .{});
+    }
+
     try getCurrentFrame().render_fence.wait(device, std.math.maxInt(u64));
 
     swapchain.acquireNext(device, getCurrentFrame().image_avail_semaphore, Fence{}) catch |err| {
@@ -406,17 +411,7 @@ pub fn createPipeline(
     // get renderpass
     var rp: RenderPass = try renderpass_cache.request(.{rpi});
 
-    const viewport = vk.Viewport{ .x = 0, .y = @intToFloat(f32, fb_height), .width = @intToFloat(f32, fb_width), .height = -@intToFloat(f32, fb_height), .min_depth = 0, .max_depth = 1 };
-
-    const scissor = vk.Rect2D{
-        .offset = .{ .x = 0, .y = 0 },
-        .extent = .{
-            .width = fb_width,
-            .height = fb_height,
-        },
-    };
-
-    var pl = try Pipeline.init(device, rp, info, global_descriptor_pool, viewport, scissor, info.wireframe, allocator);
+    var pl = try Pipeline.init(device, rp, info, global_descriptor_pool, info.wireframe, allocator);
 
     return pl;
 }
