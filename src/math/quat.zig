@@ -61,9 +61,9 @@ pub const Quat = struct {
 
     /// creates a new unit quaternion given an axis and angle
     /// axis does not have to be normalized as we do that here
-    pub inline fn fromAxisAngle(vec: Vec3, angle: f32) Self {
+    pub inline fn fromAxisAngle(axis: Vec3, angle: f32) Self {
         const sin = math.sin(angle / 2);
-        const a = vec.norm().scale(sin);
+        const a = axis.norm().scale(sin);
         return Self.new(math.cos(angle / 2), a.x, a.y, a.z);
     }
 

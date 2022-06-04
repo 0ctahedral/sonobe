@@ -4,6 +4,9 @@ const Platform = octal.Platform;
 const Renderer = octal.Renderer;
 const Events = octal.Events;
 const mmath = octal.mmath;
+const Vec3 = mmath.Vec3;
+const Quat = mmath.Quat;
+const Transform = mmath.Transform;
 
 const app_name = "octal: triangle test";
 
@@ -30,15 +33,14 @@ pub fn main() !void {
 
     var f: f32 = 0;
 
+    var t = mmath.Transform{};
+    t.pos = .{ .x = 0, .y = 0, .z = 0 };
+
     while (Platform.is_running) {
         if (Platform.flush()) {
             if (try Renderer.beginFrame()) {
-                try Renderer.updateUniform(
-                        mmath.Mat4.scale(mmath.Vec3.new(1, 1, 1))
-                            .mul(mmath.Mat4.rotate(.y, f))
-                            //.mul(mmath.Mat4.translate(.{ .x = 350, .y = 250 + (@sin(f) * 100)}))
-                            .mul(mmath.Mat4.translate(.{ .x = 0, .y = 5, .z = 0 }))
-                    );
+                t.rot = mmath.Quat.fromAxisAngle(Vec3.UP, f).mul(mmath.Quat.fromAxisAngle(Vec3.RIGHT, f/2));
+                try Renderer.updateUniform(t.mat());
                 try Renderer.endFrame();
             }
         }

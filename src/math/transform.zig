@@ -21,7 +21,7 @@ pub const Transform = struct {
     const Self = @This();
 
     /// get the local transformation matrix of the model
-    pub inline fn local(self: Self) Mat4 {
+    pub inline fn mat(self: Self) Mat4 {
         // start with the rotation
         return self.rot.toMat4()
             // apply posiition
@@ -40,8 +40,8 @@ test "init" {
    try testing.expect(t.parent == null);
 }
 
-test "local" {
+test "mat" {
    var t = Transform{}; 
-   var l = t.local();
+   var l = t.mat();
    try testing.expect(l.eql(Mat4.identity()));
 }
