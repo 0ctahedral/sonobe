@@ -112,15 +112,14 @@ var global_descriptor_layout: vk.DescriptorSetLayout = .null_handle;
 /// pool from which we allocate all descriptor sets
 var global_descriptor_pool: vk.DescriptorPool = .null_handle;
 
-
 const MeshPushConstants = struct {
     index: u32,
 };
 
 const CameraData = struct {
-    projection: Mat4 = Mat4.perspective(mmath.util.rad(70), 800.0/600.0, 0.1, 1000),
+    projection: Mat4 = Mat4.perspective(mmath.util.rad(70), 800.0 / 600.0, 0.1, 1000),
     // projection: Mat4 = Mat4.ortho(0, 800.0, 0, 600.0, -100, 100),
-    view: Mat4 = Mat4.translate(.{.x=0, .y=0, .z=10}).inv(),
+    view: Mat4 = Mat4.translate(.{ .x = 0, .y = 0, .z = 10 }).inv(),
     // view: Mat4 = Mat4.translate(.{ .x = 0, .y = 0, .z = 0 }),
 };
 
@@ -132,7 +131,6 @@ var cam_data = CameraData{};
 var model_buffer: Buffer = undefined;
 /// cpu side storage for all the model matricies
 var model_data: [10]Mat4 = undefined;
-
 
 /// descriptor set for the main shader
 var global_descriptor_sets: [MAX_FRAMES]vk.DescriptorSet = undefined;
@@ -248,7 +246,7 @@ pub fn init(provided_allocator: Allocator, app_name: [*:0]const u8, window: Plat
     try createDescriptors();
 
     // allocate the sets
-    const layouts = [_]vk.DescriptorSetLayout{ global_descriptor_layout };
+    const layouts = [_]vk.DescriptorSetLayout{global_descriptor_layout};
 
     // create the descriptor set
     for (global_descriptor_sets) |*gs| {
@@ -449,7 +447,6 @@ pub fn endFrame() !void {
 
     try cb.end(device);
 
-
     // wait for the previous frame?
 
     // waits for the this stage to write
@@ -475,7 +472,7 @@ pub fn endFrame() !void {
     // present that shit
     swapchain.present(device, device.present.?, getCurrentFrame().render_finished, @intCast(u32, image_index)) catch |err| {
         switch (err) {
-            error.SuboptimalKHR, error.OutOfDateKHR => {
+            error.OutOfDateKHR => {
                 std.log.warn("swapchain out of date in end frame", .{});
             },
             else => |narrow| return narrow,
@@ -557,12 +554,10 @@ fn createBuffers() !void {
         .transfer_dst_bit = true,
     }, .{ .device_local_bit = true }, true);
 
-
     global_buffer = try Buffer.init(device, @sizeOf(CameraData), .{ .transfer_dst_bit = true, .uniform_buffer_bit = true }, .{
         .host_visible_bit = true,
         .host_coherent_bit = true,
     }, true);
-
 
     model_buffer = try Buffer.init(device, @sizeOf(@TypeOf(model_data)), .{
         .storage_buffer_bit = true,
@@ -662,7 +657,6 @@ fn createDescriptors() !void {
     }, null);
 }
 
-
 fn updateDescriptorSets() !void {
     try global_buffer.load(device, CameraData, &[_]CameraData{cam_data}, 0);
     try model_buffer.load(device, Mat4, model_data[0..], 0);
@@ -757,5 +751,4 @@ const FrameData = struct {
         self.render_fence.deinit(dev);
         self.cmdbuf.deinit(dev, dev.command_pool);
     }
-
 };

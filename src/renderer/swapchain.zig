@@ -59,7 +59,6 @@ pub const Swapchain = struct {
             }
         }
 
-
         // find present mode
         var present_modes: [32]vk.PresentModeKHR = undefined;
         _ = try vki.getPhysicalDeviceSurfacePresentModesKHR(dev.physical, surface, &count, present_modes[0..]);
@@ -77,9 +76,9 @@ pub const Swapchain = struct {
         // get the actual extent of the window
         const caps = try vki.getPhysicalDeviceSurfaceCapabilitiesKHR(dev.physical, surface);
 
-        if (caps.current_extent.width != 0xFFFF_FFFF) {
-            extent = caps.current_extent;
-        }
+        //if (caps.current_extent.width != 0xFFFF_FFFF) {
+        //    extent = caps.current_extent;
+        //}
         extent.width = std.math.clamp(extent.width, caps.min_image_extent.width, caps.max_image_extent.width);
         extent.height = std.math.clamp(extent.height, caps.min_image_extent.height, caps.max_image_extent.height);
 
@@ -141,16 +140,7 @@ pub const Swapchain = struct {
         self.framebuffers = try allocator.alloc(vk.Framebuffer, count);
 
         // create the depth image
-        self.depth = try Image.init(
-            dev,
-            .@"2d",
-            extent,
-            dev.depth_format,
-            .optimal,
-            .{ .depth_stencil_attachment_bit = true },
-            .{ .device_local_bit = true },
-            .{ .depth_bit = true }
-        );
+        self.depth = try Image.init(dev, .@"2d", extent, dev.depth_format, .optimal, .{ .depth_stencil_attachment_bit = true }, .{ .device_local_bit = true }, .{ .depth_bit = true });
 
         return self;
     }
@@ -185,13 +175,17 @@ pub const Swapchain = struct {
         render_complete: Semaphore,
         idx: u32,
     ) !void {
-        const result = try dev.vkd.queuePresentKHR(present_queue.handle, &.{ .wait_semaphore_count = 1, .p_wait_semaphores = render_complete.ptr(), .swapchain_count = 1, .p_swapchains = @ptrCast([*]const vk.SwapchainKHR, &self.handle), .p_image_indices = @ptrCast([*]const u32, &idx), .p_results = null });
+        const result = try dev.vkd.queuePresentKHR(present_queue.handle, &.{
+            .wait_semaphore_count = 1,
+            .p_wait_semaphores = render_complete.ptr(),
+            .swapchain_count = 1,
+            .p_swapchains = @ptrCast([*]const vk.SwapchainKHR, &self.handle),
+            .p_image_indices = @ptrCast([*]const u32, &idx),
+            .p_results = null,
+        });
 
         switch (result) {
-            .success => {},
-            .suboptimal_khr => {
-                return error.SuboptimalKHR;
-            },
+            .suboptimal_khr, .success => {},
             else => unreachable,
         }
     }
