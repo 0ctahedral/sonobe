@@ -291,8 +291,10 @@ test "rotate" {
 }
 
 test "toMat4" {
-    const q = Quat.fromAxisAngle(Vec3.new(1, 0, 0), math.pi);
-    const rotx = q.toMat4().m;
+    const q = Quat{};
+    const norot = q.toMat4().m;
+    const q1 = Quat.fromAxisAngle(Vec3.new(1, 0, 0), math.pi);
+    const rotx = q1.toMat4().m;
 
     // from mat4 rotate test
     var rotx_expect: [4][4]f32 = .{
@@ -302,11 +304,19 @@ test "toMat4" {
         .{ 0, 0, 0, 1 },
     };
 
+    var norot_expect: [4][4]f32 = .{
+        .{ 1, 0, 0, 0 },
+        .{ 0, 1, 0, 0 },
+        .{ 0, 0, 1, 0 },
+        .{ 0, 0, 0, 1 },
+    };
+
     var row: usize = 0;
     while (row < 4) : (row += 1) {
         var col: usize = 0;
         while (col < 4) : (col += 1) {
             try testing.expectApproxEqAbs(rotx_expect[row][col], rotx[row][col], 0.001);
+            try testing.expectApproxEqAbs(norot_expect[row][col], norot[row][col], 0.001);
         }
     }
 }
