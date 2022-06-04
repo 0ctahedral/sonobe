@@ -31,11 +31,11 @@ pub const Quat = struct {
         return Quat{};
     }
 
-    pub fn eql(l: Self, r: Self) bool {
+    pub inline fn eql(l: Self, r: Self) bool {
         return (l.w == r.w and l.x == r.x and l.y == r.y and l.z == r.z);
     }
 
-    pub fn add(l: Self, r: Self) Self {
+    pub inline fn add(l: Self, r: Self) Self {
         return Self.new(
             l.w + r.w,
             l.x + r.x,
@@ -45,7 +45,7 @@ pub const Quat = struct {
     }
 
     /// multiply a quaternion by a scalar
-    pub fn scale(q: Self, s: f32) Self {
+    pub inline fn scale(q: Self, s: f32) Self {
         return Self.new(
             q.w * s,
             q.x * s,
@@ -54,14 +54,14 @@ pub const Quat = struct {
         );
     }
 
-    pub fn norm(q: Self) Self {
+    pub inline fn norm(q: Self) Self {
         const d = math.sqrt(q.w * q.w + q.x * q.x + q.y * q.y + q.z * q.z);
         return Self.new(q.w / d, q.x / d, q.y / d, q.z / d);
     }
 
     /// creates a new unit quaternion given an axis and angle
     /// axis does not have to be normalized as we do that here
-    pub fn fromAxisAngle(vec: Vec3, angle: f32) Self {
+    pub inline fn fromAxisAngle(vec: Vec3, angle: f32) Self {
         const sin = math.sin(angle / 2);
         const a = vec.norm().scale(sin);
         return Self.new(math.cos(angle / 2), a.x, a.y, a.z);
@@ -76,7 +76,7 @@ pub const Quat = struct {
     /// multiply two Quaternions
     /// grassman product
     /// creates composite rotation of q then p
-    pub fn mul(l: Self, r: Self) Self {
+    pub inline fn mul(l: Self, r: Self) Self {
         var ret: Self = undefined;
 
         ret.x = (l.x * r.w) + (l.y * r.z) - (l.z * r.y) + (l.w * r.x);
@@ -90,20 +90,20 @@ pub const Quat = struct {
     /// inverts a quaternion
     /// Assumes that the quaternion is normalized
     /// and thus just uses the conjugate
-    pub fn inv(q: Self) Self {
+    pub inline fn inv(q: Self) Self {
         const n = q.norm();
         return Self.new(n.w, -n.x, -n.y, -n.z);
     }
 
     /// rotates a vector by a quaternion
-    pub fn rotate(q: Self, v: Vec3) Vec3 {
+    pub inline fn rotate(q: Self, v: Vec3) Vec3 {
         // create quat from vec
         var p = Self.fromVec3(v);
         p = q.mul(p).mul(q.inv());
         return Vec3.new(p.x, p.y, p.z);
     }
 
-    pub fn toMat4(q: Self) Mat4 {
+    pub inline fn toMat4(q: Self) Mat4 {
         var mat: Mat4 = undefined;
         const n = q.norm();
         const x = n.x;
@@ -141,7 +141,7 @@ pub const Quat = struct {
     /// linerar interpolation between two Quaternions
     /// returns a normalized output since the calculation does not
     /// preserve length
-    pub fn lerp(l: Self, r: Self, t: f32) Self {
+    pub inline fn lerp(l: Self, r: Self, t: f32) Self {
         return Self.new(
             util.lerp(l.w, r.w, t),
             util.lerp(l.x, r.x, t),
@@ -152,7 +152,7 @@ pub const Quat = struct {
 
     /// spherical linear interpolation between two Quaternions
     /// assumes that both have been normalized
-    pub fn slerp(l: Self, r: Self, t: f32) Self {
+    pub inline fn slerp(l: Self, r: Self, t: f32) Self {
         var ret: Self = Self.identity();
         // dot product of the two
         // TODO: should this be its own fuction?

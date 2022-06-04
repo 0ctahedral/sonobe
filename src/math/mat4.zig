@@ -25,7 +25,7 @@ pub const Mat4 = struct {
     const Self = @This();
 
     /// returns an identity matrix
-    pub fn identity() Self {
+    pub inline fn identity() Self {
         return .{
             .m = .{
                 // ix, iy, iz, iw
@@ -41,7 +41,7 @@ pub const Mat4 = struct {
     }
 
     /// multipliplies two matricies together
-    pub fn mul(l: Self, r: Self) Self {
+    pub inline fn mul(l: Self, r: Self) Self {
         // matrix to return
         var mat = Self.identity();
         // for keeping track of the current op
@@ -64,7 +64,7 @@ pub const Mat4 = struct {
     }
 
     /// inverse of a matrix
-    pub fn inv(mat: Self) Self {
+    pub inline fn inv(mat: Self) Self {
         // matrix to return
         var inv_mat = Self.identity();
 
@@ -127,7 +127,7 @@ pub const Mat4 = struct {
         return ret;
     }
 
-    pub fn ortho(l: f32, r: f32, b: f32, t: f32, n: f32, f: f32) Self {
+    pub inline fn ortho(l: f32, r: f32, b: f32, t: f32, n: f32, f: f32) Self {
         var mat = Self.identity();
 
         const lr: f32 = 1.0 / (l - r);
@@ -145,7 +145,7 @@ pub const Mat4 = struct {
         return mat;
     }
 
-    pub fn perspective(fov: f32, aspect: f32, n: f32, f: f32) Self {
+    pub inline fn perspective(fov: f32, aspect: f32, n: f32, f: f32) Self {
         var mat = Self{};
 
         const half_tan_fov = math.tan(fov * 0.5);
@@ -161,7 +161,7 @@ pub const Mat4 = struct {
 
     /// returns a matrix created from a vector translation
     /// aka multiplies a row vector by the idenity
-    pub fn translate(v: Vec3) Self {
+    pub inline fn translate(v: Vec3) Self {
         var mat = Self.identity();
         mat.m[3][0] = v.x;
         mat.m[3][1] = v.y;
@@ -171,7 +171,7 @@ pub const Mat4 = struct {
 
     /// create a rotation matrix from an axis we are rotating
     /// around and the angle in radians
-    pub fn rotate(axis: enum { x, y, z }, angle: f32) Self {
+    pub inline fn rotate(axis: enum { x, y, z }, angle: f32) Self {
         // TODO: make this in degrees
         var mat = Self.identity();
 
@@ -202,7 +202,7 @@ pub const Mat4 = struct {
         return mat;
     }
 
-    pub fn scale(v: Vec3) Self {
+    pub inline fn scale(v: Vec3) Self {
         var mat = Self.identity();
         mat.m[0][0] = v.x;
         mat.m[1][1] = v.y;
@@ -211,7 +211,7 @@ pub const Mat4 = struct {
         return mat;
     }
 
-    pub fn eql(l: Self, r: Self) bool {
+    pub inline fn eql(l: Self, r: Self) bool {
         var col: usize = 0;
         while (col < 4) : (col += 1) {
             var row: usize = 0;

@@ -18,27 +18,16 @@ pub const Transform = struct {
     /// the scale in world space
     scale: Vec3 = Vec3.new(1, 1, 1),
 
-    // parent: ?*Transform = null,
-
     const Self = @This();
 
     /// get the local transformation matrix of the model
-    pub fn local(self: Self) Mat4 {
+    pub inline fn local(self: Self) Mat4 {
         // start with the rotation
         return self.rot.toMat4()
             // apply posiition
             .mul(Mat4.translate(self.pos))
             // apply scale
             .mul(Mat4.scale(self.scale));
-    }
-
-    /// get the transform of this model based on ancestors
-    pub fn world(self: Self) Mat4 {
-        if (self.parent) |p| {
-           return self.local().mul(p.world());
-        } else {
-            return self.local();
-        }
     }
 };
 
@@ -55,33 +44,4 @@ test "local" {
    var t = Transform{}; 
    var l = t.local();
    try testing.expect(l.eql(Mat4.identity()));
-}
-
-test "world" {
-   var t = Transform{}; 
-   var l = t.local();
-   try testing.expect(l.eql(t.world()));
-
-   var t2 = Transform{
-       .pos = Vec3.new(1, 0, 0),
-       .rot = Quat.fromAxisAngle(Vec3.new(0, 0, 1), math.pi / 2.0),
-   };
-
-   t.parent = &t2;
-
-
-   var w = t.world().m;
-   var we = Mat4.translate(Vec3.new(0, 1, 0)).m;
-   std.debug.print("\n{}\n", .{t.world()});
-   std.debug.print("\n{}\n", .{Mat4.translate(Vec3.new(0, 1, 0))});
-
-   var row: usize = 0;
-   while (row < 4) : (row += 1) {
-       var col: usize = 0;
-       while (col < 4) : (col += 1) {
-           try testing.expectApproxEqAbs(w[row][col], we[row][col], 0.001);
-           try testing.expectApproxEqAbs(w[row][col], we[row][col], 0.001);
-           try testing.expectApproxEqAbs(w[row][col], we[row][col], 0.001);
-       }
-   }
 }
