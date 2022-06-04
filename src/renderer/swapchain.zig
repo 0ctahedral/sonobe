@@ -7,7 +7,6 @@ const Queue = @import("device.zig").Queue;
 const Image = @import("image.zig").Image;
 const Fence = @import("fence.zig").Fence;
 const Semaphore = @import("semaphore.zig").Semaphore;
-const RenderPass = @import("renderpass.zig").RenderPass;
 
 pub const Swapchain = struct {
     surface_format: vk.SurfaceFormatKHR = undefined,
@@ -18,8 +17,7 @@ pub const Swapchain = struct {
     handle: vk.SwapchainKHR = .null_handle,
 
     images: []Image = undefined,
-
-    image_index: usize = 0,
+    framebuffers: []vk.Framebuffer = undefined,
 
     depth: Image = undefined,
 
@@ -27,19 +25,20 @@ pub const Swapchain = struct {
 
     /// initialize/create a swapchian object
     pub fn init(vki: InstanceDispatch, dev: Device, surface: vk.SurfaceKHR, w: u32, h: u32, allocator: std.mem.Allocator) !Self {
-        var self = Self{};
-        try self.create(vki, dev, surface, w, h, allocator);
-        return self;
+        return try create(vki, dev, surface, w, h, allocator);
     }
 
     /// shutdown a swapchian object
     pub fn deinit(self: *Self, dev: Device, allocator: std.mem.Allocator) void {
         self.destroy(dev);
+        allocator.free(self.framebuffers);
         allocator.free(self.images);
     }
 
     /// create our swapchain
-    fn create(self: *Self, vki: InstanceDispatch, dev: Device, surface: vk.SurfaceKHR, w: u32, h: u32, allocator: std.mem.Allocator) !void {
+    fn create(vki: InstanceDispatch, dev: Device, surface: vk.SurfaceKHR, w: u32, h: u32, allocator: std.mem.Allocator) !Self {
+        var self: Self = .{};
+
         var extent = vk.Extent2D{ .width = w, .height = h };
 
         // find the format
@@ -60,6 +59,7 @@ pub const Swapchain = struct {
             }
         }
 
+
         // find present mode
         var present_modes: [32]vk.PresentModeKHR = undefined;
         _ = try vki.getPhysicalDeviceSurfacePresentModesKHR(dev.physical, surface, &count, present_modes[0..]);
@@ -77,12 +77,19 @@ pub const Swapchain = struct {
         // get the actual extent of the window
         const caps = try vki.getPhysicalDeviceSurfaceCapabilitiesKHR(dev.physical, surface);
 
+        if (caps.current_extent.width != 0xFFFF_FFFF) {
+            extent = caps.current_extent;
+        }
         extent.width = std.math.clamp(extent.width, caps.min_image_extent.width, caps.max_image_extent.width);
         extent.height = std.math.clamp(extent.height, caps.min_image_extent.height, caps.max_image_extent.height);
 
         if (extent.width == 0 or extent.height == 0) {
             return error.InvalidSurfaceDimensions;
         }
+
+        //self.extent = actual_extent;
+
+        //std.log.info("given extent: {} actual extent: {}", .{ extent, self.extent });
 
         // get the image count
         var image_count = caps.min_image_count + 1;
@@ -93,8 +100,6 @@ pub const Swapchain = struct {
 
         const qfi = [_]u32{ dev.graphics.?.idx, dev.present.?.idx };
         const sharing_mode: vk.SharingMode = if (dev.graphics.?.idx == dev.present.?.idx) .exclusive else .concurrent;
-
-        const old_handle = self.handle;
 
         // create the handle
         self.handle = try dev.vkd.createSwapchainKHR(dev.logical, &.{
@@ -114,13 +119,8 @@ pub const Swapchain = struct {
             .composite_alpha = .{ .opaque_bit_khr = true },
             .present_mode = self.present_mode,
             .clipped = vk.TRUE,
-            .old_swapchain = old_handle,
+            .old_swapchain = self.handle,
         }, null);
-
-        if (old_handle != .null_handle) {
-            std.log.info("destroying old handle", .{});
-            dev.vkd.destroySwapchainKHR(dev.logical, old_handle, null);
-        }
 
         // make the images and views
         var imgs: [8]vk.Image = undefined;
@@ -132,14 +132,27 @@ pub const Swapchain = struct {
         for (imgs[0..count]) |img, i| {
             self.images[i] = Image{
                 .handle = img,
-                .format = self.surface_format.format,
             };
 
             try self.images[i].createView(dev, self.surface_format.format, .{ .color_bit = true });
         }
 
+        // allocate the framebuffers
+        self.framebuffers = try allocator.alloc(vk.Framebuffer, count);
+
         // create the depth image
-        self.depth = try Image.init(dev, .@"2d", extent, dev.depth_format, .optimal, .{ .depth_stencil_attachment_bit = true }, .{ .device_local_bit = true }, .{ .depth_bit = true });
+        self.depth = try Image.init(
+            dev,
+            .@"2d",
+            extent,
+            dev.depth_format,
+            .optimal,
+            .{ .depth_stencil_attachment_bit = true },
+            .{ .device_local_bit = true },
+            .{ .depth_bit = true }
+        );
+
+        return self;
     }
 
     /// destroy our swapchain
@@ -148,15 +161,19 @@ pub const Swapchain = struct {
             unreachable;
         };
 
+        for (self.framebuffers) |fb| {
+            dev.vkd.destroyFramebuffer(dev.logical, fb, null);
+        }
         for (self.images) |*img| {
             img.deinit(dev);
         }
         self.depth.deinit(dev);
+        dev.vkd.destroySwapchainKHR(dev.logical, self.handle, null);
     }
 
     pub fn recreate(self: *Self, vki: InstanceDispatch, dev: Device, surface: vk.SurfaceKHR, w: u32, h: u32, allocator: std.mem.Allocator) !void {
         self.destroy(dev);
-        try self.create(vki, dev, surface, w, h, allocator);
+        self.* = try create(vki, dev, surface, w, h, allocator);
     }
 
     /// present an image to the swapchain
@@ -166,21 +183,25 @@ pub const Swapchain = struct {
         //graphics_queue: Queue,
         present_queue: Queue,
         render_complete: Semaphore,
+        idx: u32,
     ) !void {
-        const result = try dev.vkd.queuePresentKHR(present_queue.handle, &.{ .wait_semaphore_count = 1, .p_wait_semaphores = render_complete.ptr(), .swapchain_count = 1, .p_swapchains = @ptrCast([*]const vk.SwapchainKHR, &self.handle), .p_image_indices = @ptrCast([*]const u32, &@intCast(u32, self.image_index)), .p_results = null });
+        const result = try dev.vkd.queuePresentKHR(present_queue.handle, &.{ .wait_semaphore_count = 1, .p_wait_semaphores = render_complete.ptr(), .swapchain_count = 1, .p_swapchains = @ptrCast([*]const vk.SwapchainKHR, &self.handle), .p_image_indices = @ptrCast([*]const u32, &idx), .p_results = null });
 
         switch (result) {
-            .success, .suboptimal_khr => {},
+            .success => {},
+            .suboptimal_khr => {
+                return error.SuboptimalKHR;
+            },
             else => unreachable,
         }
     }
 
     pub fn acquireNext(
-        self: *Self,
+        self: Self,
         dev: Device,
         semaphore: Semaphore,
         fence: Fence,
-    ) !void {
+    ) !u32 {
         const result = try dev.vkd.acquireNextImageKHR(
             dev.logical,
             self.handle,
@@ -189,15 +210,14 @@ pub const Swapchain = struct {
             fence.handle,
         );
 
-        self.image_index = switch (result.result) {
-            .success => result.image_index,
-            .suboptimal_khr => result.image_index,
+        switch (result.result) {
+            .success => {
+                return result.image_index;
+            },
+            .suboptimal_khr => {
+                return result.image_index;
+            },
             else => unreachable,
-        };
-    }
-
-    /// Helper to return the current image in the swapchain
-    pub fn getCurrentImage(self: Self) *Image {
-        return &self.images[self.image_index];
+        }
     }
 };

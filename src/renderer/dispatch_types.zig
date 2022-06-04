@@ -1,5 +1,4 @@
 const vk = @import("vulkan");
-const builtin = @import("builtin");
 
 pub const BaseDispatch = vk.BaseWrapper(&.{
     .createInstance,
@@ -10,11 +9,7 @@ pub const InstanceDispatch = vk.InstanceWrapper(&.{
     .createDebugUtilsMessengerEXT,
     .destroyDebugUtilsMessengerEXT,
     .createDevice,
-    switch (builtin.target.os.tag) {
-        .macos => .createMetalSurfaceEXT,
-        .linux => .createXcbSurfaceKHR,
-        else => unreachable,
-    },
+    .createXcbSurfaceKHR,
     .destroySurfaceKHR,
     .enumeratePhysicalDevices,
     .getPhysicalDeviceProperties,

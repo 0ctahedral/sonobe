@@ -4,13 +4,6 @@ const InstanceDispatch = dispatch_types.InstanceDispatch;
 const std = @import("std");
 const vk = @import("vulkan");
 const Device = @import("device.zig").Device;
-const RenderPass = @import("renderpass.zig").RenderPass;
-const RenderPassInfo = @import("renderpass.zig").RenderPassInfo;
-const Renderer = @import("../renderer.zig");
-const PipelineInfo = @import("pipeline.zig").PipelineInfo;
-const Buffer = @import("buffer.zig").Buffer;
-const Vec3 = @import("../math.zig").Vec3;
-const Mat4 = @import("../math.zig").Mat4;
 
 pub const CommandBuffer = struct {
 
@@ -20,9 +13,6 @@ pub const CommandBuffer = struct {
     handle: vk.CommandBuffer = vk.CommandBuffer.null_handle,
 
     state: State = .not_allocated,
-
-    pipeline_info: PipelineInfo = undefined,
-    renderpass_info: RenderPassInfo = undefined,
 
     const Self = @This();
 
@@ -53,34 +43,35 @@ pub const CommandBuffer = struct {
         // each recording will be done between uses
         single_use: bool = false,
         // secondary buffer inside pass
-        rp_continue: bool = false,
+        renderpass_continue: bool = false,
         // can be resubmitted while pending
         simultaneous_use: bool = false,
     };
 
     pub fn begin(
         self: *Self,
+        dev: Device,
         mask: beginmask,
     ) !void {
         var flags = vk.CommandBufferUsageFlags{};
         if (mask.single_use) {
             flags.one_time_submit_bit = true;
         }
-        if (mask.rp_continue) {
+        if (mask.renderpass_continue) {
             flags.render_pass_continue_bit = true;
         }
         if (mask.simultaneous_use) {
             flags.simultaneous_use_bit = true;
         }
-        try Renderer.device.vkd.beginCommandBuffer(self.handle, &.{
+        try dev.vkd.beginCommandBuffer(self.handle, &.{
             .flags = flags,
             .p_inheritance_info = null,
         });
         self.state = .recording;
     }
 
-    pub fn end(self: *Self) !void {
-        try Renderer.device.vkd.endCommandBuffer(self.handle);
+    pub fn end(self: *Self, dev: Device) !void {
+        try dev.vkd.endCommandBuffer(self.handle);
         self.state = .recording_ended;
     }
 
@@ -100,7 +91,7 @@ pub const CommandBuffer = struct {
         pool: vk.CommandPool,
     ) !Self {
         var self = try init(dev, pool, true);
-        try self.begin(.{ .single_use = true });
+        try self.begin(dev, .{ .single_use = true });
         return self;
     }
 
@@ -110,7 +101,7 @@ pub const CommandBuffer = struct {
         pool: vk.CommandPool,
         queue: vk.Queue,
     ) !void {
-        try self.end();
+        try self.end(dev);
         const si = vk.SubmitInfo{
             .wait_semaphore_count = 0,
             .p_wait_semaphores = undefined,
@@ -125,172 +116,5 @@ pub const CommandBuffer = struct {
         // not using a fence so we wait
         try dev.vkd.queueWaitIdle(queue);
         self.deinit(dev, pool);
-    }
-
-    // --------------------- helpers --------------------------------
-    /// reduces boilerplate for beginning rp
-    pub fn beginRenderPass(
-        self: *Self,
-        rpi: RenderPassInfo,
-    ) !void {
-        // set the viewport
-        const viewport = vk.Viewport{ .x = 0, .y = @intToFloat(f32, Renderer.fb_height), .width = @intToFloat(f32, Renderer.fb_width), .height = -@intToFloat(f32, Renderer.fb_height), .min_depth = 0, .max_depth = 1 };
-        Renderer.device.vkd.cmdSetViewport(self.handle, 0, 1, @ptrCast([*]const vk.Viewport, &viewport));
-
-        // set the scissor (region we are clipping)
-        const scissor = vk.Rect2D{
-            .offset = .{ .x = 0, .y = 0 },
-            .extent = .{
-                .width = Renderer.fb_width,
-                .height = Renderer.fb_height,
-            },
-        };
-
-        Renderer.device.vkd.cmdSetScissor(self.handle, 0, 1, @ptrCast([*]const vk.Rect2D, &scissor));
-
-        var rp: RenderPass = try Renderer.renderpass_cache.request(.{rpi});
-        var fb: vk.Framebuffer = try Renderer.fb_cache.request(.{rpi});
-
-        var num_clear: u32 = 0;
-
-        var clear_values: [RenderPassInfo.MAX_ATTATCHMENTS + 1]vk.ClearValue = undefined;
-        for (rpi.clear_colors[0..rpi.n_color_attachments]) |clear, i| {
-            clear_values[i] = vk.ClearValue{ .color = .{ .float_32 = clear } };
-            num_clear += 1;
-        }
-
-        if (rpi.depth_attachment) |_| {
-            clear_values[rpi.n_color_attachments] = vk.ClearValue{ .depth_stencil = rpi.clear_depth };
-            num_clear += 1;
-        }
-
-        const area = vk.Rect2D{ .offset = .{ .x = 0, .y = 0 }, .extent = .{
-            .width = Renderer.fb_width,
-            .height = Renderer.fb_height,
-        } };
-
-        self.renderpass_info = rpi;
-
-        Renderer.device.vkd.cmdBeginRenderPass(self.handle, &.{
-            .render_pass = rp.handle,
-            .framebuffer = fb,
-            .render_area = area,
-            .clear_value_count = num_clear,
-            .p_clear_values = clear_values[0..num_clear].ptr,
-        }, .@"inline");
-    }
-
-    pub fn endRenderPass(
-        self: *Self,
-    ) void {
-        Renderer.device.vkd.cmdEndRenderPass(self.handle);
-    }
-
-    pub fn usePipeline(self: *Self, pli: PipelineInfo) void {
-        self.pipeline_info = pli;
-        const pl = Renderer.pipeline_cache.request(.{ pli, self.renderpass_info }) catch unreachable;
-        // TODO: make the bindtype part of the pipeline struct
-        Renderer.device.vkd.cmdBindPipeline(self.handle, .graphics, pl.handle);
-    }
-
-    pub fn pushConstant(self: *Self, i: usize, value: anytype) void {
-        const pl = Renderer.pipeline_cache.request(.{ self.pipeline_info, self.renderpass_info }) catch unreachable;
-        Renderer.device.vkd.cmdPushConstants(self.handle, pl.layout, self.pipeline_info.constants[i].stage, 0, self.pipeline_info.constants[i].size, &value);
-    }
-
-    pub fn allocUniform(self: *Self, set: u32, binding: u32, data: anytype) !void {
-        const T = @TypeOf(data);
-
-        // TODO: this should be allocating from a bufferpool
-        try Renderer.getCurrentFrame().ubo_pool.load(Renderer.device, T, &[_]T{data}, 0);
-
-        var pl = Renderer.pipeline_cache.request(.{ self.pipeline_info, self.renderpass_info }) catch unreachable;
-        const ds = pl.getDescriptors()[set];
-
-        const buf_infos = [_]vk.DescriptorBufferInfo{
-            .{
-                .buffer = Renderer.getCurrentFrame().ubo_pool.handle,
-                .offset = 0,
-                .range = @sizeOf(T),
-            },
-        };
-
-        _ = set;
-
-        const writes = [_]vk.WriteDescriptorSet{ .{
-            .dst_set = ds,
-            .dst_binding = binding,
-            .dst_array_element = 0,
-            .descriptor_count = buf_infos.len,
-            .descriptor_type = .uniform_buffer,
-            .p_image_info = undefined,
-            .p_buffer_info = buf_infos[0..],
-            .p_texel_buffer_view = undefined,
-        }, };
-
-        // TODO: this will be more efficient if we do all updates at the end of the frame
-        Renderer.device.vkd.updateDescriptorSets(Renderer.device.logical, writes.len, &writes, 0, undefined);
-    }
-
-    pub fn setBuffer(
-        self: *Self,
-        set: u32, binding: u32, 
-        buffer: Buffer,
-    ) void {
-        var pl = Renderer.pipeline_cache.request(.{ self.pipeline_info, self.renderpass_info }) catch unreachable;
-
-        const ds = pl.getDescriptors()[set];
-
-        const model_infos = [_]vk.DescriptorBufferInfo{
-            .{
-                .buffer = buffer.handle,
-                .offset = 0,
-                .range = buffer.size,
-            },
-        };
-
-        const writes = [_]vk.WriteDescriptorSet{.{
-            .dst_set = ds,
-            .dst_binding = binding,
-            .dst_array_element = 0,
-            .descriptor_count = model_infos.len,
-            .descriptor_type = .storage_buffer,
-            .p_image_info = undefined,
-            .p_buffer_info = model_infos[0..],
-            .p_texel_buffer_view = undefined,
-        } };
-
-        Renderer.device.vkd.updateDescriptorSets(Renderer.device.logical, writes.len, &writes, 0, undefined);
-    }
-
-    pub fn drawIndexed(
-        self: *Self,
-        num_indices: u32,
-        vbuf: Buffer,
-        ibuf: Buffer,
-        first: u32,
-        offset: u32,
-    ) void {
-        var pl = Renderer.pipeline_cache.request(.{ self.pipeline_info, self.renderpass_info }) catch unreachable;
-
-        const ds = pl.getDescriptors();
-
-        Renderer.device.vkd.cmdBindDescriptorSets(
-            self.handle,
-            .graphics,
-            pl.layout,
-            0,
-            @intCast(u32, ds.len),
-            ds.ptr,
-            0,
-            undefined,
-        );
-
-        const bind_offset = [_]vk.DeviceSize{0};
-        Renderer.device.vkd.cmdBindVertexBuffers(self.handle, 0, 1, @ptrCast([*]const vk.Buffer, &vbuf.handle), &bind_offset);
-        Renderer.device.vkd.cmdBindIndexBuffer(self.handle, ibuf.handle, 0, .uint32);
-
-        // actually draw
-        Renderer.device.vkd.cmdDrawIndexed(self.handle, num_indices, 1, first, @intCast(i32, offset), 0);
     }
 };
