@@ -40,13 +40,6 @@ const MeshPushConstants = struct {
     index: u32,
 };
 
-//var quad_verts = [_]Vertex{
-//    .{ .pos = Vec3.new(350, 250, 0) },
-//    .{ .pos = Vec3.new(450, 350, 0) },
-//    .{ .pos = Vec3.new(350, 350, 0) },
-//    .{ .pos = Vec3.new(450, 250, 0) },
-//};
-
 var oct_verts = [_]Vertex{
     .{ .pos = .{ .x = -1.1920928955078125e-07, .y = -1.1920928955078125e-07, .z = -1.0 } },
     .{ .pos = .{ .x = -1.1920928955078125e-07, .y = -1.0, .z = -1.1920928955078125e-07 } },
@@ -246,8 +239,10 @@ pub fn init(provided_allocator: Allocator, app_name: [*:0]const u8, window: Plat
     try createBuffers();
 
     // upload the vertices
-    try upload(device.command_pool, vert_buf, Vertex, &quad_verts);
-    try upload(device.command_pool, ind_buf, u32, &quad_inds);
+    // try upload(device.command_pool, vert_buf, Vertex, &quad_verts);
+    // try upload(device.command_pool, ind_buf, u32, &quad_inds);
+    try upload(device.command_pool, vert_buf, Vertex, &oct_verts);
+    try upload(device.command_pool, ind_buf, u32, &oct_inds);
 }
 
 fn vk_debug(
@@ -411,13 +406,7 @@ pub fn endFrame() !void {
         .index = 0,
     });
 
-    device.vkd.cmdDrawIndexed(cb.handle, quad_inds.len, 1, 0, 0, 0);
-
-    device.vkd.cmdPushConstants(cb.handle, pipeline.layout, .{ .vertex_bit = true }, 0, @intCast(u32, @sizeOf(MeshPushConstants)), &MeshPushConstants{
-        .index = 1,
-    });
-
-    device.vkd.cmdDrawIndexed(cb.handle, quad_inds.len, 1, 0, 0, 0);
+    device.vkd.cmdDrawIndexed(cb.handle, oct_inds.len, 1, 0, 0, 0);
 
     // --------
 
@@ -643,10 +632,10 @@ const FrameData = struct {
     model_data: [100]Mat4 = undefined,
 
     const CameraData = struct {
-        //projection: Mat4 = Mat4.perspective(mmath.util.rad(70), 800.0/600.0, 0.1, 1000),
-        projection: Mat4 = Mat4.ortho(0, 800.0, 0, 600.0, -100, 100),
-        //view: Mat4 = Mat4.translate(.{.x=0, .y=0, .z=-2}),
-        view: Mat4 = Mat4.translate(.{ .x = 0, .y = 0, .z = 0 }),
+        projection: Mat4 = Mat4.perspective(mmath.util.rad(70), 800.0/600.0, 0.1, 1000),
+        // projection: Mat4 = Mat4.ortho(0, 800.0, 0, 600.0, -100, 100),
+        view: Mat4 = Mat4.translate(.{.x=0, .y=0, .z=10}).inv(),
+        // view: Mat4 = Mat4.translate(.{ .x = 0, .y = 0, .z = 0 }),
     };
 
     const Self = @This();
@@ -692,7 +681,9 @@ const FrameData = struct {
         }, @ptrCast([*]vk.DescriptorSet, &self.global_descriptor_set));
 
         self.cam_data = CameraData{};
-        self.model_data[0] = Mat4.translate(Vec3.new(0, 100, 0));
+        // self.model_data[0] = Mat4.translate(Vec3.new(0, 100, 0));
+        // self.model_data[1] = Mat4.scale(mmath.Vec3.new(100, 100, 100))
+        self.model_data[0] = Mat4.translate(Vec3.new(0, 1, 0));
         self.model_data[1] = Mat4.scale(mmath.Vec3.new(100, 100, 100))
             .mul(Mat4.translate(.{ .x = 500, .y = 250 }));
 

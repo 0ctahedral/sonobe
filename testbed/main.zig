@@ -34,9 +34,10 @@ pub fn main() !void {
         if (Platform.flush()) {
             if (try Renderer.beginFrame()) {
                 try Renderer.updateUniform(
-                        mmath.Mat4.scale(mmath.Vec3.new(100, 100, 100))
-                            .mul(mmath.Mat4.rotate(.z, f))
-                            .mul(mmath.Mat4.translate(.{ .x = 350, .y = 250 + (@sin(f) * 100)}))
+                        mmath.Mat4.scale(mmath.Vec3.new(1, 1, 1))
+                            .mul(mmath.Mat4.rotate(.y, f))
+                            //.mul(mmath.Mat4.translate(.{ .x = 350, .y = 250 + (@sin(f) * 100)}))
+                            .mul(mmath.Mat4.translate(.{ .x = 0, .y = 5, .z = 0 }))
                     );
                 try Renderer.endFrame();
             }
