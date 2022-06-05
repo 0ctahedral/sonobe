@@ -99,6 +99,9 @@ var shader: Shader = undefined;
 /// pipeline currently being used
 var pipeline: Pipeline = undefined;
 
+/// framebuffer for render target
+var framebuffers: []vk.Framebuffer = undefined;
+
 /// the GPU side buffers that store the currenlty rendering objects
 var vert_buf: Buffer = undefined;
 var ind_buf: Buffer = undefined;
@@ -237,6 +240,10 @@ pub fn init(provided_allocator: Allocator, app_name: [*:0]const u8, window: Plat
 
     // create framebuffers
     std.log.info("fbw: {} fbh: {}", .{ fb_width, fb_width });
+    framebuffers = try allocator.alloc(vk.Framebuffer, swapchain.img_count);
+    for (framebuffers) |*fb| {
+        fb.* = .null_handle;
+    }
     try recreateFramebuffers();
 
     // create some buffers
@@ -312,6 +319,8 @@ pub fn deinit() void {
 
     renderpass.deinit(device);
     swapchain.deinit(device, allocator);
+    destroyFramebuffers();
+    allocator.free(framebuffers);
 
     device.deinit();
 
@@ -331,14 +340,14 @@ pub fn resize(ev: Events.Event) void {
     std.log.warn("resize triggered: {}x{}, gen: {}", .{ w, h, size_gen });
 }
 
-// TODO: fix this, i'm lazy
-// also should probably be in the swapchain??
+// TODO: move to render target stuff
 pub fn recreateFramebuffers() !void {
+    destroyFramebuffers();
     std.log.info("fbw: {} fbh: {}", .{ fb_width, fb_height });
     for (swapchain.images) |img, i| {
         const attachments = [_]vk.ImageView{ img.view, swapchain.depth.view };
 
-        swapchain.framebuffers[i] = try device.vkd.createFramebuffer(device.logical, &.{
+        framebuffers[i] = try device.vkd.createFramebuffer(device.logical, &.{
             .flags = .{},
             .render_pass = renderpass.handle,
             .attachment_count = attachments.len,
@@ -347,6 +356,15 @@ pub fn recreateFramebuffers() !void {
             .height = fb_height,
             .layers = 1,
         }, null);
+    }
+}
+
+pub fn destroyFramebuffers() void {
+    for (framebuffers) |*fb| {
+        if (fb.* != .null_handle) {
+            device.vkd.destroyFramebuffer(device.logical, fb.*, null);
+            fb.* = .null_handle;
+        }
     }
 }
 
@@ -406,7 +424,7 @@ pub fn beginFrame() !bool {
 
     // --------
 
-    renderpass.begin(device, cb, swapchain.framebuffers[image_index]);
+    renderpass.begin(device, cb, framebuffers[image_index]);
 
     device.vkd.cmdBindPipeline(cb.handle, .graphics, pipeline.handle);
 

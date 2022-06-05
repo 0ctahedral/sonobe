@@ -16,8 +16,9 @@ pub const Swapchain = struct {
 
     handle: vk.SwapchainKHR = .null_handle,
 
+    img_count: u32 = 0,
+
     images: []Image = undefined,
-    framebuffers: []vk.Framebuffer = undefined,
 
     depth: Image = undefined,
 
@@ -25,19 +26,20 @@ pub const Swapchain = struct {
 
     /// initialize/create a swapchian object
     pub fn init(vki: InstanceDispatch, dev: Device, surface: vk.SurfaceKHR, w: u32, h: u32, allocator: std.mem.Allocator) !Self {
-        return try create(vki, dev, surface, w, h, allocator);
+        var self: Self = .{};
+        try self.create(vki, dev, surface, w, h, allocator);
+        return self;
     }
 
     /// shutdown a swapchian object
     pub fn deinit(self: *Self, dev: Device, allocator: std.mem.Allocator) void {
         self.destroy(dev);
-        allocator.free(self.framebuffers);
+        dev.vkd.destroySwapchainKHR(dev.logical, self.handle, null);
         allocator.free(self.images);
     }
 
     /// create our swapchain
-    fn create(vki: InstanceDispatch, dev: Device, surface: vk.SurfaceKHR, w: u32, h: u32, allocator: std.mem.Allocator) !Self {
-        var self: Self = .{};
+    fn create(self: *Self, vki: InstanceDispatch, dev: Device, surface: vk.SurfaceKHR, w: u32, h: u32, allocator: std.mem.Allocator) !void {
 
         var extent = vk.Extent2D{ .width = w, .height = h };
 
@@ -47,12 +49,12 @@ pub const Swapchain = struct {
             .color_space = .srgb_nonlinear_khr,
         };
         var surface_formats: [32]vk.SurfaceFormatKHR = undefined;
-        var count: u32 = undefined;
-        _ = try vki.getPhysicalDeviceSurfaceFormatsKHR(dev.physical, surface, &count, surface_formats[0..]);
+        var surf_count: u32 = undefined;
+        _ = try vki.getPhysicalDeviceSurfaceFormatsKHR(dev.physical, surface, &surf_count, surface_formats[0..]);
 
         self.surface_format = surface_formats[0];
 
-        for (surface_formats[0..count]) |sfmt| {
+        for (surface_formats[0..surf_count]) |sfmt| {
             if (std.meta.eql(sfmt, preferred_format)) {
                 self.surface_format = sfmt;
                 break;
@@ -61,9 +63,9 @@ pub const Swapchain = struct {
 
         // find present mode
         var present_modes: [32]vk.PresentModeKHR = undefined;
-        _ = try vki.getPhysicalDeviceSurfacePresentModesKHR(dev.physical, surface, &count, present_modes[0..]);
+        _ = try vki.getPhysicalDeviceSurfacePresentModesKHR(dev.physical, surface, &surf_count, present_modes[0..]);
 
-        for (present_modes[0..count]) |mode| {
+        for (present_modes[0..surf_count]) |mode| {
             // if we can get mailbox that's ideal
             if (mode == .mailbox_khr) {
                 self.present_mode = mode;
@@ -91,20 +93,22 @@ pub const Swapchain = struct {
         //std.log.info("given extent: {} actual extent: {}", .{ extent, self.extent });
 
         // get the image count
-        var image_count = caps.min_image_count + 1;
+        var min_imgs = caps.min_image_count + 1;
         if (caps.max_image_count > 0) {
-            image_count = std.math.min(image_count, caps.max_image_count);
+            min_imgs = std.math.min(min_imgs, caps.max_image_count);
         }
-        image_count = std.math.min(image_count, 3);
+        min_imgs = std.math.min(min_imgs, 3);
 
         const qfi = [_]u32{ dev.graphics.?.idx, dev.present.?.idx };
         const sharing_mode: vk.SharingMode = if (dev.graphics.?.idx == dev.present.?.idx) .exclusive else .concurrent;
+
+        const old_handle = self.handle;
 
         // create the handle
         self.handle = try dev.vkd.createSwapchainKHR(dev.logical, &.{
             .flags = .{},
             .surface = surface,
-            .min_image_count = image_count,
+            .min_image_count = min_imgs,
             .image_format = self.surface_format.format,
             .image_color_space = self.surface_format.color_space,
             .image_extent = extent,
@@ -118,31 +122,34 @@ pub const Swapchain = struct {
             .composite_alpha = .{ .opaque_bit_khr = true },
             .present_mode = self.present_mode,
             .clipped = vk.TRUE,
-            .old_swapchain = self.handle,
+            .old_swapchain = old_handle,
         }, null);
 
-        // make the images and views
-        var imgs: [8]vk.Image = undefined;
-        _ = try dev.vkd.getSwapchainImagesKHR(dev.logical, self.handle, &count, null);
-        std.log.info("image count: {}", .{count});
-        _ = try dev.vkd.getSwapchainImagesKHR(dev.logical, self.handle, &count, imgs[0..]);
-        self.images = try allocator.alloc(Image, count);
+        if (old_handle != .null_handle) {
+            std.log.info("destroying old handle: {}", .{old_handle});
+            dev.vkd.destroySwapchainKHR(dev.logical, old_handle, null);
+            allocator.free(self.images);
+        }
 
-        for (imgs[0..count]) |img, i| {
+        // make the images and views
+        self.img_count = 0;
+        var imgs: [8]vk.Image = undefined;
+        _ = try dev.vkd.getSwapchainImagesKHR(dev.logical, self.handle, &self.img_count, null);
+        std.log.info("image img_count: {}", .{self.img_count});
+        _ = try dev.vkd.getSwapchainImagesKHR(dev.logical, self.handle, &self.img_count, imgs[0..]);
+        self.images = try allocator.alloc(Image, self.img_count);
+
+        for (imgs[0..self.img_count]) |img, i| {
             self.images[i] = Image{
+                .format = self.surface_format.format,
                 .handle = img,
             };
 
             try self.images[i].createView(dev, self.surface_format.format, .{ .color_bit = true });
         }
 
-        // allocate the framebuffers
-        self.framebuffers = try allocator.alloc(vk.Framebuffer, count);
-
         // create the depth image
         self.depth = try Image.init(dev, .@"2d", extent, dev.depth_format, .optimal, .{ .depth_stencil_attachment_bit = true }, .{ .device_local_bit = true }, .{ .depth_bit = true });
-
-        return self;
     }
 
     /// destroy our swapchain
@@ -151,19 +158,15 @@ pub const Swapchain = struct {
             unreachable;
         };
 
-        for (self.framebuffers) |fb| {
-            dev.vkd.destroyFramebuffer(dev.logical, fb, null);
-        }
         for (self.images) |*img| {
             img.deinit(dev);
         }
         self.depth.deinit(dev);
-        dev.vkd.destroySwapchainKHR(dev.logical, self.handle, null);
     }
 
     pub fn recreate(self: *Self, vki: InstanceDispatch, dev: Device, surface: vk.SurfaceKHR, w: u32, h: u32, allocator: std.mem.Allocator) !void {
         self.destroy(dev);
-        self.* = try create(vki, dev, surface, w, h, allocator);
+        try self.create(vki, dev, surface, w, h, allocator);
     }
 
     /// present an image to the swapchain
