@@ -40,7 +40,8 @@ pub fn main() !void {
         if (Platform.flush()) {
             if (try Renderer.beginFrame()) {
                 t.rot = mmath.Quat.fromAxisAngle(Vec3.UP, f).mul(mmath.Quat.fromAxisAngle(Vec3.RIGHT, f/2));
-                try Renderer.updateUniform(t.mat());
+                //try Renderer.updateUniform(t.mat());
+                Renderer.push_constant.model = t.mat();
                 try Renderer.endFrame();
             }
         }

@@ -64,7 +64,8 @@ var surface: vk.SurfaceKHR = undefined;
 var messenger: vk.DebugUtilsMessengerEXT = undefined;
 var device: Device = undefined;
 var swapchain: Swapchain = undefined;
-var renderpass: RenderPass = undefined;
+
+var default_renderpass: RenderPass = undefined;
 
 /// monotonically increasing frame number
 var frame_number: usize = 0;
@@ -116,20 +117,28 @@ var global_descriptor_layout: vk.DescriptorSetLayout = .null_handle;
 var global_descriptor_pool: vk.DescriptorPool = .null_handle;
 
 const MeshPushConstants = struct {
-    index: u32,
+    id: u32 align(16) = 0,
+    model: Mat4 align(16) = Mat4.identity(),
 };
 
-const CameraData = struct {
-    projection: Mat4 = Mat4.perspective(mmath.util.rad(70), 800.0 / 600.0, 0.1, 1000),
+pub var push_constant = MeshPushConstants{};
+
+/// Data to be used for each frame
+const GlobalData = struct {
+    projection: Mat4 align(16) = Mat4.perspective(mmath.util.rad(70), 800.0 / 600.0, 0.1, 1000),
     // projection: Mat4 = Mat4.ortho(0, 800.0, 0, 600.0, -100, 100),
-    view: Mat4 = Mat4.translate(.{ .x = 0, .y = 0, .z = 10 }).inv(),
-    // view: Mat4 = Mat4.translate(.{ .x = 0, .y = 0, .z = 0 }),
+    view: Mat4 align(16) = Mat4.translate(.{ .x = 0, .y = 0, .z = 10 }).inv(),
+};
+
+/// Data to be used per material
+const MaterialData = struct {
+    albedo: Vec3 align(16),
 };
 
 /// buffer for global shader data (rn just the camera matricies)
 var global_buffer: Buffer = undefined;
 /// camera matricies
-var cam_data = CameraData{};
+var cam_data = GlobalData{};
 /// buffer for the model matricies of objects
 var model_buffer: Buffer = undefined;
 /// cpu side storage for all the model matricies
@@ -227,8 +236,8 @@ pub fn init(provided_allocator: Allocator, app_name: [*:0]const u8, window: Plat
     // subscribe to resize events
     try Events.register(Events.EventType.WindowResize, resize);
 
-    // create a renderpass
-    renderpass = try RenderPass.init(swapchain, device, .{ .offset = .{ .x = 0, .y = 0 }, .extent = .{
+    // create a default_renderpass
+    default_renderpass = try RenderPass.init(swapchain, device, .{ .offset = .{ .x = 0, .y = 0 }, .extent = .{
         .width = fb_width,
         .height = fb_height,
     } }, .{
@@ -236,7 +245,7 @@ pub fn init(provided_allocator: Allocator, app_name: [*:0]const u8, window: Plat
         .depth = true,
         .stencil = true,
     }, .{ 0, 0, 0.1, 1 }, 1.0, 0);
-    errdefer renderpass.deinit(device);
+    errdefer default_renderpass.deinit(device);
 
     // create framebuffers
     std.log.info("fbw: {} fbh: {}", .{ fb_width, fb_width });
@@ -317,7 +326,7 @@ pub fn deinit() void {
     device.vkd.destroyDescriptorPool(device.logical, global_descriptor_pool, null);
     device.vkd.destroyDescriptorSetLayout(device.logical, global_descriptor_layout, null);
 
-    renderpass.deinit(device);
+    default_renderpass.deinit(device);
     swapchain.deinit(device, allocator);
     destroyFramebuffers();
     allocator.free(framebuffers);
@@ -349,7 +358,7 @@ pub fn recreateFramebuffers() !void {
 
         framebuffers[i] = try device.vkd.createFramebuffer(device.logical, &.{
             .flags = .{},
-            .render_pass = renderpass.handle,
+            .render_pass = default_renderpass.handle,
             .attachment_count = attachments.len,
             .p_attachments = @ptrCast([*]const vk.ImageView, &attachments),
             .width = fb_width,
@@ -424,7 +433,7 @@ pub fn beginFrame() !bool {
 
     // --------
 
-    renderpass.begin(device, cb, framebuffers[image_index]);
+    default_renderpass.begin(device, cb, framebuffers[image_index]);
 
     device.vkd.cmdBindPipeline(cb.handle, .graphics, pipeline.handle);
 
@@ -454,13 +463,11 @@ pub fn endFrame() !void {
     device.vkd.cmdBindIndexBuffer(cb.handle, ind_buf.handle, 0, .uint32);
 
     // push some constants to this bih
-    device.vkd.cmdPushConstants(cb.handle, pipeline.layout, .{ .vertex_bit = true }, 0, @intCast(u32, @sizeOf(MeshPushConstants)), &MeshPushConstants{
-        .index = 0,
-    });
+    device.vkd.cmdPushConstants(cb.handle, pipeline.layout, .{ .vertex_bit = true }, 0, @intCast(u32, @sizeOf(MeshPushConstants)), &push_constant);
 
     device.vkd.cmdDrawIndexed(cb.handle, oct_inds.len, 1, 0, 0, 0);
 
-    renderpass.end(device, cb);
+    default_renderpass.end(device, cb);
     // --------
 
     try cb.end(device);
@@ -542,8 +549,8 @@ fn recreateSwapchain() !bool {
         f.cmdbuf = try CommandBuffer.init(device, device.command_pool, true);
     }
 
-    // reset the renderpass
-    renderpass.render_area = .{ .offset = .{ .x = 0, .y = 0 }, .extent = .{
+    // reset the default_renderpass
+    default_renderpass.render_area = .{ .offset = .{ .x = 0, .y = 0 }, .extent = .{
         .width = fb_width,
         .height = fb_height,
     } };
@@ -572,7 +579,7 @@ fn createBuffers() !void {
         .transfer_dst_bit = true,
     }, .{ .device_local_bit = true }, true);
 
-    global_buffer = try Buffer.init(device, @sizeOf(CameraData), .{ .transfer_dst_bit = true, .uniform_buffer_bit = true }, .{
+    global_buffer = try Buffer.init(device, @sizeOf(GlobalData), .{ .transfer_dst_bit = true, .uniform_buffer_bit = true }, .{
         .host_visible_bit = true,
         .host_coherent_bit = true,
     }, true);
@@ -605,7 +612,7 @@ fn createPipeline() !void {
         },
     };
 
-    pipeline = try Pipeline.init(device, renderpass, &[_]vk.DescriptorSetLayout{global_descriptor_layout}, &[_]vk.PushConstantRange{.{
+    pipeline = try Pipeline.init(device, default_renderpass, &[_]vk.DescriptorSetLayout{global_descriptor_layout}, &[_]vk.PushConstantRange{.{
         .stage_flags = .{ .vertex_bit = true },
         .offset = 0,
         .size = @intCast(u32, @sizeOf(MeshPushConstants)),
@@ -676,14 +683,14 @@ fn createDescriptors() !void {
 }
 
 fn updateDescriptorSets() !void {
-    try global_buffer.load(device, CameraData, &[_]CameraData{cam_data}, 0);
+    try global_buffer.load(device, GlobalData, &[_]GlobalData{cam_data}, 0);
     try model_buffer.load(device, Mat4, model_data[0..], 0);
 
     const cam_infos = [_]vk.DescriptorBufferInfo{
         .{
             .buffer = global_buffer.handle,
             .offset = 0,
-            .range = @sizeOf(CameraData),
+            .range = @sizeOf(GlobalData),
         },
     };
     const model_infos = [_]vk.DescriptorBufferInfo{
@@ -715,10 +722,6 @@ fn updateDescriptorSets() !void {
     } };
 
     device.vkd.updateDescriptorSets(device.logical, writes.len, &writes, 0, undefined);
-}
-
-pub fn updateUniform(transform: Mat4) !void {
-    model_data[0] = transform;
 }
 
 /// Returns the framedata of the frame we should be on
