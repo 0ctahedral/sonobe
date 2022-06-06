@@ -22,6 +22,7 @@ const Vertex = @import("renderer/mesh.zig").Vertex;
 const Buffer = @import("renderer/buffer.zig").Buffer;
 const TextureMap = @import("renderer/texture.zig").TextureMap;
 const Texture = @import("renderer/texture.zig").Texture;
+const RenderTarget = @import("renderer/render_target.zig").RenderTarget;
 const mmath = @import("math.zig");
 const Mat4 = mmath.Mat4;
 const Vec3 = mmath.Vec3;
@@ -115,8 +116,8 @@ var shader: Shader = undefined;
 /// pipeline currently being used
 var pipeline: Pipeline = undefined;
 
-/// framebuffer for render target
-var framebuffers: []vk.Framebuffer = undefined;
+/// swapchain render targets
+var swapchain_render_targets: []RenderTarget = undefined;
 
 /// the GPU side buffers that store the currenlty rendering objects
 var vert_buf: Buffer = undefined;
@@ -275,11 +276,11 @@ pub fn init(provided_allocator: Allocator, app_name: [*:0]const u8, window: Plat
 
     // create framebuffers
     std.log.info("fbw: {} fbh: {}", .{ fb_width, fb_width });
-    framebuffers = try allocator.alloc(vk.Framebuffer, swapchain.img_count);
-    for (framebuffers) |*fb| {
-        fb.* = .null_handle;
+    swapchain_render_targets = try allocator.alloc(RenderTarget, swapchain.img_count);
+    for (swapchain_render_targets) |*rt| {
+        rt.framebuffer = .null_handle;
     }
-    try recreateFramebuffers();
+    try recreateRenderTargets();
 
     // create some buffers
     try createBuffers();
@@ -403,8 +404,10 @@ pub fn deinit() void {
 
     default_renderpass.deinit(device);
     swapchain.deinit(device, allocator);
-    destroyFramebuffers();
-    allocator.free(framebuffers);
+    for (swapchain_render_targets) |*rt| {
+        rt.deinit(device, allocator);
+    }
+    allocator.free(swapchain_render_targets);
 
     device.deinit();
 
@@ -425,30 +428,21 @@ pub fn resize(ev: Events.Event) void {
 }
 
 // TODO: move to render target stuff
-pub fn recreateFramebuffers() !void {
-    destroyFramebuffers();
+pub fn recreateRenderTargets() !void {
     std.log.info("fbw: {} fbh: {}", .{ fb_width, fb_height });
     for (swapchain.render_textures) |tex, i| {
-        const attachments = [_]vk.ImageView{ tex.image.view, swapchain.depth_texture.image.view };
+        const attachments = [_]Texture{ tex, swapchain.depth_texture };
 
-        framebuffers[i] = try device.vkd.createFramebuffer(device.logical, &.{
-            .flags = .{},
-            .render_pass = default_renderpass.handle,
-            .attachment_count = attachments.len,
-            .p_attachments = @ptrCast([*]const vk.ImageView, &attachments),
-            .width = fb_width,
-            .height = fb_height,
-            .layers = 1,
-        }, null);
-    }
-}
+        swapchain_render_targets[i].reset(device);
 
-pub fn destroyFramebuffers() void {
-    for (framebuffers) |*fb| {
-        if (fb.* != .null_handle) {
-            device.vkd.destroyFramebuffer(device.logical, fb.*, null);
-            fb.* = .null_handle;
-        }
+        try swapchain_render_targets[i].init(
+            device,
+            default_renderpass.handle,
+            attachments[0..],
+            fb_width,
+            fb_height,
+            allocator,
+        );
     }
 }
 
@@ -508,7 +502,7 @@ pub fn beginFrame() !bool {
 
     // --------
 
-    default_renderpass.begin(device, cb, framebuffers[image_index]);
+    default_renderpass.begin(device, cb, swapchain_render_targets[image_index].framebuffer);
 
     device.vkd.cmdBindPipeline(cb.handle, .graphics, pipeline.handle);
 
@@ -623,7 +617,7 @@ fn recreateSwapchain() !bool {
     }
 
     // create the framebuffers
-    try recreateFramebuffers();
+    try recreateRenderTargets();
 
     // create the command buffers
     for (frames) |*f| {
@@ -688,7 +682,7 @@ fn destroyBuffers() void {
     material_buffer.deinit(device);
 }
 
-// TODO: find a home for this shader
+// TODO: find a home for this in shader
 fn createPipeline() !void {
     const viewport = vk.Viewport{ .x = 0, .y = @intToFloat(f32, fb_height), .width = @intToFloat(f32, fb_width), .height = -@intToFloat(f32, fb_height), .min_depth = 0, .max_depth = 1 };
 
