@@ -93,17 +93,13 @@ pub const Texture = struct {
 
         self.flags = flags;
 
-        // Assume 8 bits per channel
-        const img_format = vk.Format.r8g8b8a8_unorm;
-        const image_size = width * height * channels;
-
-        var staging = try Buffer.init(device, image_size, .{ .transfer_src_bit = true }, .{
-            .host_visible_bit = true,
-            .host_coherent_bit = true,
-        }, true);
-        defer staging.deinit(device);
-
-        try staging.load(device, u8, data, 0);
+        const img_format = switch (channels) {
+            1 => vk.Format.r8_unorm,
+            2 => vk.Format.r8g8_unorm,
+            3 => vk.Format.r8g8b8_unorm,
+            4 => vk.Format.r8g8b8a8_unorm,
+            else => return error.InvalidNumberOfChannels,
+        };
 
         self.image = try Image.init(
             device,
@@ -113,6 +109,7 @@ pub const Texture = struct {
             img_format,
             .optimal,
             .{
+                // might be different for nonwritable?
                 .transfer_src_bit = true,
                 .transfer_dst_bit = true,
                 .sampled_bit = true,
@@ -122,6 +119,38 @@ pub const Texture = struct {
             .{ .color_bit = true },
         );
 
+        const image_size = width * height * channels;
+        try self.write(device, 0, image_size, data);
+
+        return self;
+    }
+
+    // TODO: For writeable textues
+
+    //    pub fn resize(
+    //        self: *Self,
+    //        device: Device,
+    //        new_width: u32,
+    //        new_height: u32,
+    //    ) !void {
+    //
+    //    }
+    //
+    pub fn write(
+        self: *Self,
+        device: Device,
+        offset: u32,
+        size: u32,
+        data: []const u8,
+    ) !void {
+        var staging = try Buffer.init(device, size, .{ .transfer_src_bit = true }, .{
+            .host_visible_bit = true,
+            .host_coherent_bit = true,
+        }, true);
+        defer staging.deinit(device);
+
+        try staging.load(device, u8, data, offset);
+
         var cmdbuf = try CommandBuffer.beginSingleUse(device, device.command_pool);
 
         try self.image.transitionLayout(device, .@"undefined", .transfer_dst_optimal, cmdbuf);
@@ -129,27 +158,7 @@ pub const Texture = struct {
         try self.image.transitionLayout(device, .transfer_dst_optimal, .shader_read_only_optimal, cmdbuf);
 
         try cmdbuf.endSingleUse(device, device.command_pool, device.graphics.?.handle);
-
-        return self;
     }
-
-    //pub fn resize(
-    //    self: *Self,
-    //    device: Device,
-    //    width: u32,
-    //    height: u32,
-    //) !void {
-
-    //}
-
-    //pub fn write(
-    //    self: *Self,
-    //    device: Device,
-    //    width: u32,
-    //    height: u32,
-    //) !void {
-
-    //}
 
     pub fn deinit(self: *Self, device: Device) void {
         self.image.deinit(device);
