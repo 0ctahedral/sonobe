@@ -153,8 +153,7 @@ pub const Swapchain = struct {
             self.render_textures = try allocator.alloc(Texture, self.img_count);
         }
 
-        // TODO: make this use the resize function instead of recreateing
-
+        // update the textures
         for (imgs[0..self.img_count]) |img, i| {
             self.render_textures[i].image = Image{
                 .format = self.surface_format.format,
@@ -162,17 +161,25 @@ pub const Swapchain = struct {
                 .width = extent.width,
                 .height = extent.height,
             };
-
             try self.render_textures[i].image.createView(dev, self.surface_format.format, .{ .color_bit = true });
-
             self.render_textures[i].flags.owned = true;
         }
 
-        // TODO: this too
+        self.depth_texture.image = try Image.init(
+            dev,
+            .@"2d",
+            extent.width,
+            extent.height,
+
+            dev.depth_format,
+            .optimal,
+            .{ .depth_stencil_attachment_bit = true },
+            .{ .device_local_bit = true },
+            .{ .depth_bit = true },
+        );
+        self.depth_texture.flags.owned = true;
 
         // create the depth image
-        self.depth_texture.image = try Image.init(dev, .@"2d", extent.width, extent.height, dev.depth_format, .optimal, .{ .depth_stencil_attachment_bit = true }, .{ .device_local_bit = true }, .{ .depth_bit = true });
-        self.depth_texture.flags.owned = true;
     }
 
     /// destroy our swapchain

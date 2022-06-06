@@ -127,15 +127,34 @@ pub const Texture = struct {
 
     // TODO: For writeable textues
 
-    //    pub fn resize(
-    //        self: *Self,
-    //        device: Device,
-    //        new_width: u32,
-    //        new_height: u32,
-    //    ) !void {
-    //
-    //    }
-    //
+    pub fn resize(
+        self: *Self,
+        device: Device,
+        new_width: u32,
+        new_height: u32,
+    ) !void {
+        const img_format = self.image.format;
+        // destroy old image and create new
+        self.image.deinit(device);
+        self.image = try Image.init(
+            device,
+            .@"2d",
+            new_width,
+            new_height,
+            img_format,
+            .optimal,
+            .{
+                // might be different for nonwritable?
+                .transfer_src_bit = true,
+                .transfer_dst_bit = true,
+                .sampled_bit = true,
+                .color_attachment_bit = true,
+            },
+            .{ .device_local_bit = true },
+            .{ .color_bit = true },
+        );
+    }
+
     pub fn write(
         self: *Self,
         device: Device,
