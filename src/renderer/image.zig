@@ -7,12 +7,12 @@ const Buffer = @import("buffer.zig").Buffer;
 const CommandBuffer = @import("commandbuffer.zig").CommandBuffer;
 
 pub const Image = struct {
-    handle: vk.Image,
+    handle: vk.Image = .null_handle,
     view: vk.ImageView = undefined,
 
     mem: vk.DeviceMemory = .null_handle,
 
-    format: vk.Format,
+    format: vk.Format = .@"undefined",
 
     width: u32 = 0,
     height: u32 = 0,
@@ -32,12 +32,7 @@ pub const Image = struct {
             .view_type = .@"2d",
             .format = format,
             // TODO: set with config
-            .components = .{
-                .r = .identity,
-                .g = .identity,
-                .b = .identity,
-                .a = .identity
-            },
+            .components = .{ .r = .identity, .g = .identity, .b = .identity, .a = .identity },
             // TODO: set with config
             .subresource_range = .{
                 .aspect_mask = aspect_mask,
@@ -87,9 +82,7 @@ pub const Image = struct {
             .sharing_mode = .exclusive,
             .queue_family_index_count = 0,
             .p_queue_family_indices = undefined,
-
         };
-
 
         self.handle = try device.vkd.createImage(device.logical, &info, null);
 
@@ -129,7 +122,7 @@ pub const Image = struct {
             .new_layout = new_layout,
             .image = self.handle,
             .subresource_range = .{
-                .aspect_mask = .{ .color_bit = true},
+                .aspect_mask = .{ .color_bit = true },
                 .base_mip_level = 0,
                 .level_count = 1,
                 .base_array_layer = 0,
@@ -144,10 +137,10 @@ pub const Image = struct {
             barrier.src_access_mask = .{};
             barrier.dst_access_mask = .{ .transfer_write_bit = true };
 
-            source_stage = .{.top_of_pipe_bit = true };
+            source_stage = .{ .top_of_pipe_bit = true };
             dest_stage = .{ .transfer_bit = true };
         } else if (old_layout == .transfer_dst_optimal and new_layout == .shader_read_only_optimal) {
-        // for reading into a shader?
+            // for reading into a shader?
 
             barrier.src_access_mask = .{ .transfer_write_bit = true };
             barrier.dst_access_mask = .{ .shader_read_bit = true };
@@ -158,16 +151,19 @@ pub const Image = struct {
             return error.UnsupportedLayoutTransisiton;
         }
 
-
         device.vkd.cmdPipelineBarrier(
             cmdbuf.handle,
-            source_stage, dest_stage,
+            source_stage,
+            dest_stage,
             .{},
-            0, undefined,
-            0, undefined,
-            1, @ptrCast([*]vk.ImageMemoryBarrier, &barrier),
+            0,
+            undefined,
+            0,
+            undefined,
+            1,
+            @ptrCast([*]vk.ImageMemoryBarrier, &barrier),
         );
-    } 
+    }
 
     pub fn copyFromBuffer(
         self: *Self,
@@ -175,14 +171,13 @@ pub const Image = struct {
         buffer: Buffer,
         cmdbuf: CommandBuffer,
     ) !void {
-
-        std.log.debug("copying width: {} height: {}", .{self.width, self.height});
+        std.log.debug("copying width: {} height: {}", .{ self.width, self.height });
         const bic = vk.BufferImageCopy{
             .buffer_offset = 0,
             .buffer_row_length = 0,
             .buffer_image_height = 0,
             .image_subresource = .{
-                .aspect_mask = .{ .color_bit = true},
+                .aspect_mask = .{ .color_bit = true },
                 .mip_level = 0,
                 .layer_count = 1,
                 .base_array_layer = 0,
@@ -195,14 +190,7 @@ pub const Image = struct {
             },
         };
 
-        device.vkd.cmdCopyBufferToImage(
-            cmdbuf.handle,
-            buffer.handle,
-            self.handle,
-            .transfer_dst_optimal,
-            1,
-            @ptrCast([*]const vk.BufferImageCopy, &bic)
-        );
+        device.vkd.cmdCopyBufferToImage(cmdbuf.handle, buffer.handle, self.handle, .transfer_dst_optimal, 1, @ptrCast([*]const vk.BufferImageCopy, &bic));
     }
 
     pub fn deinit(self: *Self, device: Device) void {

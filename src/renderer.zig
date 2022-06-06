@@ -20,6 +20,7 @@ const Shader = @import("renderer/shader.zig").Shader;
 const Pipeline = @import("renderer/pipeline.zig").Pipeline;
 const Vertex = @import("renderer/mesh.zig").Vertex;
 const Buffer = @import("renderer/buffer.zig").Buffer;
+const TextureMap = @import("renderer/texture.zig").TextureMap;
 const Texture = @import("renderer/texture.zig").Texture;
 const mmath = @import("math.zig");
 const Mat4 = mmath.Mat4;
@@ -32,10 +33,22 @@ const Vec2 = mmath.Vec2;
 const required_layers = [_][*:0]const u8{"VK_LAYER_KHRONOS_validation"};
 
 var quad_verts = [_]Vertex{
-    .{ .pos = Vec3.new(-0.5, -0.5, 0), .texcoord = Vec2.new(0.0, 0.0), },
-    .{ .pos = Vec3.new(0.5, 0.5, 0),   .texcoord = Vec2.new(1.0, 1.0), },
-    .{ .pos = Vec3.new(-0.5, 0.5, 0),  .texcoord = Vec2.new(0.0, 1.0), },
-    .{ .pos = Vec3.new(0.5, -0.5, 0),  .texcoord = Vec2.new(1.0, 0.0), },
+    .{
+        .pos = Vec3.new(-0.5, -0.5, 0),
+        .texcoord = Vec2.new(0.0, 0.0),
+    },
+    .{
+        .pos = Vec3.new(0.5, 0.5, 0),
+        .texcoord = Vec2.new(1.0, 1.0),
+    },
+    .{
+        .pos = Vec3.new(-0.5, 0.5, 0),
+        .texcoord = Vec2.new(0.0, 1.0),
+    },
+    .{
+        .pos = Vec3.new(0.5, -0.5, 0),
+        .texcoord = Vec2.new(1.0, 0.0),
+    },
 };
 
 // var oct_verts = [_]Vertex{
@@ -126,6 +139,8 @@ var material_descriptor_pool: vk.DescriptorPool = .null_handle;
 /// descriptor set for the main shader
 var material_descriptor_sets: [MAX_FRAMES]vk.DescriptorSet = undefined;
 
+// TODO: this should be from a resource systme
+var default_texture_map: TextureMap = undefined;
 var default_texture: Texture = undefined;
 
 const MeshPushConstants = struct {
@@ -157,7 +172,6 @@ var cam_data = GlobalData{};
 var model_buffer: Buffer = undefined;
 /// cpu side storage for all the model matricies
 var model_data: [10]Mat4 = undefined;
-
 
 // initialize the renderer
 // TODO: should this take in a surface instead of a window?
@@ -274,7 +288,7 @@ pub fn init(provided_allocator: Allocator, app_name: [*:0]const u8, window: Plat
     try createDescriptors();
 
     // allocate the sets
-    const layouts = [_]vk.DescriptorSetLayout{global_descriptor_layout, material_descriptor_layout};
+    const layouts = [_]vk.DescriptorSetLayout{ global_descriptor_layout, material_descriptor_layout };
 
     // create the descriptor set
     for (global_descriptor_sets) |*gs| {
@@ -290,7 +304,6 @@ pub fn init(provided_allocator: Allocator, app_name: [*:0]const u8, window: Plat
             .descriptor_set_count = 1,
             .p_set_layouts = layouts[1..],
         }, @ptrCast([*]vk.DescriptorSet, ds));
-
     }
 
     for (frames) |*f, i| {
@@ -311,45 +324,41 @@ pub fn init(provided_allocator: Allocator, app_name: [*:0]const u8, window: Plat
 
     // create a texture
     {
-    // generate the pattern
-    const tex_dimension: u32 = 256;
-    const channels: u32 = 4;
-    const pixel_count = tex_dimension * tex_dimension;
-    var pixels: [pixel_count * channels]u8 = undefined;
+        // generate the pattern
+        const tex_dimension: u32 = 256;
+        const channels: u32 = 4;
+        const pixel_count = tex_dimension * tex_dimension;
+        var pixels: [pixel_count * channels]u8 = undefined;
 
-    // set to 255
-    for (pixels) |*p| { p.* = 255; }
+        // set to 255
+        for (pixels) |*p| {
+            p.* = 255;
+        }
 
-    var row: usize = 0;
-    while (row < tex_dimension) : (row += 1) {
-        var col: usize = 0;
-        while (col < tex_dimension) : (col += 1) {
-            var index = (row * tex_dimension) + col;
-            var index_bpp = index * channels;
+        var row: usize = 0;
+        while (row < tex_dimension) : (row += 1) {
+            var col: usize = 0;
+            while (col < tex_dimension) : (col += 1) {
+                var index = (row * tex_dimension) + col;
+                var index_bpp = index * channels;
 
-            if (row % 2 == 1) {
-                if (col % 2 == 1) {
-                    pixels[index_bpp + 0] = 0;
-                    pixels[index_bpp + 2] = 0;
-                }
-            } else {
-                if (col % 2 == 0) {
-                    pixels[index_bpp + 0] = 0;
-                    pixels[index_bpp + 2] = 0;
+                if (row % 2 == 1) {
+                    if (col % 2 == 1) {
+                        pixels[index_bpp + 0] = 0;
+                        pixels[index_bpp + 2] = 0;
+                    }
+                } else {
+                    if (col % 2 == 0) {
+                        pixels[index_bpp + 0] = 0;
+                        pixels[index_bpp + 2] = 0;
+                    }
                 }
             }
         }
+
+        default_texture = try Texture.init(device, tex_dimension, tex_dimension, channels, pixels[0..]);
+        default_texture_map = try TextureMap.init(device, &default_texture);
     }
-
-    default_texture = try Texture.init(
-        device,
-        tex_dimension, tex_dimension,
-        channels,
-        pixels[0..]
-    );
-
-    }
-
 }
 
 fn vk_debug(
@@ -374,6 +383,7 @@ pub fn deinit() void {
         unreachable;
     };
 
+    default_texture_map.deinit(device);
     default_texture.deinit(device);
 
     destroyBuffers();
@@ -513,7 +523,7 @@ pub fn endFrame() !void {
     // this is some material system shit
     try updateDescriptorSets();
 
-    const descriptor_sets = [_]vk.DescriptorSet {
+    const descriptor_sets = [_]vk.DescriptorSet{
         global_descriptor_sets[getCurrentFrame().index],
         material_descriptor_sets[getCurrentFrame().index],
     };
@@ -690,7 +700,7 @@ fn createPipeline() !void {
         },
     };
 
-    pipeline = try Pipeline.init(device, default_renderpass, &[_]vk.DescriptorSetLayout{global_descriptor_layout, material_descriptor_layout}, &[_]vk.PushConstantRange{.{
+    pipeline = try Pipeline.init(device, default_renderpass, &[_]vk.DescriptorSetLayout{ global_descriptor_layout, material_descriptor_layout }, &[_]vk.PushConstantRange{.{
         .stage_flags = .{ .vertex_bit = true },
         .offset = 0,
         .size = @intCast(u32, @sizeOf(MeshPushConstants)),
@@ -837,7 +847,7 @@ fn updateDescriptorSets() !void {
 
     const sampler_infos = [_]vk.DescriptorImageInfo{
         .{
-            .sampler = default_texture.sampler,
+            .sampler = default_texture_map.sampler,
             .image_view = default_texture.image.view,
             .image_layout = vk.ImageLayout.shader_read_only_optimal,
         },
