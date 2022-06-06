@@ -19,10 +19,12 @@ const Semaphore = @import("renderer/semaphore.zig").Semaphore;
 const Shader = @import("renderer/shader.zig").Shader;
 const Pipeline = @import("renderer/pipeline.zig").Pipeline;
 const Vertex = @import("renderer/mesh.zig").Vertex;
+const Buffer = @import("renderer/buffer.zig").Buffer;
+const Texture = @import("renderer/texture.zig").Texture;
 const mmath = @import("math.zig");
 const Mat4 = mmath.Mat4;
 const Vec3 = mmath.Vec3;
-const Buffer = @import("renderer/buffer.zig").Buffer;
+const Vec2 = mmath.Vec2;
 
 // TODO: get these from the system
 
@@ -30,28 +32,28 @@ const Buffer = @import("renderer/buffer.zig").Buffer;
 const required_layers = [_][*:0]const u8{"VK_LAYER_KHRONOS_validation"};
 
 var quad_verts = [_]Vertex{
-    .{ .pos = Vec3.new(-0.5, -0.5, 0) },
-    .{ .pos = Vec3.new(0.5, 0.5, 0) },
-    .{ .pos = Vec3.new(-0.5, 0.5, 0) },
-    .{ .pos = Vec3.new(0.5, -0.5, 0) },
+    .{ .pos = Vec3.new(-0.5, -0.5, 0), .texcoord = Vec2.new(0.0, 0.0), },
+    .{ .pos = Vec3.new(0.5, 0.5, 0),   .texcoord = Vec2.new(1.0, 1.0), },
+    .{ .pos = Vec3.new(-0.5, 0.5, 0),  .texcoord = Vec2.new(0.0, 1.0), },
+    .{ .pos = Vec3.new(0.5, -0.5, 0),  .texcoord = Vec2.new(1.0, 0.0), },
 };
 
-var oct_verts = [_]Vertex{
-    .{ .pos = .{ .x = -1.1920928955078125e-07, .y = -1.1920928955078125e-07, .z = -1.0 } },
-    .{ .pos = .{ .x = -1.1920928955078125e-07, .y = -1.0, .z = -1.1920928955078125e-07 } },
-    .{ .pos = .{ .x = -1.0, .y = -1.1920928955078125e-07, .z = -1.1920928955078125e-07 } },
-    .{ .pos = .{ .x = -1.1920928955078125e-07, .y = -1.1920928955078125e-07, .z = 1.0 } },
-    .{ .pos = .{ .x = -1.1920928955078125e-07, .y = 1.0, .z = -1.1920928955078125e-07 } },
-    .{ .pos = .{ .x = 1.0, .y = -1.1920928955078125e-07, .z = -1.1920928955078125e-07 } },
-    .{ .pos = .{ .x = -0.6666668057441711, .y = -0.6666667461395264, .z = -0.6666667461395264 } },
-    .{ .pos = .{ .x = -0.6666668057441711, .y = -0.6666667461395264, .z = 0.6666667461395264 } },
-    .{ .pos = .{ .x = -0.6666667461395264, .y = 0.6666668057441711, .z = -0.6666667461395264 } },
-    .{ .pos = .{ .x = -0.6666668057441711, .y = 0.6666667461395264, .z = 0.6666667461395264 } },
-    .{ .pos = .{ .x = 0.6666667461395264, .y = -0.6666668057441711, .z = -0.6666667461395264 } },
-    .{ .pos = .{ .x = 0.6666668057441711, .y = -0.6666667461395264, .z = 0.6666667461395264 } },
-    .{ .pos = .{ .x = 0.6666668057441711, .y = 0.6666667461395264, .z = -0.6666667461395264 } },
-    .{ .pos = .{ .x = 0.6666667461395264, .y = 0.6666668057441711, .z = 0.6666667461395264 } },
-};
+// var oct_verts = [_]Vertex{
+//     .{ .pos = .{ .x = -1.1920928955078125e-07, .y = -1.1920928955078125e-07, .z = -1.0 } },
+//     .{ .pos = .{ .x = -1.1920928955078125e-07, .y = -1.0, .z = -1.1920928955078125e-07 } },
+//     .{ .pos = .{ .x = -1.0, .y = -1.1920928955078125e-07, .z = -1.1920928955078125e-07 } },
+//     .{ .pos = .{ .x = -1.1920928955078125e-07, .y = -1.1920928955078125e-07, .z = 1.0 } },
+//     .{ .pos = .{ .x = -1.1920928955078125e-07, .y = 1.0, .z = -1.1920928955078125e-07 } },
+//     .{ .pos = .{ .x = 1.0, .y = -1.1920928955078125e-07, .z = -1.1920928955078125e-07 } },
+//     .{ .pos = .{ .x = -0.6666668057441711, .y = -0.6666667461395264, .z = -0.6666667461395264 } },
+//     .{ .pos = .{ .x = -0.6666668057441711, .y = -0.6666667461395264, .z = 0.6666667461395264 } },
+//     .{ .pos = .{ .x = -0.6666667461395264, .y = 0.6666668057441711, .z = -0.6666667461395264 } },
+//     .{ .pos = .{ .x = -0.6666668057441711, .y = 0.6666667461395264, .z = 0.6666667461395264 } },
+//     .{ .pos = .{ .x = 0.6666667461395264, .y = -0.6666668057441711, .z = -0.6666667461395264 } },
+//     .{ .pos = .{ .x = 0.6666668057441711, .y = -0.6666667461395264, .z = 0.6666667461395264 } },
+//     .{ .pos = .{ .x = 0.6666668057441711, .y = 0.6666667461395264, .z = -0.6666667461395264 } },
+//     .{ .pos = .{ .x = 0.6666667461395264, .y = 0.6666668057441711, .z = 0.6666667461395264 } },
+// };
 
 var oct_inds = [_]u32{ 0, 1, 6, 1, 3, 7, 0, 2, 8, 3, 4, 9, 0, 5, 10, 3, 1, 11, 0, 4, 12, 3, 5, 13, 1, 2, 6, 2, 0, 6, 3, 2, 7, 2, 1, 7, 2, 4, 8, 4, 0, 8, 4, 2, 9, 2, 3, 9, 5, 1, 10, 1, 0, 10, 1, 5, 11, 5, 3, 11, 4, 5, 12, 5, 0, 12, 5, 4, 13, 4, 3, 13 };
 
@@ -115,6 +117,16 @@ var frames: [MAX_FRAMES]FrameData = undefined;
 var global_descriptor_layout: vk.DescriptorSetLayout = .null_handle;
 /// pool from which we allocate all descriptor sets
 var global_descriptor_pool: vk.DescriptorPool = .null_handle;
+/// descriptor set for the main shader
+var global_descriptor_sets: [MAX_FRAMES]vk.DescriptorSet = undefined;
+/// layout for shader data
+var material_descriptor_layout: vk.DescriptorSetLayout = .null_handle;
+/// pool from which we allocate all shader descriptor sets
+var material_descriptor_pool: vk.DescriptorPool = .null_handle;
+/// descriptor set for the main shader
+var material_descriptor_sets: [MAX_FRAMES]vk.DescriptorSet = undefined;
+
+var default_texture: Texture = undefined;
 
 const MeshPushConstants = struct {
     id: u32 align(16) = 0,
@@ -137,6 +149,8 @@ const MaterialData = struct {
 
 /// buffer for global shader data (rn just the camera matricies)
 var global_buffer: Buffer = undefined;
+/// shader
+var material_buffer: Buffer = undefined;
 /// camera matricies
 var cam_data = GlobalData{};
 /// buffer for the model matricies of objects
@@ -144,8 +158,6 @@ var model_buffer: Buffer = undefined;
 /// cpu side storage for all the model matricies
 var model_data: [10]Mat4 = undefined;
 
-/// descriptor set for the main shader
-var global_descriptor_sets: [MAX_FRAMES]vk.DescriptorSet = undefined;
 
 // initialize the renderer
 // TODO: should this take in a surface instead of a window?
@@ -262,7 +274,7 @@ pub fn init(provided_allocator: Allocator, app_name: [*:0]const u8, window: Plat
     try createDescriptors();
 
     // allocate the sets
-    const layouts = [_]vk.DescriptorSetLayout{global_descriptor_layout};
+    const layouts = [_]vk.DescriptorSetLayout{global_descriptor_layout, material_descriptor_layout};
 
     // create the descriptor set
     for (global_descriptor_sets) |*gs| {
@@ -271,6 +283,14 @@ pub fn init(provided_allocator: Allocator, app_name: [*:0]const u8, window: Plat
             .descriptor_set_count = 1,
             .p_set_layouts = layouts[0..],
         }, @ptrCast([*]vk.DescriptorSet, gs));
+    }
+    for (material_descriptor_sets) |*ds| {
+        try device.vkd.allocateDescriptorSets(device.logical, &.{
+            .descriptor_pool = material_descriptor_pool,
+            .descriptor_set_count = 1,
+            .p_set_layouts = layouts[1..],
+        }, @ptrCast([*]vk.DescriptorSet, ds));
+
     }
 
     for (frames) |*f, i| {
@@ -284,12 +304,52 @@ pub fn init(provided_allocator: Allocator, app_name: [*:0]const u8, window: Plat
     try createPipeline();
 
     // upload the vertices
-    // try upload(device.command_pool, vert_buf, Vertex, &quad_verts);
-    // try upload(device.command_pool, ind_buf, u32, &quad_inds);
-    try upload(device.command_pool, vert_buf, Vertex, &oct_verts);
-    try upload(device.command_pool, ind_buf, u32, &oct_inds);
+    try upload(device.command_pool, vert_buf, Vertex, &quad_verts);
+    try upload(device.command_pool, ind_buf, u32, &quad_inds);
+    // try upload(device.command_pool, vert_buf, Vertex, &oct_verts);
+    // try upload(device.command_pool, ind_buf, u32, &oct_inds);
 
-    // create buffers
+    // create a texture
+    {
+    // generate the pattern
+    const tex_dimension: u32 = 256;
+    const channels: u32 = 4;
+    const pixel_count = tex_dimension * tex_dimension;
+    var pixels: [pixel_count * channels]u8 = undefined;
+
+    // set to 255
+    for (pixels) |*p| { p.* = 255; }
+
+    var row: usize = 0;
+    while (row < tex_dimension) : (row += 1) {
+        var col: usize = 0;
+        while (col < tex_dimension) : (col += 1) {
+            var index = (row * tex_dimension) + col;
+            var index_bpp = index * channels;
+
+            if (row % 2 == 1) {
+                if (col % 2 == 1) {
+                    pixels[index_bpp + 0] = 0;
+                    pixels[index_bpp + 2] = 0;
+                }
+            } else {
+                if (col % 2 == 0) {
+                    pixels[index_bpp + 0] = 0;
+                    pixels[index_bpp + 2] = 0;
+                }
+            }
+        }
+    }
+
+    default_texture = try Texture.init(
+        device,
+        tex_dimension, tex_dimension,
+        channels,
+        pixels[0..]
+    );
+
+    }
+
 }
 
 fn vk_debug(
@@ -314,6 +374,8 @@ pub fn deinit() void {
         unreachable;
     };
 
+    default_texture.deinit(device);
+
     destroyBuffers();
     pipeline.deinit(device);
 
@@ -323,8 +385,11 @@ pub fn deinit() void {
         f.deinit(device);
     }
 
+    // TODO: make this a resource which will delete free descriptorsets
     device.vkd.destroyDescriptorPool(device.logical, global_descriptor_pool, null);
     device.vkd.destroyDescriptorSetLayout(device.logical, global_descriptor_layout, null);
+    device.vkd.destroyDescriptorPool(device.logical, material_descriptor_pool, null);
+    device.vkd.destroyDescriptorSetLayout(device.logical, material_descriptor_layout, null);
 
     default_renderpass.deinit(device);
     swapchain.deinit(device, allocator);
@@ -447,13 +512,19 @@ pub fn endFrame() !void {
 
     // this is some material system shit
     try updateDescriptorSets();
+
+    const descriptor_sets = [_]vk.DescriptorSet {
+        global_descriptor_sets[getCurrentFrame().index],
+        material_descriptor_sets[getCurrentFrame().index],
+    };
+
     device.vkd.cmdBindDescriptorSets(
         cb.handle,
         .graphics,
         pipeline.layout,
         0,
-        1,
-        @ptrCast([*]const vk.DescriptorSet, &global_descriptor_sets[getCurrentFrame().index]),
+        descriptor_sets.len,
+        &descriptor_sets,
         0,
         undefined,
     );
@@ -465,7 +536,8 @@ pub fn endFrame() !void {
     // push some constants to this bih
     device.vkd.cmdPushConstants(cb.handle, pipeline.layout, .{ .vertex_bit = true }, 0, @intCast(u32, @sizeOf(MeshPushConstants)), &push_constant);
 
-    device.vkd.cmdDrawIndexed(cb.handle, oct_inds.len, 1, 0, 0, 0);
+    // device.vkd.cmdDrawIndexed(cb.handle, oct_inds.len, 1, 0, 0, 0);
+    device.vkd.cmdDrawIndexed(cb.handle, quad_inds.len, 1, 0, 0, 0);
 
     default_renderpass.end(device, cb);
     // --------
@@ -584,6 +656,11 @@ fn createBuffers() !void {
         .host_coherent_bit = true,
     }, true);
 
+    material_buffer = try Buffer.init(device, @sizeOf(MaterialData) * 1024, .{ .transfer_dst_bit = true, .uniform_buffer_bit = true }, .{
+        .host_visible_bit = true,
+        .host_coherent_bit = true,
+    }, true);
+
     model_buffer = try Buffer.init(device, @sizeOf(@TypeOf(model_data)), .{
         .storage_buffer_bit = true,
         .transfer_dst_bit = true,
@@ -598,9 +675,10 @@ fn destroyBuffers() void {
     ind_buf.deinit(device);
     global_buffer.deinit(device);
     model_buffer.deinit(device);
+    material_buffer.deinit(device);
 }
 
-// TODO: find a home for this
+// TODO: find a home for this shader
 fn createPipeline() !void {
     const viewport = vk.Viewport{ .x = 0, .y = @intToFloat(f32, fb_height), .width = @intToFloat(f32, fb_width), .height = -@intToFloat(f32, fb_height), .min_depth = 0, .max_depth = 1 };
 
@@ -612,7 +690,7 @@ fn createPipeline() !void {
         },
     };
 
-    pipeline = try Pipeline.init(device, default_renderpass, &[_]vk.DescriptorSetLayout{global_descriptor_layout}, &[_]vk.PushConstantRange{.{
+    pipeline = try Pipeline.init(device, default_renderpass, &[_]vk.DescriptorSetLayout{global_descriptor_layout, material_descriptor_layout}, &[_]vk.PushConstantRange{.{
         .stage_flags = .{ .vertex_bit = true },
         .offset = 0,
         .size = @intCast(u32, @sizeOf(MeshPushConstants)),
@@ -637,7 +715,7 @@ fn upload(pool: vk.CommandPool, buffer: Buffer, comptime T: type, items: []T) !v
 
 fn createDescriptors() !void {
     // create a descriptor pool for the frame data
-    const sizes = [_]vk.DescriptorPoolSize{
+    const global_sizes = [_]vk.DescriptorPoolSize{
         .{
             .@"type" = .uniform_buffer,
             .descriptor_count = frames.len,
@@ -651,11 +729,31 @@ fn createDescriptors() !void {
     global_descriptor_pool = try device.vkd.createDescriptorPool(device.logical, &.{
         .flags = .{},
         .max_sets = frames.len,
-        .pool_size_count = sizes.len,
-        .p_pool_sizes = &sizes,
+        .pool_size_count = global_sizes.len,
+        .p_pool_sizes = &global_sizes,
     }, null);
 
-    // attempt at bindless aproach
+    const local_sampler_count = 1;
+    const obj_count = 1024;
+
+    const material_sizes = [_]vk.DescriptorPoolSize{
+        .{
+            .@"type" = .uniform_buffer,
+            .descriptor_count = obj_count,
+        },
+        .{
+            .@"type" = .combined_image_sampler,
+            .descriptor_count = obj_count * local_sampler_count,
+        },
+    };
+
+    material_descriptor_pool = try device.vkd.createDescriptorPool(device.logical, &.{
+        .flags = .{},
+        .max_sets = 1024,
+        .pool_size_count = material_sizes.len,
+        .p_pool_sizes = &material_sizes,
+    }, null);
+
     const global_bindings = [_]vk.DescriptorSetLayoutBinding{
         // camera
         .{
@@ -680,11 +778,40 @@ fn createDescriptors() !void {
         .binding_count = global_bindings.len,
         .p_bindings = &global_bindings,
     }, null);
+
+    const material_bindings = [_]vk.DescriptorSetLayoutBinding{
+        .{
+            .binding = 0,
+            .descriptor_type = .uniform_buffer,
+            .descriptor_count = 1,
+            .stage_flags = .{ .fragment_bit = true },
+            .p_immutable_samplers = null,
+        },
+        .{
+            .binding = 1,
+            .descriptor_type = .combined_image_sampler,
+            .descriptor_count = 1,
+            .stage_flags = .{ .fragment_bit = true },
+            .p_immutable_samplers = null,
+        },
+    };
+
+    material_descriptor_layout = try device.vkd.createDescriptorSetLayout(device.logical, &.{
+        .flags = .{},
+        .binding_count = material_bindings.len,
+        .p_bindings = &material_bindings,
+    }, null);
 }
 
 fn updateDescriptorSets() !void {
     try global_buffer.load(device, GlobalData, &[_]GlobalData{cam_data}, 0);
     try model_buffer.load(device, Mat4, model_data[0..], 0);
+    //const val = (@sin(@intToFloat(f32, frame_number) * 0.16) + 1.0) / 2.0;
+    try material_buffer.load(device, MaterialData, &[_]MaterialData{.{
+        .albedo = Vec3.new(1, 1, 1),
+    }}, 0);
+
+    // TODO: this should only update what actually needs it
 
     const cam_infos = [_]vk.DescriptorBufferInfo{
         .{
@@ -700,26 +827,64 @@ fn updateDescriptorSets() !void {
             .range = @sizeOf(@TypeOf(model_data)),
         },
     };
+    const material_infos = [_]vk.DescriptorBufferInfo{
+        .{
+            .buffer = material_buffer.handle,
+            .offset = 0,
+            .range = @sizeOf(MaterialData),
+        },
+    };
 
-    const writes = [_]vk.WriteDescriptorSet{ .{
-        .dst_set = global_descriptor_sets[getCurrentFrame().index],
-        .dst_binding = 0,
-        .dst_array_element = 0,
-        .descriptor_count = cam_infos.len,
-        .descriptor_type = .uniform_buffer,
-        .p_image_info = undefined,
-        .p_buffer_info = cam_infos[0..],
-        .p_texel_buffer_view = undefined,
-    }, .{
-        .dst_set = global_descriptor_sets[getCurrentFrame().index],
-        .dst_binding = 1,
-        .dst_array_element = 0,
-        .descriptor_count = model_infos.len,
-        .descriptor_type = .storage_buffer,
-        .p_image_info = undefined,
-        .p_buffer_info = model_infos[0..],
-        .p_texel_buffer_view = undefined,
-    } };
+    const sampler_infos = [_]vk.DescriptorImageInfo{
+        .{
+            .sampler = default_texture.sampler,
+            .image_view = default_texture.image.view,
+            .image_layout = vk.ImageLayout.shader_read_only_optimal,
+        },
+    };
+
+    const writes = [_]vk.WriteDescriptorSet{
+        .{
+            .dst_set = global_descriptor_sets[getCurrentFrame().index],
+            .dst_binding = 0,
+            .dst_array_element = 0,
+            .descriptor_count = cam_infos.len,
+            .descriptor_type = .uniform_buffer,
+            .p_image_info = undefined,
+            .p_buffer_info = cam_infos[0..],
+            .p_texel_buffer_view = undefined,
+        },
+        .{
+            .dst_set = global_descriptor_sets[getCurrentFrame().index],
+            .dst_binding = 1,
+            .dst_array_element = 0,
+            .descriptor_count = model_infos.len,
+            .descriptor_type = .storage_buffer,
+            .p_image_info = undefined,
+            .p_buffer_info = model_infos[0..],
+            .p_texel_buffer_view = undefined,
+        },
+        .{
+            .dst_set = material_descriptor_sets[getCurrentFrame().index],
+            .dst_binding = 0,
+            .dst_array_element = 0,
+            .descriptor_count = material_infos.len,
+            .descriptor_type = .uniform_buffer,
+            .p_image_info = undefined,
+            .p_buffer_info = material_infos[0..],
+            .p_texel_buffer_view = undefined,
+        },
+        .{
+            .dst_set = material_descriptor_sets[getCurrentFrame().index],
+            .dst_binding = 1,
+            .dst_array_element = 0,
+            .descriptor_count = sampler_infos.len,
+            .descriptor_type = .combined_image_sampler,
+            .p_image_info = sampler_infos[0..],
+            .p_buffer_info = undefined,
+            .p_texel_buffer_view = undefined,
+        },
+    };
 
     device.vkd.updateDescriptorSets(device.logical, writes.len, &writes, 0, undefined);
 }

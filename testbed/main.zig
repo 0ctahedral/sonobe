@@ -35,11 +35,12 @@ pub fn main() !void {
 
     var t = mmath.Transform{};
     t.pos = .{ .x = 0, .y = 0, .z = 0 };
+    t.scale = .{ .x = 10, .y = 10, .z = 0 };
 
     while (Platform.is_running) {
         if (Platform.flush()) {
             if (try Renderer.beginFrame()) {
-                t.rot = mmath.Quat.fromAxisAngle(Vec3.UP, f).mul(mmath.Quat.fromAxisAngle(Vec3.RIGHT, f/2));
+                //t.rot = mmath.Quat.fromAxisAngle(Vec3.FORWARD, f);
                 //try Renderer.updateUniform(t.mat());
                 Renderer.push_constant.model = t.mat();
                 try Renderer.endFrame();

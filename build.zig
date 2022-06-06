@@ -65,7 +65,7 @@ fn link(b: *Builder, step: *std.build.LibExeObjStep) void {
 fn compileBuiltinShaders(b: *Builder, step: *std.build.LibExeObjStep) void {
     const shader_names = [_][]const u8{
         "assets/builtin",
-        "assets/test",
+        // "assets/test",
     };
 
     inline for (shader_names) |name| {

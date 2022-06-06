@@ -1,12 +1,13 @@
 const vk = @import("vulkan");
-
-const Vec3 = @import("../math.zig").Vec3;
+const mmath = @import("../math.zig");
+const Vec3 = mmath.Vec3;
+const Vec2 = mmath.Vec2;
 
 pub const Vertex = struct {
     //TODO: make a generator for binding descriptions
 
     pos: Vec3,
-    //color: Vec3,
+    texcoord: Vec2,
 
     pub const binding_description = vk.VertexInputBindingDescription{
         .binding = 0,
@@ -23,11 +24,11 @@ pub const Vertex = struct {
             .format = .r32g32b32_sfloat,
             .offset = @offsetOf(Vertex, "pos"),
         },
-        //.{
-        //    .binding = 0,
-        //    .location = 1,
-        //    .format = .r32g32b32_sfloat,
-        //    .offset = @offsetOf(Vertex, "color"),
-        //},
+        .{
+            .binding = 0,
+            .location = 1,
+            .format = .r32g32_sfloat,
+            .offset = @offsetOf(Vertex, "texcoord"),
+        },
     };
 };

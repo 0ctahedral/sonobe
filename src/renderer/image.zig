@@ -3,6 +3,8 @@ const vk = @import("vulkan");
 const dispatch_types = @import("dispatch_types.zig");
 const InstanceDispatch = dispatch_types.InstanceDispatch;
 const Device = @import("device.zig").Device;
+const Buffer = @import("buffer.zig").Buffer;
+const CommandBuffer = @import("commandbuffer.zig").CommandBuffer;
 
 pub const Image = struct {
     handle: vk.Image,
@@ -11,6 +13,9 @@ pub const Image = struct {
     mem: vk.DeviceMemory = .null_handle,
 
     format: vk.Format,
+
+    width: u32 = 0,
+    height: u32 = 0,
 
     const Self = @This();
     /// image from a managed resource (swapchain)
@@ -49,7 +54,8 @@ pub const Image = struct {
     pub fn init(
         device: Device,
         img_type: vk.ImageType,
-        extent: vk.Extent2D,
+        width: u32,
+        height: u32,
         format: vk.Format,
         tiling: vk.ImageTiling,
         usage: vk.ImageUsageFlags,
@@ -58,12 +64,15 @@ pub const Image = struct {
     ) !Self {
         var self: Self = undefined;
 
+        self.width = width;
+        self.height = height;
+
         const info = vk.ImageCreateInfo{
             .image_type = img_type,
             .flags = .{},
             .extent = .{
-                .width = extent.width,
-                .height = extent.height,
+                .width = width,
+                .height = height,
                 // TODO: configurable
                 .depth = 1,
             },
@@ -102,6 +111,98 @@ pub const Image = struct {
         try self.createView(device, format, aspect_mask);
 
         return self;
+    }
+
+    pub fn transitionLayout(
+        self: *Self,
+        device: Device,
+        old_layout: vk.ImageLayout,
+        new_layout: vk.ImageLayout,
+        cmdbuf: CommandBuffer,
+    ) !void {
+        var barrier = vk.ImageMemoryBarrier{
+            .src_access_mask = .{},
+            .dst_access_mask = .{},
+            .src_queue_family_index = device.graphics.?.idx,
+            .dst_queue_family_index = device.graphics.?.idx,
+            .old_layout = old_layout,
+            .new_layout = new_layout,
+            .image = self.handle,
+            .subresource_range = .{
+                .aspect_mask = .{ .color_bit = true},
+                .base_mip_level = 0,
+                .level_count = 1,
+                .base_array_layer = 0,
+                .layer_count = 1,
+            },
+        };
+
+        var source_stage = vk.PipelineStageFlags{};
+        var dest_stage = vk.PipelineStageFlags{};
+
+        if (old_layout == .@"undefined" and new_layout == .transfer_dst_optimal) {
+            barrier.src_access_mask = .{};
+            barrier.dst_access_mask = .{ .transfer_write_bit = true };
+
+            source_stage = .{.top_of_pipe_bit = true };
+            dest_stage = .{ .transfer_bit = true };
+        } else if (old_layout == .transfer_dst_optimal and new_layout == .shader_read_only_optimal) {
+        // for reading into a shader?
+
+            barrier.src_access_mask = .{ .transfer_write_bit = true };
+            barrier.dst_access_mask = .{ .shader_read_bit = true };
+
+            source_stage = .{ .transfer_bit = true };
+            dest_stage = .{ .fragment_shader_bit = true };
+        } else {
+            return error.UnsupportedLayoutTransisiton;
+        }
+
+
+        device.vkd.cmdPipelineBarrier(
+            cmdbuf.handle,
+            source_stage, dest_stage,
+            .{},
+            0, undefined,
+            0, undefined,
+            1, @ptrCast([*]vk.ImageMemoryBarrier, &barrier),
+        );
+    } 
+
+    pub fn copyFromBuffer(
+        self: *Self,
+        device: Device,
+        buffer: Buffer,
+        cmdbuf: CommandBuffer,
+    ) !void {
+
+        std.log.debug("copying width: {} height: {}", .{self.width, self.height});
+        const bic = vk.BufferImageCopy{
+            .buffer_offset = 0,
+            .buffer_row_length = 0,
+            .buffer_image_height = 0,
+            .image_subresource = .{
+                .aspect_mask = .{ .color_bit = true},
+                .mip_level = 0,
+                .layer_count = 1,
+                .base_array_layer = 0,
+            },
+            .image_offset = .{ .x = 0, .y = 0, .z = 0 },
+            .image_extent = .{
+                .width = self.width,
+                .height = self.height,
+                .depth = 1,
+            },
+        };
+
+        device.vkd.cmdCopyBufferToImage(
+            cmdbuf.handle,
+            buffer.handle,
+            self.handle,
+            .transfer_dst_optimal,
+            1,
+            @ptrCast([*]const vk.BufferImageCopy, &bic)
+        );
     }
 
     pub fn deinit(self: *Self, device: Device) void {

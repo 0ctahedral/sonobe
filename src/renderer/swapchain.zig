@@ -78,9 +78,6 @@ pub const Swapchain = struct {
         // get the actual extent of the window
         const caps = try vki.getPhysicalDeviceSurfaceCapabilitiesKHR(dev.physical, surface);
 
-        //if (caps.current_extent.width != 0xFFFF_FFFF) {
-        //    extent = caps.current_extent;
-        //}
         extent.width = std.math.clamp(extent.width, caps.min_image_extent.width, caps.max_image_extent.width);
         extent.height = std.math.clamp(extent.height, caps.min_image_extent.height, caps.max_image_extent.height);
 
@@ -143,13 +140,15 @@ pub const Swapchain = struct {
             self.images[i] = Image{
                 .format = self.surface_format.format,
                 .handle = img,
+                .width = extent.width,
+                .height = extent.height,
             };
 
             try self.images[i].createView(dev, self.surface_format.format, .{ .color_bit = true });
         }
 
         // create the depth image
-        self.depth = try Image.init(dev, .@"2d", extent, dev.depth_format, .optimal, .{ .depth_stencil_attachment_bit = true }, .{ .device_local_bit = true }, .{ .depth_bit = true });
+        self.depth = try Image.init(dev, .@"2d", extent.width, extent.height, dev.depth_format, .optimal, .{ .depth_stencil_attachment_bit = true }, .{ .device_local_bit = true }, .{ .depth_bit = true });
     }
 
     /// destroy our swapchain

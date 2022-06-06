@@ -94,5 +94,9 @@ pub const DeviceDispatch = vk.DeviceWrapper(&.{
     .destroyDescriptorPool,
     .allocateDescriptorSets,
     .cmdBindDescriptorSets,
+    .cmdPipelineBarrier,
+    .cmdCopyBufferToImage,
     .updateDescriptorSets,
+    .createSampler,
+    .destroySampler,
 });
