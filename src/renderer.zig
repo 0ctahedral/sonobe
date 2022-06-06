@@ -356,7 +356,7 @@ pub fn init(provided_allocator: Allocator, app_name: [*:0]const u8, window: Plat
             }
         }
 
-        default_texture = try Texture.init(device, tex_dimension, tex_dimension, channels, pixels[0..]);
+        default_texture = try Texture.init(device, tex_dimension, tex_dimension, channels, .{}, pixels[0..]);
         default_texture_map = try TextureMap.init(device, &default_texture);
     }
 }
@@ -428,8 +428,8 @@ pub fn resize(ev: Events.Event) void {
 pub fn recreateFramebuffers() !void {
     destroyFramebuffers();
     std.log.info("fbw: {} fbh: {}", .{ fb_width, fb_height });
-    for (swapchain.images) |img, i| {
-        const attachments = [_]vk.ImageView{ img.view, swapchain.depth.view };
+    for (swapchain.render_textures) |tex, i| {
+        const attachments = [_]vk.ImageView{ tex.image.view, swapchain.depth_texture.image.view };
 
         framebuffers[i] = try device.vkd.createFramebuffer(device.logical, &.{
             .flags = .{},

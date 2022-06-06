@@ -5,6 +5,7 @@ const InstanceDispatch = dispatch_types.InstanceDispatch;
 const Device = @import("device.zig").Device;
 const Queue = @import("device.zig").Queue;
 const Image = @import("image.zig").Image;
+const Texture = @import("texture.zig").Texture;
 const Fence = @import("fence.zig").Fence;
 const Semaphore = @import("semaphore.zig").Semaphore;
 
@@ -18,16 +19,16 @@ pub const Swapchain = struct {
 
     img_count: u32 = 0,
 
-    images: []Image = undefined,
+    render_textures: []Texture = undefined,
 
-    depth: Image = undefined,
+    depth_texture: Texture = undefined,
 
     const Self = @This();
 
     /// initialize/create a swapchian object
     pub fn init(vki: InstanceDispatch, dev: Device, surface: vk.SurfaceKHR, w: u32, h: u32, allocator: std.mem.Allocator) !Self {
         var self: Self = .{};
-        try self.create(vki, dev, surface, w, h, allocator);
+        try self.create(vki, dev, surface, w, h, false, allocator);
         return self;
     }
 
@@ -35,12 +36,20 @@ pub const Swapchain = struct {
     pub fn deinit(self: *Self, dev: Device, allocator: std.mem.Allocator) void {
         self.destroy(dev);
         dev.vkd.destroySwapchainKHR(dev.logical, self.handle, null);
-        allocator.free(self.images);
+        allocator.free(self.render_textures);
     }
 
     /// create our swapchain
-    fn create(self: *Self, vki: InstanceDispatch, dev: Device, surface: vk.SurfaceKHR, w: u32, h: u32, allocator: std.mem.Allocator) !void {
-
+    fn create(
+        self: *Self,
+        vki: InstanceDispatch,
+        dev: Device,
+        surface: vk.SurfaceKHR,
+        w: u32,
+        h: u32,
+        is_recreate: bool,
+        allocator: std.mem.Allocator,
+    ) !void {
         var extent = vk.Extent2D{ .width = w, .height = h };
 
         // find the format
@@ -125,7 +134,7 @@ pub const Swapchain = struct {
         if (old_handle != .null_handle) {
             std.log.info("destroying old handle: {}", .{old_handle});
             dev.vkd.destroySwapchainKHR(dev.logical, old_handle, null);
-            allocator.free(self.images);
+            // allocator.free(self.render_textures);
         }
 
         // make the images and views
@@ -134,21 +143,36 @@ pub const Swapchain = struct {
         _ = try dev.vkd.getSwapchainImagesKHR(dev.logical, self.handle, &self.img_count, null);
         std.log.info("image img_count: {}", .{self.img_count});
         _ = try dev.vkd.getSwapchainImagesKHR(dev.logical, self.handle, &self.img_count, imgs[0..]);
-        self.images = try allocator.alloc(Image, self.img_count);
+
+        if (is_recreate) {
+            for (self.render_textures) |*tex| {
+                tex.deinit(dev);
+            }
+            self.depth_texture.deinit(dev);
+        } else {
+            self.render_textures = try allocator.alloc(Texture, self.img_count);
+        }
+
+        // TODO: make this use the resize function instead of recreateing
 
         for (imgs[0..self.img_count]) |img, i| {
-            self.images[i] = Image{
+            self.render_textures[i].image = Image{
                 .format = self.surface_format.format,
                 .handle = img,
                 .width = extent.width,
                 .height = extent.height,
             };
 
-            try self.images[i].createView(dev, self.surface_format.format, .{ .color_bit = true });
+            try self.render_textures[i].image.createView(dev, self.surface_format.format, .{ .color_bit = true });
+
+            self.render_textures[i].flags.owned = true;
         }
 
+        // TODO: this too
+
         // create the depth image
-        self.depth = try Image.init(dev, .@"2d", extent.width, extent.height, dev.depth_format, .optimal, .{ .depth_stencil_attachment_bit = true }, .{ .device_local_bit = true }, .{ .depth_bit = true });
+        self.depth_texture.image = try Image.init(dev, .@"2d", extent.width, extent.height, dev.depth_format, .optimal, .{ .depth_stencil_attachment_bit = true }, .{ .device_local_bit = true }, .{ .depth_bit = true });
+        self.depth_texture.flags.owned = true;
     }
 
     /// destroy our swapchain
@@ -157,15 +181,14 @@ pub const Swapchain = struct {
             unreachable;
         };
 
-        for (self.images) |*img| {
-            img.deinit(dev);
+        for (self.render_textures) |*tex| {
+            tex.deinit(dev);
         }
-        self.depth.deinit(dev);
+        self.depth_texture.deinit(dev);
     }
 
     pub fn recreate(self: *Self, vki: InstanceDispatch, dev: Device, surface: vk.SurfaceKHR, w: u32, h: u32, allocator: std.mem.Allocator) !void {
-        self.destroy(dev);
-        try self.create(vki, dev, surface, w, h, allocator);
+        try self.create(vki, dev, surface, w, h, true, allocator);
     }
 
     /// present an image to the swapchain

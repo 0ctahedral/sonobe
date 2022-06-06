@@ -68,6 +68,17 @@ pub const TextureMap = struct {
 pub const Texture = struct {
     image: Image = .{},
 
+    flags: Flags = .{},
+
+    const Flags = packed struct {
+        /// is this texture be transparent?
+        transparent: bool = false,
+        /// can this texture be written to?
+        writable: bool = false,
+        /// is this owned externally?
+        owned: bool = false,
+    };
+
     const Self = @This();
 
     pub fn init(
@@ -75,9 +86,12 @@ pub const Texture = struct {
         width: u32,
         height: u32,
         channels: u32,
+        flags: Flags,
         data: []const u8,
     ) !Self {
         var self: Self = undefined;
+
+        self.flags = flags;
 
         // Assume 8 bits per channel
         const img_format = vk.Format.r8g8b8a8_unorm;
