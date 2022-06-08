@@ -98,7 +98,6 @@ pub fn Ringbuffer(
 
             return self.len == self.capacity;
         }
-
     };
 }
 
@@ -108,8 +107,8 @@ test "ringbuffer init" {
 
     // check that data is the same size
     try testing.expect(rb.buffer.len == rb.capacity);
-    
-    // check that 
+
+    // check that
     try testing.expect(rb.len == 0);
 }
 
@@ -143,7 +142,6 @@ test "push pop" {
     }
     try testing.expect(rb.pop() == null);
 
-
     while (i < rb.capacity) : (i += 1) {
         try rb.push(i);
     }
@@ -152,12 +150,12 @@ test "push pop" {
 }
 
 test "different types" {
-    const vec = struct { x: f32 = 0, y: f32 = 0};
+    const vec = struct { x: f32 = 0, y: f32 = 0 };
 
     var rb = Ringbuffer(vec, 10).init();
 
     try rb.push(.{});
-    try rb.push(.{.x = 10});
+    try rb.push(.{ .x = 10 });
 
     try testing.expect(rb.pop().?.x == 0);
     try testing.expect(rb.pop().?.x == 10);

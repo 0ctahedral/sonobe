@@ -24,24 +24,24 @@ pub const Transform = struct {
     pub inline fn mat(self: Self) Mat4 {
         // start with the rotation
         return self.rot.toMat4()
-            // apply posiition
+        // apply posiition
             .mul(Mat4.translate(self.pos))
-            // apply scale
+        // apply scale
             .mul(Mat4.scale(self.scale));
     }
 };
 
 test "init" {
-   var t = Transform{}; 
+    var t = Transform{};
 
-   try testing.expect(t.pos.eql(Vec3{}));
-   try testing.expect(t.scale.eql(Vec3{.x = 1, .y = 1, .z = 1}));
-   try testing.expect(t.rot.eql(Quat{}));
-   try testing.expect(t.parent == null);
+    try testing.expect(t.pos.eql(Vec3{}));
+    try testing.expect(t.scale.eql(Vec3{ .x = 1, .y = 1, .z = 1 }));
+    try testing.expect(t.rot.eql(Quat{}));
+    try testing.expect(t.parent == null);
 }
 
 test "mat" {
-   var t = Transform{}; 
-   var l = t.mat();
-   try testing.expect(l.eql(Mat4.identity()));
+    var t = Transform{};
+    var l = t.mat();
+    try testing.expect(l.eql(Mat4.identity()));
 }

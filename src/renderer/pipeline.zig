@@ -26,7 +26,7 @@ pub const Pipeline = struct {
         const viewport_state = vk.PipelineViewportStateCreateInfo{
             .flags = .{},
             .viewport_count = 1,
-            .p_viewports = @ptrCast([*]const vk.Viewport, &viewport), 
+            .p_viewports = @ptrCast([*]const vk.Viewport, &viewport),
             .scissor_count = 1,
             .p_scissors = @ptrCast([*]const vk.Rect2D, &scissor),
         };
@@ -79,7 +79,6 @@ pub const Pipeline = struct {
             .color_write_mask = .{ .r_bit = true, .g_bit = true, .b_bit = true, .a_bit = true },
         };
 
-
         const color_blend_state_ci = vk.PipelineColorBlendStateCreateInfo{
             .flags = .{},
             .logic_op_enable = vk.FALSE,
@@ -105,8 +104,6 @@ pub const Pipeline = struct {
             .vertex_attribute_description_count = @intCast(u32, Vertex.attribute_description.len),
             .p_vertex_attribute_descriptions = &Vertex.attribute_description,
         };
-
-
 
         const input_assembly = vk.PipelineInputAssemblyStateCreateInfo{
             .flags = .{},
@@ -142,7 +139,7 @@ pub const Pipeline = struct {
             .base_pipeline_index = -1,
         };
 
-         _ = try dev.vkd.createGraphicsPipelines(
+        _ = try dev.vkd.createGraphicsPipelines(
             dev.logical,
             .null_handle,
             1,

@@ -146,7 +146,6 @@ pub const RenderPass = struct {
         framebuffer: vk.Framebuffer,
         // TODO: maybe will make this a memeber
     ) void {
-
         var clear_values: [2]vk.ClearValue = undefined;
         // color
         clear_values[0] = vk.ClearValue{ .color = .{ .float_32 = .{
@@ -156,12 +155,10 @@ pub const RenderPass = struct {
             self.clear_color[3],
         } } };
         // depth
-        clear_values[1] = vk.ClearValue{
-            .depth_stencil = .{
-                .depth = self.depth,
-                .stencil = self.stencil,
-            }
-        };
+        clear_values[1] = vk.ClearValue{ .depth_stencil = .{
+            .depth = self.depth,
+            .stencil = self.stencil,
+        } };
 
         dev.vkd.cmdBeginRenderPass(command_buffer.handle, &.{
             .render_pass = self.handle,

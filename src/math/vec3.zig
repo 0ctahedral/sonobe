@@ -14,12 +14,12 @@ pub const Vec3 = struct {
 
     // useful constants
 
-    pub const UP = Self{ .x = 0, .y = 1, .z = 0};
-    pub const DOWN = Self{ .x = 0, .y = -1, .z = 0};
-    pub const LEFT = Self{ .x = -1, .y = 0, .z = 0};
-    pub const RIGHT = Self{ .x = 1, .y = 1, .z = 0};
-    pub const FORWARD = Self{ .x = 0, .y = 0, .z = -1};
-    pub const BACKWARD = Self{ .x = 0, .y = 1, .z = 1};
+    pub const UP = Self{ .x = 0, .y = 1, .z = 0 };
+    pub const DOWN = Self{ .x = 0, .y = -1, .z = 0 };
+    pub const LEFT = Self{ .x = -1, .y = 0, .z = 0 };
+    pub const RIGHT = Self{ .x = 1, .y = 1, .z = 0 };
+    pub const FORWARD = Self{ .x = 0, .y = 0, .z = -1 };
+    pub const BACKWARD = Self{ .x = 0, .y = 1, .z = 1 };
 
     /// convinience function to create a new Vec without struct syntax
     pub inline fn new(x: f32, y: f32, z: f32) Self {

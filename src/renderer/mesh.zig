@@ -16,7 +16,6 @@ pub const Vertex = struct {
         .input_rate = .vertex,
     };
 
-
     pub const attribute_description = [_]vk.VertexInputAttributeDescription{
         .{
             .binding = 0,

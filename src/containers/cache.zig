@@ -10,10 +10,11 @@ pub fn Cache(
     /// context for hashing
     comptime HashContext: ?type,
     /// creation and destroy functions
-    comptime Context: type
+    comptime Context: type,
 ) type {
     const HashMapType = if (HashContext) |ctx|
-        std.ArrayHashMap(I, T, ctx, false) else
+        std.ArrayHashMap(I, T, ctx, false)
+    else
         std.AutoArrayHashMap(I, T);
 
     return struct {
@@ -47,14 +48,14 @@ pub fn Cache(
         /// clears cache and maintains capacity
         pub fn clear(self: *Self) void {
             for (self.map.values()) |v| {
-               Context.destroy(v); 
+                Context.destroy(v);
             }
             self.map.clearRetainingCapacity();
         }
 
         pub fn deinit(self: *Self) void {
             for (self.map.values()) |v| {
-               Context.destroy(v); 
+                Context.destroy(v);
             }
             self.map.deinit();
         }

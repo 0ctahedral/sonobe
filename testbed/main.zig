@@ -15,13 +15,10 @@ pub fn main() !void {
     Events.init();
     defer Events.deinit();
 
-
     // open the window
     try Platform.init();
     defer Platform.deinit();
     errdefer Platform.deinit();
-
-
 
     const window = try Platform.createWindow(app_name, 800, 600);
     _ = window;
@@ -49,5 +46,4 @@ pub fn main() !void {
 
         f += 0.033;
     }
-
 }
