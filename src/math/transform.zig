@@ -37,7 +37,6 @@ test "init" {
     try testing.expect(t.pos.eql(Vec3{}));
     try testing.expect(t.scale.eql(Vec3{ .x = 1, .y = 1, .z = 1 }));
     try testing.expect(t.rot.eql(Quat{}));
-    try testing.expect(t.parent == null);
 }
 
 test "mat" {
