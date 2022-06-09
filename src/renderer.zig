@@ -19,6 +19,7 @@ const Semaphore = @import("renderer/semaphore.zig").Semaphore;
 const Shader = @import("renderer/shader.zig").Shader;
 const Pipeline = @import("renderer/pipeline.zig").Pipeline;
 const Vertex = @import("renderer/mesh.zig").Vertex;
+const Mesh = @import("renderer/mesh.zig").Mesh;
 const Buffer = @import("renderer/buffer.zig").Buffer;
 const TextureMap = @import("renderer/texture.zig").TextureMap;
 const Texture = @import("renderer/texture.zig").Texture;
@@ -49,6 +50,22 @@ var quad_verts = [_]Vertex{
     .{
         .pos = Vec3.new(0.5, -0.5, 0),
         .texcoord = Vec2.new(1.0, 0.0),
+    },
+};
+
+const quad_mesh = Mesh{
+    .positions = &[_]Vec3{
+        Vec3.new(-0.5, -0.5, 0),
+        Vec3.new(0.5, 0.5, 0),
+        Vec3.new(-0.5, 0.5, 0),
+        Vec3.new(0.5, -0.5, 0),
+    },
+
+    .texcoords = &[_]Vec2{
+        Vec2.new(0.0, 0.0),
+        Vec2.new(1.0, 1.0),
+        Vec2.new(0.0, 1.0),
+        Vec2.new(1.0, 0.0),
     },
 };
 
@@ -318,7 +335,39 @@ pub fn init(provided_allocator: Allocator, app_name: [*:0]const u8, window: Plat
     try createPipeline();
 
     // upload the vertices
-    try upload(device.command_pool, vert_buf, Vertex, &quad_verts);
+    {
+
+        // try upload(device.command_pool, vert_buf, Vertex, &quad_verts);
+
+        var pos_size: usize = quad_mesh.positions.len * @sizeOf(Vec3);
+        var tex_size: usize = quad_mesh.texcoords.len * @sizeOf(Vec2);
+        var total_size = tex_size + pos_size;
+        const staging_buffer = try Buffer.init(
+            device,
+            total_size,
+            .{ .transfer_src_bit = true },
+            .{ .host_visible_bit = true, .host_coherent_bit = true },
+            true,
+        );
+        defer staging_buffer.deinit(device);
+
+        // load positions
+
+        try staging_buffer.loadRaw(
+            device,
+            @ptrCast([*]const u8, quad_mesh.positions.ptr),
+            0,
+            pos_size,
+        );
+
+        try staging_buffer.loadRaw(
+            device,
+            @ptrCast([*]const u8, quad_mesh.texcoords.ptr),
+            pos_size,
+            tex_size,
+        );
+        try Buffer.copyTo(device, device.command_pool, device.graphics.?, staging_buffer, 0, vert_buf, 0, total_size);
+    }
     try upload(device.command_pool, ind_buf, u32, &quad_inds);
     // try upload(device.command_pool, vert_buf, Vertex, &oct_verts);
     // try upload(device.command_pool, ind_buf, u32, &oct_inds);
@@ -533,8 +582,9 @@ pub fn endFrame() !void {
         undefined,
     );
 
-    const offset = [_]vk.DeviceSize{0};
-    device.vkd.cmdBindVertexBuffers(cb.handle, 0, 1, @ptrCast([*]const vk.Buffer, &vert_buf.handle), &offset);
+    const offsets = [_]vk.DeviceSize{ 0, quad_mesh.positions.len * @sizeOf(Vec3) };
+    const buffers = [_]vk.Buffer{ vert_buf.handle, vert_buf.handle };
+    device.vkd.cmdBindVertexBuffers(cb.handle, 0, 2, @ptrCast([*]const vk.Buffer, buffers[0..]), offsets[0..]);
     device.vkd.cmdBindIndexBuffer(cb.handle, ind_buf.handle, 0, .uint32);
 
     // push some constants to this bih

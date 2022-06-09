@@ -96,14 +96,29 @@ pub const Buffer = struct {
         data: []const T,
         offset: usize,
     ) !void {
-        //var ptr = @ptrCast([*]u8, try dev.vkd.mapMemory(dev.logical, self.mem, offset, size, .{}));
-        //
-
         const dest = try dev.vkd.mapMemory(dev.logical, self.mem, @sizeOf(T) * offset, @sizeOf(T) * data.len, .{});
         const ptr = @ptrCast([*]T, @alignCast(@alignOf(T), dest));
 
         for (data) |item, i| {
             ptr[i] = item;
+        }
+
+        dev.vkd.unmapMemory(dev.logical, self.mem);
+    }
+
+    pub fn loadRaw(
+        self: Self,
+        dev: Device,
+        data: [*]const u8,
+        offset: usize,
+        size: usize,
+    ) !void {
+        const dest = try dev.vkd.mapMemory(dev.logical, self.mem, offset, size, .{});
+        const ptr = @ptrCast([*]u8, dest);
+
+        var i: usize = 0;
+        while (i < size) : (i += 1) {
+            ptr[i] = data[i];
         }
 
         dev.vkd.unmapMemory(dev.logical, self.mem);

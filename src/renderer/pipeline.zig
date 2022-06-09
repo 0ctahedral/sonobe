@@ -3,7 +3,7 @@ const vk = @import("vulkan");
 const Device = @import("device.zig").Device;
 const RenderPass = @import("renderpass.zig").RenderPass;
 const CommandBuffer = @import("commandbuffer.zig").CommandBuffer;
-const Vertex = @import("mesh.zig").Vertex;
+const Mesh = @import("mesh.zig").Mesh;
 
 pub const Pipeline = struct {
     const Self = @This();
@@ -99,10 +99,13 @@ pub const Pipeline = struct {
 
         const vertex_input_ci = vk.PipelineVertexInputStateCreateInfo{
             .flags = .{},
-            .vertex_binding_description_count = 1,
-            .p_vertex_binding_descriptions = @ptrCast([*]const vk.VertexInputBindingDescription, &Vertex.binding_description),
-            .vertex_attribute_description_count = @intCast(u32, Vertex.attribute_description.len),
-            .p_vertex_attribute_descriptions = &Vertex.attribute_description,
+            .vertex_binding_description_count = @intCast(u32, Mesh.info.bindings.len),
+            .p_vertex_binding_descriptions = @ptrCast(
+                [*]const vk.VertexInputBindingDescription,
+                &Mesh.info.bindings,
+            ),
+            .vertex_attribute_description_count = @intCast(u32, Mesh.info.attrs.len),
+            .p_vertex_attribute_descriptions = &Mesh.info.attrs,
         };
 
         const input_assembly = vk.PipelineInputAssemblyStateCreateInfo{

@@ -35,8 +35,8 @@ pub const Vertex = struct {
 };
 
 pub const Mesh = struct {
-    pos: []Vec3,
-    texcoord: []Vec2,
+    positions: []const Vec3,
+    texcoords: []const Vec2,
 
     pub const info = getVertexInfo(@This());
 };
