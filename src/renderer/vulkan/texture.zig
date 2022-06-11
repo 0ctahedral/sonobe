@@ -85,6 +85,7 @@ pub const Texture = struct {
         device: Device,
         width: u32,
         height: u32,
+        depth: u32,
         channels: u32,
         flags: Flags,
         data: []const u8,
@@ -106,6 +107,7 @@ pub const Texture = struct {
             .@"2d",
             width,
             height,
+            depth,
             img_format,
             .optimal,
             .{
@@ -132,6 +134,7 @@ pub const Texture = struct {
         device: Device,
         new_width: u32,
         new_height: u32,
+        new_depth: u32,
     ) !void {
         const img_format = self.image.format;
         // destroy old image and create new
@@ -141,6 +144,7 @@ pub const Texture = struct {
             .@"2d",
             new_width,
             new_height,
+            new_depth,
             img_format,
             .optimal,
             .{
