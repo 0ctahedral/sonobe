@@ -6,7 +6,7 @@ pub fn FreeList(
     comptime T: type,
 ) type {
 
-    // union type to store either the next free index or the itme
+    // union type to store either the next free index or the item
     const item_t = extern union {
         item: T,
         next: u32,
@@ -101,6 +101,14 @@ pub fn FreeList(
             // insert at the front of the list
             self.mem[index] = .{ .next = self.mem[0].next };
             self.mem[0].next = @intCast(u32, index);
+        }
+
+        pub fn set(self: *Self, idx: Index, val: T) void {
+            self.mem[@intCast(usize, idx)] = .{ .item = val };
+        }
+
+        pub fn get(self: *Self, idx: Index) *T {
+            return &self.mem[@intCast(usize, idx)].item;
         }
 
         pub fn deinit(self: *Self) void {

@@ -51,6 +51,7 @@ pub const Image = struct {
         img_type: vk.ImageType,
         width: u32,
         height: u32,
+        depth: u32,
         format: vk.Format,
         tiling: vk.ImageTiling,
         usage: vk.ImageUsageFlags,
@@ -68,8 +69,7 @@ pub const Image = struct {
             .extent = .{
                 .width = width,
                 .height = height,
-                // TODO: configurable
-                .depth = 1,
+                .depth = depth,
             },
             // TODO: mip mapping
             .mip_levels = 4,

@@ -170,7 +170,7 @@ pub const Swapchain = struct {
             .@"2d",
             extent.width,
             extent.height,
-
+            1,
             dev.depth_format,
             .optimal,
             .{ .depth_stencil_attachment_bit = true },

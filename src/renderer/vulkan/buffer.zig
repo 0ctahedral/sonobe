@@ -106,6 +106,28 @@ pub const Buffer = struct {
         dev.vkd.unmapMemory(dev.logical, self.mem);
     }
 
+    pub fn stagedLoad(
+        self: Self,
+        device: Device,
+        pool: vk.CommandPool,
+        data: [*]const u8,
+        offset: usize,
+        size: usize,
+    ) !void {
+        const staging_buffer = try Buffer.init(
+            device,
+            size,
+            .{ .transfer_src_bit = true },
+            .{ .host_visible_bit = true, .host_coherent_bit = true },
+            true,
+        );
+        defer staging_buffer.deinit(device);
+
+        try staging_buffer.loadRaw(device, data, 0, size);
+
+        try Buffer.copyTo(device, pool, device.graphics.?, staging_buffer, 0, self, offset, size);
+    }
+
     pub fn loadRaw(
         self: Self,
         dev: Device,
