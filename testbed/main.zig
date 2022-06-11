@@ -48,14 +48,23 @@ pub fn init(app: *App) !void {
     app.t.scale = .{ .x = 10, .y = 10, .z = 0 };
 
     // allocate buffer and upload data
+    std.log.debug("size of texcoords: {}", .{@sizeOf(@TypeOf(texcoords))});
     app.quad_buf = try Renderer.createBuffer(
-        @sizeOf(@TypeOf(texcoords)) +
-            @sizeOf(@TypeOf(positions)),
-        .{ .kind = .Vertex },
+        .{
+            .size = @sizeOf(@TypeOf(texcoords)) + @sizeOf(@TypeOf(positions)),
+            .usage = .Vertex,
+        },
     );
-
     var offset = try Renderer.updateBuffer(app.quad_buf, 0, Vec3, positions[0..]);
     offset = try Renderer.updateBuffer(app.quad_buf, offset, Vec2, texcoords[0..]);
+
+    const ind_buf = try Renderer.createBuffer(
+        .{
+            .size = @sizeOf(@TypeOf(quad_inds)),
+            .usage = .Index,
+        },
+    );
+    _ = try Renderer.updateBuffer(ind_buf, 0, u32, quad_inds[0..]);
 }
 
 pub fn update(app: *App) !void {

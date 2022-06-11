@@ -3,7 +3,6 @@ const vk = @import("vulkan");
 
 // TODO: get rid of this dependency if possible
 const Platform = @import("../../platform.zig");
-const FreeList = @import("../../containers.zig").FreeList;
 
 const types = @import("../rendertypes.zig");
 
@@ -26,6 +25,7 @@ const Buffer = @import("buffer.zig").Buffer;
 const TextureMap = @import("texture.zig").TextureMap;
 const Texture = @import("texture.zig").Texture;
 const RenderTarget = @import("render_target.zig").RenderTarget;
+pub const Resources = @import("resources.zig");
 const mmath = @import("../../math.zig");
 const Mat4 = mmath.Mat4;
 const Vec3 = mmath.Vec3;
@@ -74,25 +74,6 @@ const MAX_FRAMES = 2;
 /// The currently rendering frames
 var frames: [MAX_FRAMES]FrameData = undefined;
 
-/// the GPU side buffer that store the currenlty rendering objects
-/// this one stores the indices of all geometry
-/// TODO: will eventually be moved to another struct possibly
-var global_ind_buf: Buffer = undefined;
-/// last offset in the index buffer
-var last_ind: usize = 0;
-/// this one stores the vertex data of all geometry
-var global_vert_buf: Buffer = undefined;
-/// last offset in the vertex buffer
-var last_vert: usize = 0;
-const Alloc = struct {
-    /// offset in buffer
-    offset: usize,
-    /// size of the allocation
-    size: usize,
-};
-var alloc_freelist: FreeList(Alloc) = undefined;
-const quad_inds = [_]u32{ 0, 1, 2, 0, 3, 1 };
-
 // -------------------------------
 
 /// Are we currently recreating the swapchain
@@ -109,6 +90,8 @@ var last_size_gen: usize = 0;
 var cached_width: u32 = 0;
 var cached_height: u32 = 0;
 
+// these will be part of the shader system
+
 /// descriptor set layout for global data (i.e. camera transform)
 var global_descriptor_layout: vk.DescriptorSetLayout = .null_handle;
 /// pool from which we allocate all descriptor sets
@@ -121,6 +104,8 @@ var material_descriptor_layout: vk.DescriptorSetLayout = .null_handle;
 var material_descriptor_pool: vk.DescriptorPool = .null_handle;
 /// descriptor set for the main shader
 var material_descriptor_sets: [MAX_FRAMES]vk.DescriptorSet = undefined;
+
+// --------------------------------------
 
 // TODO: this should be from a resource system
 var default_texture_map: TextureMap = undefined;
@@ -266,6 +251,8 @@ pub fn init(provided_allocator: Allocator, app_name: [*:0]const u8, window: Plat
     // create global geometry buffers
     try createGlobalBuffers();
 
+    try Resources.init(device, allocator);
+
     // create frame objects
     try createDescriptors();
 
@@ -298,8 +285,6 @@ pub fn init(provided_allocator: Allocator, app_name: [*:0]const u8, window: Plat
     // create pipeline
     try createPipeline();
 
-    // upload indices
-    try upload(device.command_pool, global_ind_buf, u32, &quad_inds);
     // create a texture
     {
         // generate the pattern
@@ -350,6 +335,7 @@ pub fn deinit() void {
     default_texture_map.deinit(device);
     default_texture.deinit(device);
 
+    Resources.deinit();
     destroyBuffers();
     pipeline.deinit(device);
 
@@ -475,14 +461,17 @@ pub fn endFrame() !void {
     );
 
     const offsets = [_]vk.DeviceSize{ 0, 4 * @sizeOf(Vec3) };
-    const buffers = [_]vk.Buffer{ global_vert_buf.handle, global_vert_buf.handle };
+    const buffers = [_]vk.Buffer{
+        Resources.getBackingBuffer(.Vertex).handle,
+        Resources.getBackingBuffer(.Vertex).handle,
+    };
     device.vkd.cmdBindVertexBuffers(cb.handle, 0, 2, @ptrCast([*]const vk.Buffer, buffers[0..]), offsets[0..]);
-    device.vkd.cmdBindIndexBuffer(cb.handle, global_ind_buf.handle, 0, .uint32);
+    device.vkd.cmdBindIndexBuffer(cb.handle, Resources.getBackingBuffer(.Index).handle, 0, .uint32);
 
     // push some constants to this bih
     device.vkd.cmdPushConstants(cb.handle, pipeline.layout, .{ .vertex_bit = true }, 0, @intCast(u32, @sizeOf(MeshPushConstants)), &push_constant);
 
-    device.vkd.cmdDrawIndexed(cb.handle, quad_inds.len, 1, 0, 0, 0);
+    device.vkd.cmdDrawIndexed(cb.handle, 6, 1, 0, 0, 0);
 
     default_renderpass.end(device, cb);
     // --------
@@ -522,42 +511,6 @@ pub fn endFrame() !void {
     };
 
     frame_number += 1;
-}
-
-pub fn createBuffer(size: usize, desc: types.BufferDesc) !types.Handle {
-    // TODO: usethe desc
-    _ = desc;
-    //
-    // TODO: throw error if too big
-
-    const idx = try alloc_freelist.allocIndex();
-    alloc_freelist.mem[@intCast(usize, idx)] = .{ .item = .{
-        .offset = last_vert,
-        .size = size,
-    } };
-
-    last_vert += size;
-
-    const handle = types.Handle{ .resource = idx };
-    return handle;
-}
-
-pub fn updateBuffer(handle: types.Handle, offset: usize, data: [*]const u8, size: usize) !void {
-    // TODO: error if handle not found
-
-    // TODO: make this use the appropriate buffer based on the handle
-    try global_vert_buf.stagedLoad(
-        device,
-        device.command_pool,
-        data,
-        alloc_freelist.mem[@intCast(usize, handle.resource)].item.offset + offset,
-        size,
-    );
-}
-
-/// NO-OP
-fn destroyBuffer(handle: types.Handle) void {
-    _ = handle;
 }
 
 // helpers
@@ -653,23 +606,6 @@ fn recreateSwapchain() !bool {
 
 /// creates the global buffers
 fn createGlobalBuffers() !void {
-    const vertex_buf_size = 1024 * 1024;
-    global_vert_buf = try Buffer.init(device, vertex_buf_size, .{
-        .vertex_buffer_bit = true,
-        .transfer_src_bit = true,
-        .transfer_dst_bit = true,
-    }, .{ .device_local_bit = true }, true);
-
-    const index_buf_size = @sizeOf(u32) * 1024 * 1024;
-    global_ind_buf = try Buffer.init(device, index_buf_size, .{
-        .index_buffer_bit = true,
-        .transfer_src_bit = true,
-        .transfer_dst_bit = true,
-    }, .{ .device_local_bit = true }, true);
-
-    // create freelist of allocations
-    alloc_freelist = try FreeList(Alloc).init(allocator, 10);
-
     global_buffer = try Buffer.init(device, @sizeOf(GlobalData), .{ .transfer_dst_bit = true, .uniform_buffer_bit = true }, .{
         .host_visible_bit = true,
         .host_coherent_bit = true,
@@ -690,8 +626,6 @@ fn createGlobalBuffers() !void {
 }
 
 fn destroyBuffers() void {
-    global_vert_buf.deinit(device);
-    global_ind_buf.deinit(device);
     global_buffer.deinit(device);
     model_buffer.deinit(device);
     material_buffer.deinit(device);

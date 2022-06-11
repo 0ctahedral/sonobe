@@ -55,8 +55,8 @@ const types = @import("renderer/rendertypes.zig");
 pub const Handle = types.Handle;
 pub const BufferDesc = types.BufferDesc;
 
-pub fn createBuffer(size: usize, desc: BufferDesc) !Handle {
-    return backend.createBuffer(size, desc);
+pub fn createBuffer(desc: BufferDesc) !Handle {
+    return backend.Resources.createBuffer(desc);
 }
 
 /// uploades data to a buffer and returns the resulting offest in bytes
@@ -67,7 +67,7 @@ pub fn updateBuffer(
     data: []const T,
 ) !usize {
     const size = @sizeOf(T) * data.len;
-    try backend.updateBuffer(
+    try backend.Resources.updateBuffer(
         handle,
         offset,
         @ptrCast([*]const u8, data),

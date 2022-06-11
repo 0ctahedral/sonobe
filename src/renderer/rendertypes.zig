@@ -5,8 +5,12 @@ pub const Handle = struct {
 
 // buffer stuff
 pub const BufferDesc = struct {
-    const Kind = enum {
+    pub const Usage = enum {
         Vertex,
+        Index,
+        //        Storage,
+        //        Uniform,
     };
-    kind: Kind,
+    usage: Usage,
+    size: usize,
 };
