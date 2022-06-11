@@ -14,3 +14,16 @@ pub const BufferDesc = struct {
     usage: Usage,
     size: usize,
 };
+
+pub const TextureDesc = struct {
+    width: u32,
+    height: u32,
+    depth: u32 = 1,
+    channels: u32,
+    flags: packed struct {
+        /// is this texture be transparent?
+        transparent: bool = false,
+        /// can this texture be written to?
+        writable: bool = false,
+    },
+};

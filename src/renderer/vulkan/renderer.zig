@@ -5,6 +5,7 @@ const vk = @import("vulkan");
 const Platform = @import("../../platform.zig");
 
 const types = @import("../rendertypes.zig");
+const Handle = types.Handle;
 
 const dispatch_types = @import("dispatch_types.zig");
 const BaseDispatch = dispatch_types.BaseDispatch;
@@ -109,7 +110,7 @@ var material_descriptor_sets: [MAX_FRAMES]vk.DescriptorSet = undefined;
 
 // TODO: this should be from a resource system
 var default_texture_map: TextureMap = undefined;
-var default_texture: Texture = undefined;
+var default_texture: Handle = undefined;
 
 const MeshPushConstants = struct {
     id: u32 align(16) = 0,
@@ -319,8 +320,14 @@ pub fn init(provided_allocator: Allocator, app_name: [*:0]const u8, window: Plat
             }
         }
 
-        default_texture = try Texture.init(device, tex_dimension, tex_dimension, channels, .{}, pixels[0..]);
-        default_texture_map = try TextureMap.init(device, &default_texture);
+        default_texture = try Resources.createTexture(.{
+            .width = tex_dimension,
+            .height = tex_dimension,
+            .channels = channels,
+            .flags = .{},
+        }, pixels[0..]);
+
+        default_texture_map = try TextureMap.init(device, Resources.textures.get(1));
     }
 }
 
@@ -333,7 +340,9 @@ pub fn deinit() void {
     };
 
     default_texture_map.deinit(device);
-    default_texture.deinit(device);
+    // technically don't need to do this since we destroy the texture
+    // in the next line
+    Resources.destroy(default_texture);
 
     Resources.deinit();
     destroyBuffers();
@@ -791,7 +800,7 @@ fn updateDescriptorSets() !void {
     const sampler_infos = [_]vk.DescriptorImageInfo{
         .{
             .sampler = default_texture_map.sampler,
-            .image_view = default_texture.image.view,
+            .image_view = Resources.textures.get(1).image.view,
             .image_layout = vk.ImageLayout.shader_read_only_optimal,
         },
     };

@@ -3,6 +3,7 @@ const vk = @import("vulkan");
 const FreeList = @import("../../containers.zig").FreeList;
 const Device = @import("device.zig").Device;
 const Buffer = @import("buffer.zig").Buffer;
+const Texture = @import("texture.zig").Texture;
 
 const types = @import("../rendertypes.zig");
 
@@ -19,10 +20,16 @@ var last_ind: usize = 0;
 /// last offset in the vertex buffer
 var last_vert: usize = 0;
 
+/// backing buffers we are using for allocating from
+const MAX_BUFFERS = 1024;
 pub var buffers: [@typeInfo(types.BufferDesc.Usage).Enum.fields.len]Buffer = undefined;
+/// textures to allocate from
+const MAX_TEXTURES = 1024;
+pub var textures: FreeList(Texture) = undefined;
 
 const ResourceType = enum {
     Buffer,
+    Texture,
 };
 
 const Resource = union(ResourceType) {
@@ -31,16 +38,24 @@ const Resource = union(ResourceType) {
         offset: usize,
         desc: types.BufferDesc,
     },
+    Texture: struct {
+        index: u32,
+        desc: types.TextureDesc,
+    },
 };
 
 var resources: FreeList(Resource) = undefined;
 
 var device: Device = undefined;
 
-pub fn init(_device: Device, allocator: std.mem.Allocator) !void {
-    device = _device;
+var allocator: std.mem.Allocator = undefined;
 
-    resources = try FreeList(Resource).init(allocator, 10);
+pub fn init(_device: Device, _allocator: std.mem.Allocator) !void {
+    device = _device;
+    allocator = _allocator;
+
+    resources = try FreeList(Resource).init(allocator, MAX_TEXTURES + MAX_BUFFERS);
+    textures = try FreeList(Texture).init(allocator, MAX_TEXTURES);
 
     for (buffers) |*buf, i| {
         const usage_type = @intToEnum(types.BufferDesc.Usage, i);
@@ -76,6 +91,10 @@ pub fn deinit() void {
     for (buffers) |b| {
         b.deinit(device);
     }
+    var tex_iter = textures.iter();
+    while (tex_iter.next()) |t| {
+        t.deinit(device);
+    }
     resources.deinit();
 }
 
@@ -88,10 +107,10 @@ pub fn createBuffer(desc: types.BufferDesc) !Handle {
         .Index => last_ind,
         // else => last_vert,
     };
-    resources.mem[@intCast(usize, idx)] = .{ .item = .{ .Buffer = .{
+    resources.set(idx, .{ .Buffer = .{
         .offset = buf_offest,
         .desc = desc,
-    } } };
+    } });
 
     last_vert += desc.size;
 
@@ -101,7 +120,7 @@ pub fn createBuffer(desc: types.BufferDesc) !Handle {
 
 pub fn updateBuffer(handle: Handle, offset: usize, data: [*]const u8, size: usize) !void {
     // TODO: error if handle not found
-    const res = resources.mem[@intCast(usize, handle.resource)].item.Buffer;
+    const res = resources.get(handle.resource).Buffer;
 
     // TODO: make this use the appropriate buffer based on the handle
     try buffers[@enumToInt(res.desc.usage)].stagedLoad(
@@ -113,8 +132,41 @@ pub fn updateBuffer(handle: Handle, offset: usize, data: [*]const u8, size: usiz
     );
 }
 
+pub fn createTexture(desc: types.TextureDesc, data: []const u8) !Handle {
+    const handle_idx = try resources.allocIndex();
+
+    _ = desc;
+    const tex_idx = try textures.allocIndex();
+
+    textures.set(tex_idx, try Texture.init(
+        device,
+        desc.width,
+        desc.height,
+        desc.depth,
+        desc.channels,
+        .{},
+        data[0..],
+    ));
+
+    resources.set(
+        handle_idx,
+        .{ .Texture = .{ .index = tex_idx, .desc = desc } },
+    );
+
+    return Handle{ .resource = handle_idx };
+}
+
 /// currently buffers are bump allocators so this does not actually free any memory
-pub fn destroyBuffer(handle: Handle) void {
+pub fn destroy(handle: Handle) void {
+    const res = resources.get(handle.resource);
+
+    switch (res.*) {
+        .Texture => |t| {
+            textures.get(t.index).deinit(device);
+        },
+        else => {},
+    }
+
     resources.freeIndex(handle.resource);
 }
 
@@ -125,5 +177,5 @@ pub fn getBackingBuffer(usage: types.BufferDesc.Usage) Buffer {
 
 /// helper to get the resource from the freelist
 pub fn getResource(handle: Handle) Resource {
-    return resources.mem[@intCast(usize, handle.resource)].item;
+    return resources.get(handle.resource);
 }
