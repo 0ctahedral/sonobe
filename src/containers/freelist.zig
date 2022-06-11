@@ -103,6 +103,14 @@ pub fn FreeList(
             self.mem[0].next = @intCast(u32, index);
         }
 
+        pub fn set(self: *Self, idx: Index, val: T) void {
+            self.mem[@intCast(usize, idx)] = .{ .item = val };
+        }
+
+        pub fn get(self: *Self, idx: Index) *T {
+            return &self.mem[@intCast(usize, idx)].item;
+        }
+
         pub fn deinit(self: *Self) void {
             if (self.allocator) |a| {
                 a.free(self.mem);
