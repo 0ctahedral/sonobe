@@ -6,7 +6,7 @@ pub fn FreeList(
     comptime T: type,
 ) type {
 
-    // union type to store either the next free index or the itme
+    // union type to store either the next free index or the item
     const item_t = extern union {
         item: T,
         next: u32,

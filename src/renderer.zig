@@ -51,11 +51,27 @@ pub fn onResize(ev: Events.Event) void {
     backend.onResize(w, h);
 }
 
-pub const Handle = enum(u32) {
-    null_handle = 0,
-};
+const types = @import("renderer/rendertypes.zig");
+pub const Handle = types.Handle;
+pub const BufferDesc = types.BufferDesc;
 
-pub fn newBuffer(size: usize, kind: backend.BufferType) !Handle {
-    backend.newBuffer(size, kind);
-    return Handle{1};
+pub fn createBuffer(size: usize, desc: BufferDesc) !Handle {
+    return backend.createBuffer(size, desc);
+}
+
+/// uploades data to a buffer and returns the resulting offest in bytes
+pub fn updateBuffer(
+    handle: types.Handle,
+    offset: usize,
+    comptime T: type,
+    data: []const T,
+) !usize {
+    const size = @sizeOf(T) * data.len;
+    try backend.updateBuffer(
+        handle,
+        offset,
+        @ptrCast([*]const u8, data),
+        size,
+    );
+    return size + offset;
 }

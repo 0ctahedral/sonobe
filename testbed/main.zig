@@ -18,7 +18,7 @@ const App = @This();
 /// The name of this app (required)
 pub const name = "testbed";
 
-const quad_positions = [_]Vec3{
+const positions = [_]Vec3{
     Vec3.new(-0.5, -0.5, 0),
     Vec3.new(0.5, 0.5, 0),
     Vec3.new(-0.5, 0.5, 0),
@@ -38,7 +38,7 @@ theta: f32 = 0,
 /// transform of the quad
 t: Transform = .{},
 
-quad_buf: Renderer.Buffer = undefined,
+quad_buf: Renderer.Handle = undefined,
 
 pub fn init(app: *App) !void {
     _ = app;
@@ -48,7 +48,14 @@ pub fn init(app: *App) !void {
     app.t.scale = .{ .x = 10, .y = 10, .z = 0 };
 
     // allocate buffer and upload data
-    app.quad_buf = try Renderer.newBuffer();
+    app.quad_buf = try Renderer.createBuffer(
+        @sizeOf(@TypeOf(texcoords)) +
+            @sizeOf(@TypeOf(positions)),
+        .{ .kind = .Vertex },
+    );
+
+    var offset = try Renderer.updateBuffer(app.quad_buf, 0, Vec3, positions[0..]);
+    offset = try Renderer.updateBuffer(app.quad_buf, offset, Vec2, texcoords[0..]);
 }
 
 pub fn update(app: *App) !void {

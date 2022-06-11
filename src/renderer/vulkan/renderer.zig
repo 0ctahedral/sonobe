@@ -3,36 +3,36 @@ const vk = @import("vulkan");
 
 // TODO: get rid of this dependency if possible
 const Platform = @import("../../platform.zig");
+const FreeList = @import("../../containers.zig").FreeList;
+
+const types = @import("../rendertypes.zig");
 
 const dispatch_types = @import("dispatch_types.zig");
 const BaseDispatch = dispatch_types.BaseDispatch;
 const InstanceDispatch = dispatch_types.InstanceDispatch;
 const Allocator = std.mem.Allocator;
 
-pub const Device = @import("device.zig").Device;
-pub const Queue = @import("device.zig").Queue;
-pub const Swapchain = @import("swapchain.zig").Swapchain;
-pub const RenderPass = @import("renderpass.zig").RenderPass;
-pub const CommandBuffer = @import("commandbuffer.zig").CommandBuffer;
-pub const Fence = @import("fence.zig").Fence;
-pub const Semaphore = @import("semaphore.zig").Semaphore;
-pub const Shader = @import("shader.zig").Shader;
-pub const Pipeline = @import("pipeline.zig").Pipeline;
-pub const Mesh = @import("mesh.zig").Mesh;
-pub const Buffer = @import("buffer.zig").Buffer;
-pub const TextureMap = @import("texture.zig").TextureMap;
-pub const Texture = @import("texture.zig").Texture;
-pub const RenderTarget = @import("render_target.zig").RenderTarget;
+const Device = @import("device.zig").Device;
+const Queue = @import("device.zig").Queue;
+const Swapchain = @import("swapchain.zig").Swapchain;
+const RenderPass = @import("renderpass.zig").RenderPass;
+const CommandBuffer = @import("commandbuffer.zig").CommandBuffer;
+const Fence = @import("fence.zig").Fence;
+const Semaphore = @import("semaphore.zig").Semaphore;
+const Shader = @import("shader.zig").Shader;
+const Pipeline = @import("pipeline.zig").Pipeline;
+const Mesh = @import("mesh.zig").Mesh;
+const Buffer = @import("buffer.zig").Buffer;
+const TextureMap = @import("texture.zig").TextureMap;
+const Texture = @import("texture.zig").Texture;
+const RenderTarget = @import("render_target.zig").RenderTarget;
 const mmath = @import("../../math.zig");
 const Mat4 = mmath.Mat4;
 const Vec3 = mmath.Vec3;
 const Vec2 = mmath.Vec2;
 
-// TODO: get these from the system
-
 // TODO: set this in a config
 const required_layers = [_][*:0]const u8{"VK_LAYER_KHRONOS_validation"};
-
 
 var vkb: BaseDispatch = undefined;
 var vki: InstanceDispatch = undefined;
@@ -42,34 +42,20 @@ var messenger: vk.DebugUtilsMessengerEXT = undefined;
 var device: Device = undefined;
 var swapchain: Swapchain = undefined;
 
-var default_renderpass: RenderPass = undefined;
-
 /// monotonically increasing frame number
 var frame_number: usize = 0;
 
 /// index of the image in the swapchain we are currently
 /// rendering to
+/// TODO: do we still need this?
 var image_index: usize = 0;
 
 /// Allocator used by the renderer
 var allocator: Allocator = undefined;
 
-/// Are we currently recreating the swapchain
-/// I don't think this is really used yet but might
-/// be useful when we multi thread
-var recreating_swapchain = false;
+// TODO: these will eventually not exist
 
-/// generation of this resize
-var size_gen: usize = 0;
-var last_size_gen: usize = 0;
-
-/// cached dimensions of the framebuffer
-var cached_width: u32 = 0;
-var cached_height: u32 = 0;
-
-/// current dimesnsions of the framebuffer
-var fb_width: u32 = 0;
-var fb_height: u32 = 0;
+var default_renderpass: RenderPass = undefined;
 
 /// Shader currently used by the pipeline
 var shader: Shader = undefined;
@@ -77,16 +63,51 @@ var shader: Shader = undefined;
 /// pipeline currently being used
 var pipeline: Pipeline = undefined;
 
+/// current dimesnsions of the framebuffer
+var fb_width: u32 = 0;
+var fb_height: u32 = 0;
+
 /// swapchain render targets
 var swapchain_render_targets: []RenderTarget = undefined;
-
-/// the GPU side buffers that store the currenlty rendering objects
-var vert_buf: Buffer = undefined;
-var ind_buf: Buffer = undefined;
 
 const MAX_FRAMES = 2;
 /// The currently rendering frames
 var frames: [MAX_FRAMES]FrameData = undefined;
+
+/// the GPU side buffer that store the currenlty rendering objects
+/// this one stores the indices of all geometry
+/// TODO: will eventually be moved to another struct possibly
+var global_ind_buf: Buffer = undefined;
+/// last offset in the index buffer
+var last_ind: usize = 0;
+/// this one stores the vertex data of all geometry
+var global_vert_buf: Buffer = undefined;
+/// last offset in the vertex buffer
+var last_vert: usize = 0;
+const Alloc = struct {
+    /// offset in buffer
+    offset: usize,
+    /// size of the allocation
+    size: usize,
+};
+var alloc_freelist: FreeList(Alloc) = undefined;
+const quad_inds = [_]u32{ 0, 1, 2, 0, 3, 1 };
+
+// -------------------------------
+
+/// Are we currently recreating the swapchain
+/// I don't think this is really used yet but might
+/// be useful when we multi thread
+var recreating_swapchain = false;
+
+// TODO: might not need
+/// generation of this resize
+var size_gen: usize = 0;
+var last_size_gen: usize = 0;
+
+/// cached dimensions of the framebuffer
+var cached_width: u32 = 0;
+var cached_height: u32 = 0;
 
 /// descriptor set layout for global data (i.e. camera transform)
 var global_descriptor_layout: vk.DescriptorSetLayout = .null_handle;
@@ -101,7 +122,7 @@ var material_descriptor_pool: vk.DescriptorPool = .null_handle;
 /// descriptor set for the main shader
 var material_descriptor_sets: [MAX_FRAMES]vk.DescriptorSet = undefined;
 
-// TODO: this should be from a resource systme
+// TODO: this should be from a resource system
 var default_texture_map: TextureMap = undefined;
 var default_texture: Texture = undefined;
 
@@ -134,6 +155,8 @@ var cam_data = GlobalData{};
 var model_buffer: Buffer = undefined;
 /// cpu side storage for all the model matricies
 var model_data: [10]Mat4 = undefined;
+
+// functions that are part of the api
 
 // initialize the renderer
 // TODO: should this take in a surface instead of a window?
@@ -240,8 +263,8 @@ pub fn init(provided_allocator: Allocator, app_name: [*:0]const u8, window: Plat
     }
     try recreateRenderTargets();
 
-    // create some buffers
-    try createBuffers();
+    // create global geometry buffers
+    try createGlobalBuffers();
 
     // create frame objects
     try createDescriptors();
@@ -275,44 +298,8 @@ pub fn init(provided_allocator: Allocator, app_name: [*:0]const u8, window: Plat
     // create pipeline
     try createPipeline();
 
-    // upload the vertices
-    {
-
-        // try upload(device.command_pool, vert_buf, Vertex, &quad_verts);
-
-        var pos_size: usize = quad_mesh.positions.len * @sizeOf(Vec3);
-        var tex_size: usize = quad_mesh.texcoords.len * @sizeOf(Vec2);
-        var total_size = tex_size + pos_size;
-        const staging_buffer = try Buffer.init(
-            device,
-            total_size,
-            .{ .transfer_src_bit = true },
-            .{ .host_visible_bit = true, .host_coherent_bit = true },
-            true,
-        );
-        defer staging_buffer.deinit(device);
-
-        // load positions
-
-        try staging_buffer.loadRaw(
-            device,
-            @ptrCast([*]const u8, quad_mesh.positions.ptr),
-            0,
-            pos_size,
-        );
-
-        try staging_buffer.loadRaw(
-            device,
-            @ptrCast([*]const u8, quad_mesh.texcoords.ptr),
-            pos_size,
-            tex_size,
-        );
-        try Buffer.copyTo(device, device.command_pool, device.graphics.?, staging_buffer, 0, vert_buf, 0, total_size);
-    }
-    try upload(device.command_pool, ind_buf, u32, &quad_inds);
-    // try upload(device.command_pool, vert_buf, Vertex, &oct_verts);
-    // try upload(device.command_pool, ind_buf, u32, &oct_inds);
-
+    // upload indices
+    try upload(device.command_pool, global_ind_buf, u32, &quad_inds);
     // create a texture
     {
         // generate the pattern
@@ -350,20 +337,6 @@ pub fn init(provided_allocator: Allocator, app_name: [*:0]const u8, window: Plat
         default_texture = try Texture.init(device, tex_dimension, tex_dimension, channels, .{}, pixels[0..]);
         default_texture_map = try TextureMap.init(device, &default_texture);
     }
-}
-
-fn vk_debug(
-    message_severity: vk.DebugUtilsMessageSeverityFlagsEXT.IntType,
-    message_types: vk.DebugUtilsMessageTypeFlagsEXT.IntType,
-    p_callback_data: ?*const vk.DebugUtilsMessengerCallbackDataEXT,
-    p_user_data: ?*anyopaque,
-) callconv(vk.vulkan_call_conv) vk.Bool32 {
-    _ = message_severity;
-    _ = message_types;
-    _ = p_callback_data;
-    _ = p_user_data;
-    std.log.info("{s}", .{p_callback_data.?.*.p_message});
-    return vk.FALSE;
 }
 
 // shutdown the renderer
@@ -412,25 +385,6 @@ pub fn onResize(w: u32, h: u32) void {
     cached_height = h;
     size_gen += 1;
     std.log.warn("resize triggered: {}x{}, gen: {}", .{ w, h, size_gen });
-}
-
-// TODO: move to render target stuff
-pub fn recreateRenderTargets() !void {
-    std.log.info("fbw: {} fbh: {}", .{ fb_width, fb_height });
-    for (swapchain.render_textures) |tex, i| {
-        const attachments = [_]Texture{ tex, swapchain.depth_texture };
-
-        swapchain_render_targets[i].reset(device);
-
-        try swapchain_render_targets[i].init(
-            device,
-            default_renderpass.handle,
-            attachments[0..],
-            fb_width,
-            fb_height,
-            allocator,
-        );
-    }
 }
 
 pub fn beginFrame() !bool {
@@ -520,15 +474,14 @@ pub fn endFrame() !void {
         undefined,
     );
 
-    const offsets = [_]vk.DeviceSize{ 0, quad_mesh.positions.len * @sizeOf(Vec3) };
-    const buffers = [_]vk.Buffer{ vert_buf.handle, vert_buf.handle };
+    const offsets = [_]vk.DeviceSize{ 0, 4 * @sizeOf(Vec3) };
+    const buffers = [_]vk.Buffer{ global_vert_buf.handle, global_vert_buf.handle };
     device.vkd.cmdBindVertexBuffers(cb.handle, 0, 2, @ptrCast([*]const vk.Buffer, buffers[0..]), offsets[0..]);
-    device.vkd.cmdBindIndexBuffer(cb.handle, ind_buf.handle, 0, .uint32);
+    device.vkd.cmdBindIndexBuffer(cb.handle, global_ind_buf.handle, 0, .uint32);
 
     // push some constants to this bih
     device.vkd.cmdPushConstants(cb.handle, pipeline.layout, .{ .vertex_bit = true }, 0, @intCast(u32, @sizeOf(MeshPushConstants)), &push_constant);
 
-    // device.vkd.cmdDrawIndexed(cb.handle, oct_inds.len, 1, 0, 0, 0);
     device.vkd.cmdDrawIndexed(cb.handle, quad_inds.len, 1, 0, 0, 0);
 
     default_renderpass.end(device, cb);
@@ -569,6 +522,77 @@ pub fn endFrame() !void {
     };
 
     frame_number += 1;
+}
+
+pub fn createBuffer(size: usize, desc: types.BufferDesc) !types.Handle {
+    // TODO: usethe desc
+    _ = desc;
+    //
+    // TODO: throw error if too big
+
+    const idx = try alloc_freelist.allocIndex();
+    alloc_freelist.mem[@intCast(usize, idx)] = .{ .item = .{
+        .offset = last_vert,
+        .size = size,
+    } };
+
+    last_vert += size;
+
+    const handle = types.Handle{ .resource = idx };
+    return handle;
+}
+
+pub fn updateBuffer(handle: types.Handle, offset: usize, data: [*]const u8, size: usize) !void {
+    // TODO: error if handle not found
+
+    // TODO: make this use the appropriate buffer based on the handle
+    try global_vert_buf.stagedLoad(
+        device,
+        device.command_pool,
+        data,
+        alloc_freelist.mem[@intCast(usize, handle.resource)].item.offset + offset,
+        size,
+    );
+}
+
+/// NO-OP
+fn destroyBuffer(handle: types.Handle) void {
+    _ = handle;
+}
+
+// helpers
+
+fn vk_debug(
+    message_severity: vk.DebugUtilsMessageSeverityFlagsEXT.IntType,
+    message_types: vk.DebugUtilsMessageTypeFlagsEXT.IntType,
+    p_callback_data: ?*const vk.DebugUtilsMessengerCallbackDataEXT,
+    p_user_data: ?*anyopaque,
+) callconv(vk.vulkan_call_conv) vk.Bool32 {
+    _ = message_severity;
+    _ = message_types;
+    _ = p_callback_data;
+    _ = p_user_data;
+    std.log.info("{s}", .{p_callback_data.?.*.p_message});
+    return vk.FALSE;
+}
+
+// TODO: move to render target stuff
+pub fn recreateRenderTargets() !void {
+    std.log.info("fbw: {} fbh: {}", .{ fb_width, fb_height });
+    for (swapchain.render_textures) |tex, i| {
+        const attachments = [_]Texture{ tex, swapchain.depth_texture };
+
+        swapchain_render_targets[i].reset(device);
+
+        try swapchain_render_targets[i].init(
+            device,
+            default_renderpass.handle,
+            attachments[0..],
+            fb_width,
+            fb_height,
+            allocator,
+        );
+    }
 }
 
 fn recreateSwapchain() !bool {
@@ -627,34 +651,24 @@ fn recreateSwapchain() !bool {
     return true;
 }
 
-
-pub const BufferType = enum {
-   Vertex, 
-};
-
-fn newBuffer(size: usize, kind: BufferType) !Buffer {
-    return Buffer.init(device, size, .{
+/// creates the global buffers
+fn createGlobalBuffers() !void {
+    const vertex_buf_size = 1024 * 1024;
+    global_vert_buf = try Buffer.init(device, vertex_buf_size, .{
         .vertex_buffer_bit = true,
         .transfer_src_bit = true,
         .transfer_dst_bit = true,
     }, .{ .device_local_bit = true }, true);
-}
-
-// TODO: move this?
-fn createBuffers() !void {
-    // const vertex_buf_size = 1024 * 1024;
-    // vert_buf = try Buffer.init(device, vertex_buf_size, .{
-    //     .vertex_buffer_bit = true,
-    //     .transfer_src_bit = true,
-    //     .transfer_dst_bit = true,
-    // }, .{ .device_local_bit = true }, true);
 
     const index_buf_size = @sizeOf(u32) * 1024 * 1024;
-    ind_buf = try Buffer.init(device, index_buf_size, .{
+    global_ind_buf = try Buffer.init(device, index_buf_size, .{
         .index_buffer_bit = true,
         .transfer_src_bit = true,
         .transfer_dst_bit = true,
     }, .{ .device_local_bit = true }, true);
+
+    // create freelist of allocations
+    alloc_freelist = try FreeList(Alloc).init(allocator, 10);
 
     global_buffer = try Buffer.init(device, @sizeOf(GlobalData), .{ .transfer_dst_bit = true, .uniform_buffer_bit = true }, .{
         .host_visible_bit = true,
@@ -676,8 +690,8 @@ fn createBuffers() !void {
 }
 
 fn destroyBuffers() void {
-    vert_buf.deinit(device);
-    ind_buf.deinit(device);
+    global_vert_buf.deinit(device);
+    global_ind_buf.deinit(device);
     global_buffer.deinit(device);
     model_buffer.deinit(device);
     material_buffer.deinit(device);
@@ -702,7 +716,7 @@ fn createPipeline() !void {
     }}, &shader.stage_ci, viewport, scissor, false);
 }
 
-fn upload(pool: vk.CommandPool, buffer: Buffer, comptime T: type, items: []T) !void {
+fn upload(pool: vk.CommandPool, buffer: Buffer, comptime T: type, items: []const T) !void {
     const size = @sizeOf(T) * items.len;
     const staging_buffer = try Buffer.init(
         device,
