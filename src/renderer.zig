@@ -13,8 +13,6 @@ const backend = @import("renderer/vulkan/renderer.zig");
 
 pub const CmdBuf = @import("renderer/cmdbuf.zig");
 
-// pub const Resource = @import("renderer/resource.zig");
-
 pub fn init(provided_allocator: Allocator, app_name: [*:0]const u8, window: Platform.Window) !void {
     try backend.init(provided_allocator, app_name, window);
 
@@ -35,6 +33,19 @@ pub fn getCmdBuf() CmdBuf {
 
 pub fn drawFrame(cmdbuf: CmdBuf) !void {
     _ = cmdbuf;
+
+    if (resizing) {
+        frames_since_resize += 1;
+
+        if (frames_since_resize >= 30) {
+            backend.onResize(w, h);
+            frames_since_resize = 0;
+            resizing = false;
+        } else {
+            return;
+        }
+    }
+
     if (try backend.beginFrame()) {
         try backend.endFrame();
     }
@@ -44,11 +55,17 @@ pub fn deinit() void {
     backend.deinit();
 }
 
+// State for resizing
+var frames_since_resize: usize = 0;
+var w: u16 = 800;
+var h: u16 = 600;
+var resizing = false;
+
 pub fn onResize(ev: Events.Event) void {
-    // TODO: make this only happen when 30 frames have passed since last resize event
-    const w = ev.WindowResize.w;
-    const h = ev.WindowResize.h;
-    backend.onResize(w, h);
+    frames_since_resize = 0;
+    w = ev.WindowResize.w;
+    h = ev.WindowResize.h;
+    resizing = true;
 }
 
 const types = @import("renderer/rendertypes.zig");

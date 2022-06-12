@@ -87,10 +87,6 @@ var recreating_swapchain = false;
 var size_gen: usize = 0;
 var last_size_gen: usize = 0;
 
-/// cached dimensions of the framebuffer
-var cached_width: u32 = 0;
-var cached_height: u32 = 0;
-
 // these will be part of the shader system
 
 /// descriptor set layout for global data (i.e. camera transform)
@@ -156,13 +152,8 @@ pub fn init(provided_allocator: Allocator, app_name: [*:0]const u8, window: Plat
     // load the base dispatch functions
     vkb = try BaseDispatch.load(vk_proc);
 
-    cached_width = 0;
-    cached_height = 0;
-
-    fb_width = if (cached_width != 0) cached_width else 800;
-    fb_height = if (cached_height != 0) cached_height else 600;
-    cached_width = 0;
-    cached_height = 0;
+    fb_width = 800;
+    fb_height = 600;
 
     const app_info = vk.ApplicationInfo{
         .p_application_name = app_name,
@@ -376,10 +367,10 @@ pub fn deinit() void {
 }
 
 pub fn onResize(w: u32, h: u32) void {
-    cached_width = w;
-    cached_height = h;
     size_gen += 1;
     std.log.warn("resize triggered: {}x{}, gen: {}", .{ w, h, size_gen });
+    fb_width = w;
+    fb_height = h;
 }
 
 pub fn beginFrame() !bool {
@@ -574,13 +565,7 @@ fn recreateSwapchain() !bool {
     try device.vkd.deviceWaitIdle(device.logical);
     std.log.info("device done waiting", .{});
 
-    try swapchain.recreate(vki, device, surface, cached_width, cached_height, allocator);
-
-    fb_width = cached_width;
-    fb_height = cached_height;
-
-    cached_width = 0;
-    cached_height = 0;
+    try swapchain.recreate(vki, device, surface, fb_width, fb_height, allocator);
 
     last_size_gen = size_gen;
 
@@ -607,8 +592,6 @@ fn recreateSwapchain() !bool {
 
     recreating_swapchain = false;
     std.log.info("done recreating swapchain", .{});
-
-    //frame_number += 1;
 
     return true;
 }
@@ -768,7 +751,6 @@ fn createDescriptors() !void {
 fn updateDescriptorSets() !void {
     try global_buffer.load(device, GlobalData, &[_]GlobalData{cam_data}, 0);
     try model_buffer.load(device, Mat4, model_data[0..], 0);
-    //const val = (@sin(@intToFloat(f32, frame_number) * 0.16) + 1.0) / 2.0;
     try material_buffer.load(device, MaterialData, &[_]MaterialData{.{
         .albedo = Vec3.new(1, 1, 1),
     }}, 0);

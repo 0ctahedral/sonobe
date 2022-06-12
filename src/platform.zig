@@ -77,8 +77,6 @@ pub fn flush() bool {
     }
     if (rev) |r| {
         Events.send(Events.Event{ .WindowResize = r });
-        //Renderer.resize(r.w, r.h);
-        //return false;
     }
 
     return true;
