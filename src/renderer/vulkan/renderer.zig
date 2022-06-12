@@ -433,14 +433,6 @@ pub fn beginFrame() !bool {
 
     device.vkd.cmdBindPipeline(cb.handle, .graphics, pipeline.handle);
 
-    return true;
-}
-
-pub fn endFrame() !void {
-    var cb: *CommandBuffer = &getCurrentFrame().cmdbuf;
-
-    // this stuff should be in a middle area where we are actually drawing the frame
-
     // this is some material system shit
     try updateDescriptorSets();
 
@@ -460,18 +452,42 @@ pub fn endFrame() !void {
         undefined,
     );
 
-    const offsets = [_]vk.DeviceSize{ 0, 4 * @sizeOf(Vec3) };
-    const buffers = [_]vk.Buffer{
-        Resources.getBackingBuffer(.Vertex).handle,
-        Resources.getBackingBuffer(.Vertex).handle,
-    };
-    device.vkd.cmdBindVertexBuffers(cb.handle, 0, 2, @ptrCast([*]const vk.Buffer, buffers[0..]), offsets[0..]);
-    device.vkd.cmdBindIndexBuffer(cb.handle, Resources.getBackingBuffer(.Index).handle, 0, .uint32);
-
     // push some constants to this bih
     device.vkd.cmdPushConstants(cb.handle, pipeline.layout, .{ .vertex_bit = true }, 0, @intCast(u32, @sizeOf(MeshPushConstants)), &push_constant);
 
-    device.vkd.cmdDrawIndexed(cb.handle, 6, 1, 0, 0, 0);
+    return true;
+}
+
+pub fn drawGeometry(desc: types.DrawDesc) void {
+    var cb: *CommandBuffer = &getCurrentFrame().cmdbuf;
+
+    const vert_res = Resources.getResource(desc.vertex_handle).Buffer;
+    const ind_res = Resources.getResource(desc.index_handle).Buffer;
+
+    const offsets = [_]vk.DeviceSize{ vert_res.offset, vert_res.offset + 4 * @sizeOf(Vec3) };
+    const buffers = [_]vk.Buffer{
+        Resources.getBackingBuffer(vert_res.desc.usage).handle,
+        Resources.getBackingBuffer(vert_res.desc.usage).handle,
+    };
+    device.vkd.cmdBindVertexBuffers(
+        cb.handle,
+        0,
+        2,
+        @ptrCast([*]const vk.Buffer, buffers[0..]),
+        offsets[0..],
+    );
+    device.vkd.cmdBindIndexBuffer(
+        cb.handle,
+        Resources.getBackingBuffer(ind_res.desc.usage).handle,
+        ind_res.offset,
+        .uint32,
+    );
+
+    device.vkd.cmdDrawIndexed(cb.handle, desc.count, 1, 0, 0, 0);
+}
+
+pub fn endFrame() !void {
+    var cb: *CommandBuffer = &getCurrentFrame().cmdbuf;
 
     default_renderpass.end(device, cb);
     // --------

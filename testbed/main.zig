@@ -38,7 +38,8 @@ theta: f32 = 0,
 /// transform of the quad
 t: Transform = .{},
 
-quad_buf: Renderer.Handle = undefined,
+quad_verts: Renderer.Handle = undefined,
+quad_inds: Renderer.Handle = undefined,
 
 pub fn init(app: *App) !void {
     _ = app;
@@ -49,22 +50,22 @@ pub fn init(app: *App) !void {
 
     // allocate buffer and upload data
     std.log.debug("size of texcoords: {}", .{@sizeOf(@TypeOf(texcoords))});
-    app.quad_buf = try Renderer.createBuffer(
+    app.quad_verts = try Renderer.createBuffer(
         .{
             .size = @sizeOf(@TypeOf(texcoords)) + @sizeOf(@TypeOf(positions)),
             .usage = .Vertex,
         },
     );
-    var offset = try Renderer.updateBuffer(app.quad_buf, 0, Vec3, positions[0..]);
-    offset = try Renderer.updateBuffer(app.quad_buf, offset, Vec2, texcoords[0..]);
+    var offset = try Renderer.updateBuffer(app.quad_verts, 0, Vec3, positions[0..]);
+    offset = try Renderer.updateBuffer(app.quad_verts, offset, Vec2, texcoords[0..]);
 
-    const ind_buf = try Renderer.createBuffer(
+    app.quad_inds = try Renderer.createBuffer(
         .{
             .size = @sizeOf(@TypeOf(quad_inds)),
             .usage = .Index,
         },
     );
-    _ = try Renderer.updateBuffer(ind_buf, 0, u32, quad_inds[0..]);
+    _ = try Renderer.updateBuffer(app.quad_inds, 0, u32, quad_inds[0..]);
 }
 
 pub fn update(app: *App) !void {
@@ -73,8 +74,11 @@ pub fn update(app: *App) !void {
 }
 
 pub fn render(app: *App, cmd: *CmdBuf) !void {
-    _ = app;
-    try cmd.draw(.{ .count = 6, .handle = 0 });
+    try cmd.drawIndexed(.{
+        .count = 6,
+        .vertex_handle = app.quad_verts,
+        .index_handle = app.quad_inds,
+    });
 }
 
 pub fn deinit(app: *App) void {

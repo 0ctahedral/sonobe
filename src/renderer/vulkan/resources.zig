@@ -176,6 +176,6 @@ pub fn getBackingBuffer(usage: types.BufferDesc.Usage) Buffer {
 }
 
 /// helper to get the resource from the freelist
-pub fn getResource(handle: Handle) Resource {
+pub fn getResource(handle: Handle) *Resource {
     return resources.get(handle.resource);
 }

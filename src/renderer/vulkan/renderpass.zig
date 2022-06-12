@@ -148,12 +148,7 @@ pub const RenderPass = struct {
     ) void {
         var clear_values: [2]vk.ClearValue = undefined;
         // color
-        clear_values[0] = vk.ClearValue{ .color = .{ .float_32 = .{
-            self.clear_color[0],
-            self.clear_color[1],
-            self.clear_color[2],
-            self.clear_color[3],
-        } } };
+        clear_values[0] = vk.ClearValue{ .color = .{ .float_32 = self.clear_color } };
         // depth
         clear_values[1] = vk.ClearValue{ .depth_stencil = .{
             .depth = self.depth,

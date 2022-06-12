@@ -1,4 +1,5 @@
 //! these buffers are used for sumitting instructions for rendering a scene
+const types = @import("rendertypes.zig");
 
 const CmdBuf = @This();
 /// Commands that are submitted with a command buffer
@@ -9,11 +10,13 @@ const Command = enum {
     // EndRenderPass,
     /// draw geometry specified with some kind of indirection
     Draw,
+    BeginRenderPass,
 };
 
-/// Info that stores all the data related to the command
+/// Desc that stores all the data related to the command
 const CommandDecl = union(Command) {
-    Draw: DrawInfo,
+    Draw: types.DrawDesc,
+    BeginRenderPass: types.RenderPassDesc,
 };
 
 /// maximum number of commands that can be held by a buffer
@@ -36,16 +39,12 @@ inline fn getNextIdx(self: *CmdBuf) !usize {
     return ret;
 }
 
-/// data for a draw call
-/// right now it can only be indexed
-pub const DrawInfo = struct {
-    /// number of indices to draw
-    count: u32,
-    /// handle for the buffer we are drawing from
-    handle: usize,
-};
+pub fn drawIndexed(self: *CmdBuf, info: types.DrawDesc) !void {
+    const idx = try self.getNextIdx();
+    self.commands[idx] = .{ .Draw = info };
+}
 
-pub fn draw(self: *CmdBuf, info: DrawInfo) !void {
-    const idx = self.idx;
+pub fn beginRenderPass(self: *CmdBuf, info: types.DrawDesc) !void {
+    const idx = try self.getNextIdx();
     self.commands[idx] = .{ .Draw = info };
 }

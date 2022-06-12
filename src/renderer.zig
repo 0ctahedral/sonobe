@@ -47,6 +47,14 @@ pub fn drawFrame(cmdbuf: CmdBuf) !void {
     }
 
     if (try backend.beginFrame()) {
+        var i: usize = 0;
+        while (i < cmdbuf.idx) : (i += 1) {
+            switch (cmdbuf.commands[i]) {
+                .Draw => |info| backend.drawGeometry(info),
+                // anything else is a no-op for now
+                else => {},
+            }
+        }
         try backend.endFrame();
     }
 }
@@ -71,6 +79,7 @@ pub fn onResize(ev: Events.Event) void {
 const types = @import("renderer/rendertypes.zig");
 pub const Handle = types.Handle;
 pub const BufferDesc = types.BufferDesc;
+pub const RenderPassDesc = types.RenderPassDesc;
 
 pub fn createBuffer(desc: BufferDesc) !Handle {
     return backend.Resources.createBuffer(desc);

@@ -3,6 +3,16 @@ pub const Handle = struct {
     resource: u32,
 };
 
+/// data for a draw call
+/// right now it can only be indexed
+pub const DrawDesc = struct {
+    /// number of indices to draw
+    count: u32,
+    /// handle for the buffer we are drawing from
+    vertex_handle: Handle,
+    index_handle: Handle,
+};
+
 // buffer stuff
 pub const BufferDesc = struct {
     pub const Usage = enum {
