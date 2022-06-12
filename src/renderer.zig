@@ -4,6 +4,8 @@ const std = @import("std");
 const Allocator = std.mem.Allocator;
 const Platform = @import("platform.zig");
 const Events = @import("events.zig");
+const App = @import("app");
+const RingBuffer = @import("containers.zig").RingBuffer;
 
 const Transform = @import("math.zig").Transform;
 
@@ -13,8 +15,8 @@ const backend = @import("renderer/vulkan/renderer.zig");
 
 pub const CmdBuf = @import("renderer/cmdbuf.zig");
 
-pub fn init(provided_allocator: Allocator, app_name: [*:0]const u8, window: Platform.Window) !void {
-    try backend.init(provided_allocator, app_name, window);
+pub fn init(_allocator: Allocator, app_name: [*:0]const u8, window: Platform.Window) !void {
+    try backend.init(_allocator, app_name, window);
 
     // TODO: remove this when we have an api for changing stuff about the mesh
     var t: Transform = .{};
@@ -24,15 +26,26 @@ pub fn init(provided_allocator: Allocator, app_name: [*:0]const u8, window: Plat
 
     // register for resize event
     try Events.register(Events.EventType.WindowResize, onResize);
+
+    submitted_cmds = RingBuffer(CmdBuf, 32).init();
 }
+
+var submitted_cmds: RingBuffer(CmdBuf, 32) = undefined;
 
 // TODO: make a command pool api
 pub fn getCmdBuf() CmdBuf {
     return .{};
 }
 
-pub fn drawFrame(cmdbuf: CmdBuf) !void {
-    _ = cmdbuf;
+/// Submit a command buffer to be run by the renderer
+pub fn submit(cmdbuf: CmdBuf) !void {
+    try submitted_cmds.push(cmdbuf);
+}
+
+pub fn drawFrame() !void {
+    // regardless of control flow we need to reset the command buffer
+    // at the end of this function
+    defer submitted_cmds.clear();
 
     if (resizing) {
         frames_since_resize += 1;
@@ -47,13 +60,8 @@ pub fn drawFrame(cmdbuf: CmdBuf) !void {
     }
 
     if (try backend.beginFrame()) {
-        var i: usize = 0;
-        while (i < cmdbuf.idx) : (i += 1) {
-            switch (cmdbuf.commands[i]) {
-                .Draw => |info| backend.drawGeometry(info),
-                // anything else is a no-op for now
-                else => {},
-            }
+        while (submitted_cmds.pop()) |cmdbuf| {
+            try backend.submit(cmdbuf);
         }
         try backend.endFrame();
     }

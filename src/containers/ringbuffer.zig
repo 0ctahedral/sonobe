@@ -1,7 +1,7 @@
 const std = @import("std");
 const testing = std.testing;
 
-pub fn Ringbuffer(
+pub fn RingBuffer(
     comptime T: type,
     comptime capacity: usize,
 ) type {
@@ -102,7 +102,7 @@ pub fn Ringbuffer(
 }
 
 test "ringbuffer init" {
-    var rb = Ringbuffer(u8, 10).init();
+    var rb = RingBuffer(u8, 10).init();
     defer rb.deinit();
 
     // check that data is the same size
@@ -113,7 +113,7 @@ test "ringbuffer init" {
 }
 
 test "push pop" {
-    var rb = Ringbuffer(u8, 10).init();
+    var rb = RingBuffer(u8, 10).init();
     defer rb.deinit();
 
     // cannot pop an empty buffer
@@ -152,7 +152,7 @@ test "push pop" {
 test "different types" {
     const vec = struct { x: f32 = 0, y: f32 = 0 };
 
-    var rb = Ringbuffer(vec, 10).init();
+    var rb = RingBuffer(vec, 10).init();
 
     try rb.push(.{});
     try rb.push(.{ .x = 10 });

@@ -3,6 +3,6 @@
 //!
 
 pub const hash = @import("./containers/hash.zig");
-pub const Ringbuffer = @import("./containers/ringbuffer.zig").Ringbuffer;
+pub const RingBuffer = @import("./containers/ringbuffer.zig").RingBuffer;
 pub const FreeList = @import("./containers/freelist.zig").FreeList;
 pub const Cache = @import("./containers/cache.zig").Cache;

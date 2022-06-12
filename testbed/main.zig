@@ -73,12 +73,15 @@ pub fn update(app: *App) !void {
     app.theta += 0.033;
 }
 
-pub fn render(app: *App, cmd: *CmdBuf) !void {
+pub fn render(app: *App) !void {
+    var cmd = Renderer.getCmdBuf();
     try cmd.drawIndexed(.{
         .count = 6,
         .vertex_handle = app.quad_verts,
         .index_handle = app.quad_inds,
     });
+
+    try Renderer.submit(cmd);
 }
 
 pub fn deinit(app: *App) void {

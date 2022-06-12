@@ -6,6 +6,7 @@ const Platform = @import("../../platform.zig");
 
 const types = @import("../rendertypes.zig");
 const Handle = types.Handle;
+const CmdBuf = @import("../cmdbuf.zig");
 
 const dispatch_types = @import("dispatch_types.zig");
 const BaseDispatch = dispatch_types.BaseDispatch;
@@ -408,12 +409,26 @@ pub fn beginFrame() !bool {
     try getCurrentFrame().render_fence.reset(device);
     //std.log.debug("image idx: {}", .{image_index});
 
+    return true;
+}
+
+/// subit a command buffer
+pub fn submit(cmdbuf: CmdBuf) !void {
     var cb: *CommandBuffer = &getCurrentFrame().cmdbuf;
     cb.reset();
     try cb.begin(device, .{});
 
+    // ---- all this will be in a future commands ----
+
     // set the viewport
-    const viewport = vk.Viewport{ .x = 0, .y = @intToFloat(f32, fb_height), .width = @intToFloat(f32, fb_width), .height = -@intToFloat(f32, fb_height), .min_depth = 0, .max_depth = 1 };
+    const viewport = vk.Viewport{
+        .x = 0,
+        .y = @intToFloat(f32, fb_height),
+        .width = @intToFloat(f32, fb_width),
+        .height = -@intToFloat(f32, fb_height),
+        .min_depth = 0,
+        .max_depth = 1,
+    };
     device.vkd.cmdSetViewport(cb.handle, 0, 1, @ptrCast([*]const vk.Viewport, &viewport));
 
     // set the scissor (region we are clipping)
@@ -427,14 +442,14 @@ pub fn beginFrame() !bool {
 
     device.vkd.cmdSetScissor(cb.handle, 0, 1, @ptrCast([*]const vk.Rect2D, &scissor));
 
-    // --------
-
     default_renderpass.begin(device, cb, swapchain_render_targets[image_index].framebuffer);
 
     device.vkd.cmdBindPipeline(cb.handle, .graphics, pipeline.handle);
 
     // this is some material system shit
     try updateDescriptorSets();
+
+    // ----------------------------------
 
     const descriptor_sets = [_]vk.DescriptorSet{
         global_descriptor_sets[getCurrentFrame().index],
@@ -455,12 +470,23 @@ pub fn beginFrame() !bool {
     // push some constants to this bih
     device.vkd.cmdPushConstants(cb.handle, pipeline.layout, .{ .vertex_bit = true }, 0, @intCast(u32, @sizeOf(MeshPushConstants)), &push_constant);
 
-    return true;
+    var i: usize = 0;
+    while (i < cmdbuf.idx) : (i += 1) {
+        switch (cmdbuf.commands[i]) {
+            .Draw => |desc| applyDraw(cb, desc),
+            // anything else is a no-op for now
+            else => {},
+        }
+    }
+
+    // ---- this stuff too ----
+
+    default_renderpass.end(device, cb);
+
+    try cb.end(device);
 }
 
-pub fn drawGeometry(desc: types.DrawDesc) void {
-    var cb: *CommandBuffer = &getCurrentFrame().cmdbuf;
-
+fn applyDraw(cb: *CommandBuffer, desc: types.DrawDesc) void {
     const vert_res = Resources.getResource(desc.vertex_handle).Buffer;
     const ind_res = Resources.getResource(desc.index_handle).Buffer;
 
@@ -488,13 +514,6 @@ pub fn drawGeometry(desc: types.DrawDesc) void {
 
 pub fn endFrame() !void {
     var cb: *CommandBuffer = &getCurrentFrame().cmdbuf;
-
-    default_renderpass.end(device, cb);
-    // --------
-
-    try cb.end(device);
-
-    // wait for the previous frame?
 
     // waits for the this stage to write
     const wait_stage = [_]vk.PipelineStageFlags{.{ .color_attachment_output_bit = true }};

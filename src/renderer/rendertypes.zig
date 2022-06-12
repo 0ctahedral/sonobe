@@ -37,3 +37,21 @@ pub const TextureDesc = struct {
         writable: bool = false,
     },
 };
+
+pub const RenderPassDesc = struct {
+    /// color this renderpass should clear the rendertarget to
+    clear_color: [4]f32,
+    /// value the renderpass should clear the rendertarget depth bufffer to
+    clear_depth: f32,
+    /// value the renderpass should clear the rendertarget stencil buffer to
+    clear_stencil: f32,
+    /// flags for which values should actully be cleared
+    clear_flags: packed struct {
+        color: bool = false,
+        depth: bool = false,
+        stencil: bool = false,
+    },
+
+    // TODO: area that this renderpass should actully change, for now there is no
+    // use for renderpasses that don't cover the target
+};

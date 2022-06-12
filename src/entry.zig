@@ -32,10 +32,9 @@ pub fn main() !void {
 
     while (Platform.is_running) {
         if (Platform.flush()) {
-            var cmdbuf = Renderer.getCmdBuf();
             try app.update();
-            try app.render(&cmdbuf);
-            try Renderer.drawFrame(cmdbuf);
+            try app.render();
+            try Renderer.drawFrame();
         }
     }
 }

@@ -35,14 +35,18 @@ pub fn FreeList(
                 .allocator = allocator,
                 .mem = try allocator.alloc(Item, size),
             };
-            // TODO: is this necessary?
+            self.reset();
+            return self;
+        }
+
+        /// resets the whole command pool
+        pub fn reset(self: *Self) void {
             for (self.mem) |*u, i| {
                 u.* = .{ .next = @intCast(u32, i) + 1 };
             }
             // set head
             self.mem[0] = .{ .next = 1 };
-            self.mem[size - 1] = .{ .next = 0 };
-            return self;
+            self.mem[self.mem.len - 1] = .{ .next = 0 };
         }
 
         // TODO: this should be default
