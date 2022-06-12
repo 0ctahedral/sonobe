@@ -88,6 +88,8 @@ pub fn render(app: *App) !void {
 
     try cmd.beginRenderPass(rp_desc);
 
+    try cmd.bindPipeline(.{});
+
     try cmd.drawIndexed(.{
         .count = 6,
         .vertex_handle = app.quad_verts,

@@ -11,15 +11,18 @@ pub const Pipeline = struct {
     handle: vk.Pipeline,
     layout: vk.PipelineLayout,
 
+    /// shader modules used in this pipeline
+    modules: [2]vk.ShaderModule = undefined,
+
     pub fn init(
-        dev: Device,
+        device: Device,
         renderpass: RenderPass,
         descriptor_set_layouts: []const vk.DescriptorSetLayout,
         push_constants: []const vk.PushConstantRange,
-        stages: []const vk.PipelineShaderStageCreateInfo,
         viewport: vk.Viewport,
         scissor: vk.Rect2D,
         wireframe: bool,
+        allocator: std.mem.Allocator,
     ) !Self {
         var self: Self = undefined;
 
@@ -114,7 +117,7 @@ pub const Pipeline = struct {
             .primitive_restart_enable = vk.FALSE,
         };
 
-        self.layout = try dev.vkd.createPipelineLayout(dev.logical, &.{
+        self.layout = try device.vkd.createPipelineLayout(device.logical, &.{
             .flags = .{},
             .set_layout_count = @intCast(u32, descriptor_set_layouts.len),
             .p_set_layouts = descriptor_set_layouts.ptr,
@@ -122,10 +125,42 @@ pub const Pipeline = struct {
             .p_push_constant_ranges = push_constants.ptr,
         }, null);
 
+        // setup the stages
+        var stages: [2]vk.PipelineShaderStageCreateInfo = undefined;
+        const stage_types = [_]vk.ShaderStageFlags{
+            .{ .vertex_bit = true },
+            .{ .fragment_bit = true },
+        };
+
+        const stage_names = [_][]const u8{
+            "builtin.vert",
+            "builtin.frag",
+        };
+
+        for (self.modules) |*m, i| {
+            const data = try loadShader(stage_names[i], allocator);
+
+            m.* = try device.vkd.createShaderModule(device.logical, &.{
+                .flags = .{},
+                .code_size = data.len,
+                .p_code = @ptrCast([*]const u32, @alignCast(4, data)),
+            }, null);
+
+            stages[i] = .{
+                .flags = .{},
+                .stage = stage_types[i],
+                .module = m.*,
+                .p_name = "main",
+                .p_specialization_info = null,
+            };
+
+            allocator.free(data);
+        }
+
         const gpci = vk.GraphicsPipelineCreateInfo{
             .flags = .{},
             .stage_count = @intCast(u32, stages.len),
-            .p_stages = stages.ptr,
+            .p_stages = &stages,
             .p_vertex_input_state = &vertex_input_ci,
             .p_input_assembly_state = &input_assembly,
             .p_tessellation_state = null,
@@ -142,8 +177,8 @@ pub const Pipeline = struct {
             .base_pipeline_index = -1,
         };
 
-        _ = try dev.vkd.createGraphicsPipelines(
-            dev.logical,
+        _ = try device.vkd.createGraphicsPipelines(
+            device.logical,
             .null_handle,
             1,
             @ptrCast([*]const vk.GraphicsPipelineCreateInfo, &gpci),
@@ -154,20 +189,31 @@ pub const Pipeline = struct {
         return self;
     }
 
-    pub fn bind(
-        self: Self,
-        dev: Device,
-        cmd_buf: CommandBuffer,
-        bind_point: vk.PipelineBindPoint,
-    ) void {
-        dev.vkd.cmdBindPipeline(cmd_buf.handle, bind_point, self.handle);
+    fn loadShader(name: []const u8, alloctor: std.mem.Allocator) ![]u8 {
+        // path for assets
+        var buf: [512]u8 = undefined;
+        const path = try std.fmt.bufPrint(buf[0..], "assets/{s}.spv", .{name});
+
+        std.log.info("finding file: {s}", .{path});
+
+        const f = try std.fs.cwd().openFile(path, .{ .read = true });
+        defer f.close();
+
+        const ret = try alloctor.alloc(u8, (try f.stat()).size);
+
+        _ = try f.readAll(ret);
+
+        return ret;
     }
 
     pub fn deinit(
         self: Self,
-        dev: Device,
+        device: Device,
     ) void {
-        dev.vkd.destroyPipeline(dev.logical, self.handle, null);
-        dev.vkd.destroyPipelineLayout(dev.logical, self.layout, null);
+        for (self.modules) |m| {
+            device.vkd.destroyShaderModule(device.logical, m, null);
+        }
+        device.vkd.destroyPipeline(device.logical, self.handle, null);
+        device.vkd.destroyPipelineLayout(device.logical, self.layout, null);
     }
 };

@@ -1,6 +1,6 @@
 pub const Handle = struct {
     /// index of this resource
-    resource: u32,
+    resource: u32 = 0,
 };
 
 /// data for a draw call
@@ -38,6 +38,7 @@ pub const TextureDesc = struct {
     },
 };
 
+// TODO: add more details like attachments and subpasses and stuff
 pub const RenderPassDesc = struct {
     /// color this renderpass should clear the rendertarget to
     clear_color: [4]f32,

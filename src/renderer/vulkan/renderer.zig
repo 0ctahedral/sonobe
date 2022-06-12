@@ -20,7 +20,6 @@ const RenderPass = @import("renderpass.zig").RenderPass;
 const CommandBuffer = @import("commandbuffer.zig").CommandBuffer;
 const Fence = @import("fence.zig").Fence;
 const Semaphore = @import("semaphore.zig").Semaphore;
-const Shader = @import("shader.zig").Shader;
 const Pipeline = @import("pipeline.zig").Pipeline;
 const Mesh = @import("mesh.zig").Mesh;
 const Buffer = @import("buffer.zig").Buffer;
@@ -58,9 +57,6 @@ var allocator: Allocator = undefined;
 // TODO: these will eventually not exist
 
 var default_renderpass: RenderPass = undefined;
-
-/// Shader currently used by the pipeline
-var shader: Shader = undefined;
 
 /// pipeline currently being used
 var pipeline: Pipeline = undefined;
@@ -272,9 +268,6 @@ pub fn init(provided_allocator: Allocator, app_name: [*:0]const u8, window: Plat
         f.* = try FrameData.init(device, i);
     }
 
-    // create shader
-    shader = try Shader.init(device, allocator);
-
     // create pipeline
     try createPipeline();
 
@@ -339,8 +332,6 @@ pub fn deinit() void {
     Resources.deinit();
     destroyBuffers();
     pipeline.deinit(device);
-
-    shader.deinit(device);
 
     for (frames) |*f| {
         f.deinit(device);
@@ -418,14 +409,29 @@ pub fn submit(cmdbuf: CmdBuf) !void {
     cb.reset();
     try cb.begin(device, .{});
 
-    // ---- all this will be in a future commands ----
+    // push some constants to this bih
+    device.vkd.cmdPushConstants(cb.handle, pipeline.layout, .{ .vertex_bit = true }, 0, @intCast(u32, @sizeOf(MeshPushConstants)), &push_constant);
+
+    var i: usize = 0;
+    while (i < cmdbuf.idx) : (i += 1) {
+        switch (cmdbuf.commands[i]) {
+            .Draw => |desc| applyDraw(cb, desc),
+            .BeginRenderPass => |desc| applyBeginRenderPass(cb, desc),
+            .EndRenderPass => |desc| applyEndRenderPass(cb, desc),
+            .BindPipeline => |handle| try applyBindPipeline(cb, handle),
+        }
+    }
+
+    try cb.end(device);
+}
+
+fn applyBindPipeline(cb: *CommandBuffer, handle: types.Handle) !void {
+    _ = handle;
 
     device.vkd.cmdBindPipeline(cb.handle, .graphics, pipeline.handle);
 
     // this is some material system shit
     try updateDescriptorSets();
-
-    // ----------------------------------
 
     const descriptor_sets = [_]vk.DescriptorSet{
         global_descriptor_sets[getCurrentFrame().index],
@@ -442,20 +448,6 @@ pub fn submit(cmdbuf: CmdBuf) !void {
         0,
         undefined,
     );
-
-    // push some constants to this bih
-    device.vkd.cmdPushConstants(cb.handle, pipeline.layout, .{ .vertex_bit = true }, 0, @intCast(u32, @sizeOf(MeshPushConstants)), &push_constant);
-
-    var i: usize = 0;
-    while (i < cmdbuf.idx) : (i += 1) {
-        switch (cmdbuf.commands[i]) {
-            .Draw => |desc| applyDraw(cb, desc),
-            .BeginRenderPass => |desc| applyBeginRenderPass(cb, desc),
-            .EndRenderPass => |desc| applyEndRenderPass(cb, desc),
-        }
-    }
-
-    try cb.end(device);
 }
 
 fn applyEndRenderPass(cb: *CommandBuffer, desc: types.RenderPassDesc) void {
@@ -679,7 +671,7 @@ fn destroyBuffers() void {
     material_buffer.deinit(device);
 }
 
-// TODO: find a home for this in shader
+// TODO: find a home for this in pipeline
 fn createPipeline() !void {
     const viewport = vk.Viewport{ .x = 0, .y = @intToFloat(f32, fb_height), .width = @intToFloat(f32, fb_width), .height = -@intToFloat(f32, fb_height), .min_depth = 0, .max_depth = 1 };
 
@@ -695,7 +687,7 @@ fn createPipeline() !void {
         .stage_flags = .{ .vertex_bit = true },
         .offset = 0,
         .size = @intCast(u32, @sizeOf(MeshPushConstants)),
-    }}, &shader.stage_ci, viewport, scissor, false);
+    }}, viewport, scissor, false, allocator);
 }
 
 fn upload(pool: vk.CommandPool, buffer: Buffer, comptime T: type, items: []const T) !void {
