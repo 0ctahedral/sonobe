@@ -420,30 +420,6 @@ pub fn submit(cmdbuf: CmdBuf) !void {
 
     // ---- all this will be in a future commands ----
 
-    // set the viewport
-    const viewport = vk.Viewport{
-        .x = 0,
-        .y = @intToFloat(f32, fb_height),
-        .width = @intToFloat(f32, fb_width),
-        .height = -@intToFloat(f32, fb_height),
-        .min_depth = 0,
-        .max_depth = 1,
-    };
-    device.vkd.cmdSetViewport(cb.handle, 0, 1, @ptrCast([*]const vk.Viewport, &viewport));
-
-    // set the scissor (region we are clipping)
-    const scissor = vk.Rect2D{
-        .offset = .{ .x = 0, .y = 0 },
-        .extent = .{
-            .width = fb_width,
-            .height = fb_height,
-        },
-    };
-
-    device.vkd.cmdSetScissor(cb.handle, 0, 1, @ptrCast([*]const vk.Rect2D, &scissor));
-
-    default_renderpass.begin(device, cb, swapchain_render_targets[image_index].framebuffer);
-
     device.vkd.cmdBindPipeline(cb.handle, .graphics, pipeline.handle);
 
     // this is some material system shit
@@ -474,16 +450,61 @@ pub fn submit(cmdbuf: CmdBuf) !void {
     while (i < cmdbuf.idx) : (i += 1) {
         switch (cmdbuf.commands[i]) {
             .Draw => |desc| applyDraw(cb, desc),
-            // anything else is a no-op for now
-            else => {},
+            .BeginRenderPass => |desc| applyBeginRenderPass(cb, desc),
+            .EndRenderPass => |desc| applyEndRenderPass(cb, desc),
         }
     }
 
-    // ---- this stuff too ----
-
-    default_renderpass.end(device, cb);
-
     try cb.end(device);
+}
+
+fn applyEndRenderPass(cb: *CommandBuffer, desc: types.RenderPassDesc) void {
+    _ = desc;
+    default_renderpass.end(device, cb);
+}
+
+fn applyBeginRenderPass(cb: *CommandBuffer, desc: types.RenderPassDesc) void {
+
+    // set the viewport
+    const viewport = vk.Viewport{
+        .x = 0,
+        .y = @intToFloat(f32, fb_height),
+        .width = @intToFloat(f32, fb_width),
+        .height = -@intToFloat(f32, fb_height),
+        .min_depth = 0,
+        .max_depth = 1,
+    };
+    device.vkd.cmdSetViewport(cb.handle, 0, 1, @ptrCast([*]const vk.Viewport, &viewport));
+
+    // set the scissor (region we are clipping)
+    const scissor = vk.Rect2D{
+        .offset = .{ .x = 0, .y = 0 },
+        .extent = .{
+            .width = fb_width,
+            .height = fb_height,
+        },
+    };
+
+    device.vkd.cmdSetScissor(cb.handle, 0, 1, @ptrCast([*]const vk.Rect2D, &scissor));
+
+    // default_renderpass.begin(device, cb, swapchain_render_targets[image_index].framebuffer);
+
+    var clear_values: [2]vk.ClearValue = undefined;
+    // color
+    clear_values[0] = vk.ClearValue{ .color = .{ .float_32 = desc.clear_color } };
+    // depth
+    clear_values[1] = vk.ClearValue{ .depth_stencil = .{
+        .depth = desc.clear_depth,
+        .stencil = desc.clear_stencil,
+    } };
+
+    device.vkd.cmdBeginRenderPass(cb.handle, &.{
+        .render_pass = default_renderpass.handle,
+        .framebuffer = swapchain_render_targets[image_index].framebuffer,
+        .render_area = scissor,
+        .clear_value_count = clear_values.len,
+        .p_clear_values = @ptrCast([*]const vk.ClearValue, &clear_values[0]),
+    }, .@"inline");
 }
 
 fn applyDraw(cb: *CommandBuffer, desc: types.DrawDesc) void {

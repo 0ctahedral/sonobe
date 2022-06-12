@@ -75,11 +75,26 @@ pub fn update(app: *App) !void {
 
 pub fn render(app: *App) !void {
     var cmd = Renderer.getCmdBuf();
+
+    const rp_desc = .{
+        .clear_color = .{ 0.0, 1.0, 0.0, 1.0 },
+        .clear_depth = 1.0,
+        .clear_stencil = 1.0,
+        .clear_flags = .{
+            .color = true,
+            .depth = true,
+        },
+    };
+
+    try cmd.beginRenderPass(rp_desc);
+
     try cmd.drawIndexed(.{
         .count = 6,
         .vertex_handle = app.quad_verts,
         .index_handle = app.quad_inds,
     });
+
+    try cmd.endRenderPass(rp_desc);
 
     try Renderer.submit(cmd);
 }

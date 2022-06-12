@@ -11,12 +11,14 @@ const Command = enum {
     /// draw geometry specified with some kind of indirection
     Draw,
     BeginRenderPass,
+    EndRenderPass,
 };
 
 /// Desc that stores all the data related to the command
 const CommandDecl = union(Command) {
     Draw: types.DrawDesc,
     BeginRenderPass: types.RenderPassDesc,
+    EndRenderPass: types.RenderPassDesc,
 };
 
 /// maximum number of commands that can be held by a buffer
@@ -39,12 +41,17 @@ inline fn getNextIdx(self: *CmdBuf) !usize {
     return ret;
 }
 
-pub fn drawIndexed(self: *CmdBuf, info: types.DrawDesc) !void {
+pub fn drawIndexed(self: *CmdBuf, descinfo: types.DrawDesc) !void {
     const idx = try self.getNextIdx();
-    self.commands[idx] = .{ .Draw = info };
+    self.commands[idx] = .{ .Draw = descinfo };
 }
 
-pub fn beginRenderPass(self: *CmdBuf, info: types.DrawDesc) !void {
+pub fn beginRenderPass(self: *CmdBuf, desc: types.RenderPassDesc) !void {
     const idx = try self.getNextIdx();
-    self.commands[idx] = .{ .Draw = info };
+    self.commands[idx] = .{ .BeginRenderPass = desc };
+}
+
+pub fn endRenderPass(self: *CmdBuf, desc: types.RenderPassDesc) !void {
+    const idx = try self.getNextIdx();
+    self.commands[idx] = .{ .EndRenderPass = desc };
 }
