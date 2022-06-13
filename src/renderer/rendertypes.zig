@@ -57,16 +57,16 @@ pub const RenderPassDesc = struct {
 };
 
 /// Describes a shader pipeline for drawing
-/// we 
+pub const StageDesc = struct {
+    bindpoint: enum {
+        Vertex,
+        Fragment,
+    },
+    path: []const u8,
+
+    // bindings: []const Handle,
+};
 pub const PipelineDesc = struct {
-    const StageDesc = struct {
-        bindpoint: enum {
-            Vertex,
-            Fragment,
-            // TODO: compute?
-        },
-        path: []const u8,
-    };
 
     /// render pass this pipeline is going to draw with
     // render_pass: Handle,

@@ -97,7 +97,7 @@ pub fn createRenderPass(desc: RenderPassDesc) !Handle {
 }
 
 pub fn createPipeline(desc: PipelineDesc) !Handle {
-    _ = desc;
+    try backend.createPipeline(desc);
     // TOOD: pass to backend
     return Handle{};
 }

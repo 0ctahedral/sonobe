@@ -1,5 +1,6 @@
 const std = @import("std");
 const vk = @import("vulkan");
+const PipelineDesc = @import("../rendertypes.zig").PipelineDesc;
 const Device = @import("device.zig").Device;
 const RenderPass = @import("renderpass.zig").RenderPass;
 const CommandBuffer = @import("commandbuffer.zig").CommandBuffer;
@@ -8,14 +9,18 @@ const Mesh = @import("mesh.zig").Mesh;
 pub const Pipeline = struct {
     const Self = @This();
 
-    handle: vk.Pipeline,
-    layout: vk.PipelineLayout,
+    /// maximum number of shader stages
+    const MAX_STAGES = 3;
+
+    handle: vk.Pipeline = .null_handle,
+    layout: vk.PipelineLayout = .null_handle,
 
     /// shader modules used in this pipeline
-    modules: [2]vk.ShaderModule = undefined,
+    modules: [MAX_STAGES]vk.ShaderModule = [_]vk.ShaderModule{.null_handle} ** MAX_STAGES,
 
     pub fn init(
         device: Device,
+        desc: PipelineDesc,
         renderpass: RenderPass,
         descriptor_set_layouts: []const vk.DescriptorSetLayout,
         push_constants: []const vk.PushConstantRange,
@@ -24,7 +29,13 @@ pub const Pipeline = struct {
         wireframe: bool,
         allocator: std.mem.Allocator,
     ) !Self {
-        var self: Self = undefined;
+        var self: Self = .{};
+
+        if (desc.stages.len > MAX_STAGES) {
+            return error.TooManyShaderStages;
+        }
+
+        // THINGS THAT DON'T NEED TO BE CONFIGURABLE YET
 
         const viewport_state = vk.PipelineViewportStateCreateInfo{
             .flags = .{},
@@ -126,30 +137,25 @@ pub const Pipeline = struct {
         }, null);
 
         // setup the stages
-        var stages: [2]vk.PipelineShaderStageCreateInfo = undefined;
-        const stage_types = [_]vk.ShaderStageFlags{
-            .{ .vertex_bit = true },
-            .{ .fragment_bit = true },
-        };
+        var stage_infos: [MAX_STAGES]vk.PipelineShaderStageCreateInfo = undefined;
+        for (desc.stages) |sd, i| {
+            const stage_type: vk.ShaderStageFlags = switch (sd.bindpoint) {
+                .Vertex => .{ .vertex_bit = true },
+                .Fragment => .{ .fragment_bit = true },
+            };
 
-        const stage_names = [_][]const u8{
-            "builtin.vert",
-            "builtin.frag",
-        };
+            const data = try loadShader(sd.path, allocator);
 
-        for (self.modules) |*m, i| {
-            const data = try loadShader(stage_names[i], allocator);
-
-            m.* = try device.vkd.createShaderModule(device.logical, &.{
+            self.modules[i] = try device.vkd.createShaderModule(device.logical, &.{
                 .flags = .{},
                 .code_size = data.len,
                 .p_code = @ptrCast([*]const u32, @alignCast(4, data)),
             }, null);
 
-            stages[i] = .{
+            stage_infos[i] = .{
                 .flags = .{},
-                .stage = stage_types[i],
-                .module = m.*,
+                .stage = stage_type,
+                .module = self.modules[i],
                 .p_name = "main",
                 .p_specialization_info = null,
             };
@@ -159,8 +165,8 @@ pub const Pipeline = struct {
 
         const gpci = vk.GraphicsPipelineCreateInfo{
             .flags = .{},
-            .stage_count = @intCast(u32, stages.len),
-            .p_stages = &stages,
+            .stage_count = @intCast(u32, desc.stages.len),
+            .p_stages = &stage_infos,
             .p_vertex_input_state = &vertex_input_ci,
             .p_input_assembly_state = &input_assembly,
             .p_tessellation_state = null,
@@ -189,11 +195,7 @@ pub const Pipeline = struct {
         return self;
     }
 
-    fn loadShader(name: []const u8, alloctor: std.mem.Allocator) ![]u8 {
-        // path for assets
-        var buf: [512]u8 = undefined;
-        const path = try std.fmt.bufPrint(buf[0..], "assets/{s}.spv", .{name});
-
+    fn loadShader(path: []const u8, alloctor: std.mem.Allocator) ![]u8 {
         std.log.info("finding file: {s}", .{path});
 
         const f = try std.fs.cwd().openFile(path, .{ .read = true });
@@ -211,7 +213,9 @@ pub const Pipeline = struct {
         device: Device,
     ) void {
         for (self.modules) |m| {
-            device.vkd.destroyShaderModule(device.logical, m, null);
+            if (m != .null_handle) {
+                device.vkd.destroyShaderModule(device.logical, m, null);
+            }
         }
         device.vkd.destroyPipeline(device.logical, self.handle, null);
         device.vkd.destroyPipelineLayout(device.logical, self.layout, null);

@@ -74,11 +74,11 @@ pub fn init(app: *App) !void {
         .stages = &.{
             .{
                 .bindpoint = .Vertex,
-                .path = "assets/builtin.vert.glsl",
+                .path = "assets/builtin.vert.spv",
             },
             .{
                 .bindpoint = .Fragment,
-                .path = "assets/builtin.frag.glsl",
+                .path = "assets/builtin.frag.spv",
             },
         },
     });

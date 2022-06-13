@@ -269,7 +269,7 @@ pub fn init(provided_allocator: Allocator, app_name: [*:0]const u8, window: Plat
     }
 
     // create pipeline
-    try createPipeline();
+    // try createPipeline();
 
     // create a texture
     {
@@ -410,7 +410,14 @@ pub fn submit(cmdbuf: CmdBuf) !void {
     try cb.begin(device, .{});
 
     // push some constants to this bih
-    device.vkd.cmdPushConstants(cb.handle, pipeline.layout, .{ .vertex_bit = true }, 0, @intCast(u32, @sizeOf(MeshPushConstants)), &push_constant);
+    device.vkd.cmdPushConstants(
+        cb.handle,
+        pipeline.layout,
+        .{ .vertex_bit = true },
+        0,
+        @intCast(u32, @sizeOf(MeshPushConstants)),
+        &push_constant,
+    );
 
     var i: usize = 0;
     while (i < cmdbuf.idx) : (i += 1) {
@@ -544,6 +551,38 @@ pub fn endFrame() !void {
     frame_number += 1;
 }
 
+// TODO: find a home for this in pipeline
+pub fn createPipeline(desc: types.PipelineDesc) !void {
+    _ = desc;
+    const viewport = vk.Viewport{ .x = 0, .y = @intToFloat(f32, fb_height), .width = @intToFloat(f32, fb_width), .height = -@intToFloat(f32, fb_height), .min_depth = 0, .max_depth = 1 };
+
+    const scissor = vk.Rect2D{
+        .offset = .{ .x = 0, .y = 0 },
+        .extent = .{
+            .width = fb_width,
+            .height = fb_height,
+        },
+    };
+
+    pipeline = try Pipeline.init(
+        device,
+        desc,
+        default_renderpass,
+        &[_]vk.DescriptorSetLayout{ global_descriptor_layout, material_descriptor_layout },
+        &[_]vk.PushConstantRange{
+            .{
+                .stage_flags = .{ .vertex_bit = true },
+                .offset = 0,
+                .size = @intCast(u32, @sizeOf(MeshPushConstants)),
+            },
+        },
+        viewport,
+        scissor,
+        false,
+        allocator,
+    );
+}
+
 // helpers
 
 fn vk_debug(
@@ -652,34 +691,6 @@ fn destroyBuffers() void {
     global_buffer.deinit(device);
     model_buffer.deinit(device);
     material_buffer.deinit(device);
-}
-
-// TODO: find a home for this in pipeline
-fn createPipeline() !void {
-    const viewport = vk.Viewport{ .x = 0, .y = @intToFloat(f32, fb_height), .width = @intToFloat(f32, fb_width), .height = -@intToFloat(f32, fb_height), .min_depth = 0, .max_depth = 1 };
-
-    const scissor = vk.Rect2D{
-        .offset = .{ .x = 0, .y = 0 },
-        .extent = .{
-            .width = fb_width,
-            .height = fb_height,
-        },
-    };
-
-    pipeline = try Pipeline.init(
-        device,
-        default_renderpass,
-        &[_]vk.DescriptorSetLayout{ global_descriptor_layout, material_descriptor_layout },
-        &[_]vk.PushConstantRange{.{
-            .stage_flags = .{ .vertex_bit = true },
-            .offset = 0,
-            .size = @intCast(u32, @sizeOf(MeshPushConstants)),
-        }},
-        viewport,
-        scissor,
-        false,
-        allocator,
-    );
 }
 
 fn upload(pool: vk.CommandPool, buffer: Buffer, comptime T: type, items: []const T) !void {
