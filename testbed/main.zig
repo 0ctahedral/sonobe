@@ -38,8 +38,10 @@ theta: f32 = 0,
 /// transform of the quad
 t: Transform = .{},
 
-quad_verts: Renderer.Handle = undefined,
-quad_inds: Renderer.Handle = undefined,
+quad_verts: Renderer.Handle = .{},
+quad_inds: Renderer.Handle = .{},
+simple_pipeline: Renderer.Handle = .{},
+world_pass: Renderer.Handle = .{},
 
 pub fn init(app: *App) !void {
     _ = app;
@@ -66,15 +68,20 @@ pub fn init(app: *App) !void {
         },
     );
     _ = try Renderer.updateBuffer(app.quad_inds, 0, u32, quad_inds[0..]);
-}
 
-pub fn update(app: *App) !void {
-    // app.t.rot = Quat.fromAxisAngle(Vec3.FORWARD, app.theta);
-    app.theta += 0.033;
-}
-
-pub fn render(app: *App) !void {
-    var cmd = Renderer.getCmdBuf();
+    // create our shader pipeline
+    app.simple_pipeline = try Renderer.createPipeline(.{
+        .stages = &.{
+            .{
+                .bindpoint = .Vertex,
+                .path = "assets/builtin.vert.glsl",
+            },
+            .{
+                .bindpoint = .Fragment,
+                .path = "assets/builtin.frag.glsl",
+            },
+        },
+    });
 
     const rp_desc = .{
         .clear_color = .{ 0.0, 1.0, 0.0, 1.0 },
@@ -86,9 +93,20 @@ pub fn render(app: *App) !void {
         },
     };
 
-    try cmd.beginRenderPass(rp_desc);
+    app.world_pass = try Renderer.createRenderPass(rp_desc);
+}
 
-    try cmd.bindPipeline(.{});
+pub fn update(app: *App) !void {
+    // app.t.rot = Quat.fromAxisAngle(Vec3.FORWARD, app.theta);
+    app.theta += 0.033;
+}
+
+pub fn render(app: *App) !void {
+    var cmd = Renderer.getCmdBuf();
+
+    try cmd.beginRenderPass(app.world_pass);
+
+    try cmd.bindPipeline(app.simple_pipeline);
 
     try cmd.drawIndexed(.{
         .count = 6,
@@ -96,7 +114,7 @@ pub fn render(app: *App) !void {
         .index_handle = app.quad_inds,
     });
 
-    try cmd.endRenderPass(rp_desc);
+    try cmd.endRenderPass(app.world_pass);
 
     try Renderer.submit(cmd);
 }

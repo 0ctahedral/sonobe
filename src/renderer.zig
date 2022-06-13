@@ -88,6 +88,19 @@ const types = @import("renderer/rendertypes.zig");
 pub const Handle = types.Handle;
 pub const BufferDesc = types.BufferDesc;
 pub const RenderPassDesc = types.RenderPassDesc;
+pub const PipelineDesc = types.PipelineDesc;
+
+pub fn createRenderPass(desc: RenderPassDesc) !Handle {
+    _ = desc;
+    // TOOD: pass to backend
+    return Handle{};
+}
+
+pub fn createPipeline(desc: PipelineDesc) !Handle {
+    _ = desc;
+    // TOOD: pass to backend
+    return Handle{};
+}
 
 pub fn createBuffer(desc: BufferDesc) !Handle {
     return backend.Resources.createBuffer(desc);

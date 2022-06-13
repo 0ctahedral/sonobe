@@ -416,8 +416,8 @@ pub fn submit(cmdbuf: CmdBuf) !void {
     while (i < cmdbuf.idx) : (i += 1) {
         switch (cmdbuf.commands[i]) {
             .Draw => |desc| applyDraw(cb, desc),
-            .BeginRenderPass => |desc| applyBeginRenderPass(cb, desc),
-            .EndRenderPass => |desc| applyEndRenderPass(cb, desc),
+            .BeginRenderPass => |handle| applyBeginRenderPass(cb, handle),
+            .EndRenderPass => |handle| applyEndRenderPass(cb, handle),
             .BindPipeline => |handle| try applyBindPipeline(cb, handle),
         }
     }
@@ -450,13 +450,8 @@ fn applyBindPipeline(cb: *CommandBuffer, handle: types.Handle) !void {
     );
 }
 
-fn applyEndRenderPass(cb: *CommandBuffer, desc: types.RenderPassDesc) void {
-    _ = desc;
-    default_renderpass.end(device, cb);
-}
-
-fn applyBeginRenderPass(cb: *CommandBuffer, desc: types.RenderPassDesc) void {
-
+fn applyBeginRenderPass(cb: *CommandBuffer, handle: types.Handle) void {
+    _ = handle;
     // set the viewport
     const viewport = vk.Viewport{
         .x = 0,
@@ -479,24 +474,12 @@ fn applyBeginRenderPass(cb: *CommandBuffer, desc: types.RenderPassDesc) void {
 
     device.vkd.cmdSetScissor(cb.handle, 0, 1, @ptrCast([*]const vk.Rect2D, &scissor));
 
-    // default_renderpass.begin(device, cb, swapchain_render_targets[image_index].framebuffer);
+    default_renderpass.begin(device, cb, swapchain_render_targets[image_index].framebuffer);
+}
 
-    var clear_values: [2]vk.ClearValue = undefined;
-    // color
-    clear_values[0] = vk.ClearValue{ .color = .{ .float_32 = desc.clear_color } };
-    // depth
-    clear_values[1] = vk.ClearValue{ .depth_stencil = .{
-        .depth = desc.clear_depth,
-        .stencil = desc.clear_stencil,
-    } };
-
-    device.vkd.cmdBeginRenderPass(cb.handle, &.{
-        .render_pass = default_renderpass.handle,
-        .framebuffer = swapchain_render_targets[image_index].framebuffer,
-        .render_area = scissor,
-        .clear_value_count = clear_values.len,
-        .p_clear_values = @ptrCast([*]const vk.ClearValue, &clear_values[0]),
-    }, .@"inline");
+fn applyEndRenderPass(cb: *CommandBuffer, handle: types.Handle) void {
+    _ = handle;
+    default_renderpass.end(device, cb);
 }
 
 fn applyDraw(cb: *CommandBuffer, desc: types.DrawDesc) void {
@@ -683,11 +666,20 @@ fn createPipeline() !void {
         },
     };
 
-    pipeline = try Pipeline.init(device, default_renderpass, &[_]vk.DescriptorSetLayout{ global_descriptor_layout, material_descriptor_layout }, &[_]vk.PushConstantRange{.{
-        .stage_flags = .{ .vertex_bit = true },
-        .offset = 0,
-        .size = @intCast(u32, @sizeOf(MeshPushConstants)),
-    }}, viewport, scissor, false, allocator);
+    pipeline = try Pipeline.init(
+        device,
+        default_renderpass,
+        &[_]vk.DescriptorSetLayout{ global_descriptor_layout, material_descriptor_layout },
+        &[_]vk.PushConstantRange{.{
+            .stage_flags = .{ .vertex_bit = true },
+            .offset = 0,
+            .size = @intCast(u32, @sizeOf(MeshPushConstants)),
+        }},
+        viewport,
+        scissor,
+        false,
+        allocator,
+    );
 }
 
 fn upload(pool: vk.CommandPool, buffer: Buffer, comptime T: type, items: []const T) !void {

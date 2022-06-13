@@ -1,3 +1,5 @@
+/// Identifier for a device resource
+/// the default values in the struct indicate a null handle
 pub const Handle = struct {
     /// index of this resource
     resource: u32 = 0,
@@ -52,4 +54,21 @@ pub const RenderPassDesc = struct {
         depth: bool = false,
         stencil: bool = false,
     },
+};
+
+/// Describes a shader pipeline for drawing
+/// we 
+pub const PipelineDesc = struct {
+    const StageDesc = struct {
+        bindpoint: enum {
+            Vertex,
+            Fragment,
+            // TODO: compute?
+        },
+        path: []const u8,
+    };
+
+    /// render pass this pipeline is going to draw with
+    // render_pass: Handle,
+    stages: []const StageDesc,
 };
