@@ -10,6 +10,10 @@ layout (set = 0, binding = 0) uniform global_uniform_object {
   mat4 view;
 };
 
+// layout(set = 0, binding = 1) readonly buffer  InputBuffer{
+//     mat4 matrices[];
+// } sourceData;
+
 layout( push_constant ) uniform PushConstants
 {
 	uint id;

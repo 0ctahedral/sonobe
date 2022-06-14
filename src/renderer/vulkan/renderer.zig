@@ -92,12 +92,6 @@ var global_descriptor_layout: vk.DescriptorSetLayout = .null_handle;
 var global_descriptor_pool: vk.DescriptorPool = .null_handle;
 /// descriptor set for the main shader
 var global_descriptor_sets: [MAX_FRAMES]vk.DescriptorSet = undefined;
-/// layout for shader data
-var material_descriptor_layout: vk.DescriptorSetLayout = .null_handle;
-/// pool from which we allocate all shader descriptor sets
-var material_descriptor_pool: vk.DescriptorPool = .null_handle;
-/// descriptor set for the main shader
-var material_descriptor_sets: [MAX_FRAMES]vk.DescriptorSet = undefined;
 
 // --------------------------------------
 
@@ -246,7 +240,7 @@ pub fn init(provided_allocator: Allocator, app_name: [*:0]const u8, window: Plat
     try createDescriptors();
 
     // allocate the sets
-    const layouts = [_]vk.DescriptorSetLayout{ global_descriptor_layout, material_descriptor_layout };
+    const layouts = [_]vk.DescriptorSetLayout{global_descriptor_layout};
 
     // create the descriptor set
     for (global_descriptor_sets) |*gs| {
@@ -255,13 +249,6 @@ pub fn init(provided_allocator: Allocator, app_name: [*:0]const u8, window: Plat
             .descriptor_set_count = 1,
             .p_set_layouts = layouts[0..],
         }, @ptrCast([*]vk.DescriptorSet, gs));
-    }
-    for (material_descriptor_sets) |*ds| {
-        try device.vkd.allocateDescriptorSets(device.logical, &.{
-            .descriptor_pool = material_descriptor_pool,
-            .descriptor_set_count = 1,
-            .p_set_layouts = layouts[1..],
-        }, @ptrCast([*]vk.DescriptorSet, ds));
     }
 
     for (frames) |*f, i| {
@@ -340,8 +327,6 @@ pub fn deinit() void {
     // TODO: make this a resource which will delete free descriptorsets
     device.vkd.destroyDescriptorPool(device.logical, global_descriptor_pool, null);
     device.vkd.destroyDescriptorSetLayout(device.logical, global_descriptor_layout, null);
-    device.vkd.destroyDescriptorPool(device.logical, material_descriptor_pool, null);
-    device.vkd.destroyDescriptorSetLayout(device.logical, material_descriptor_layout, null);
 
     default_renderpass.deinit(device);
     swapchain.deinit(device, allocator);
@@ -442,7 +427,6 @@ fn applyBindPipeline(cb: *CommandBuffer, handle: types.Handle) !void {
 
     const descriptor_sets = [_]vk.DescriptorSet{
         global_descriptor_sets[getCurrentFrame().index],
-        material_descriptor_sets[getCurrentFrame().index],
     };
 
     device.vkd.cmdBindDescriptorSets(
@@ -568,7 +552,7 @@ pub fn createPipeline(desc: types.PipelineDesc) !void {
         device,
         desc,
         default_renderpass,
-        &[_]vk.DescriptorSetLayout{ global_descriptor_layout, material_descriptor_layout },
+        &[_]vk.DescriptorSetLayout{global_descriptor_layout},
         &[_]vk.PushConstantRange{
             .{
                 .stage_flags = .{ .vertex_bit = true },
@@ -710,14 +694,22 @@ fn upload(pool: vk.CommandPool, buffer: Buffer, comptime T: type, items: []const
 }
 
 fn createDescriptors() !void {
+    //
     // create a descriptor pool for the frame data
     const global_sizes = [_]vk.DescriptorPoolSize{
+        // constants
         .{
             .@"type" = .uniform_buffer,
             .descriptor_count = frames.len,
         },
+        // data
         .{
             .@"type" = .storage_buffer,
+            .descriptor_count = frames.len,
+        },
+        // textures
+        .{
+            .@"type" = .combined_image_sampler,
             .descriptor_count = frames.len,
         },
     };
@@ -729,42 +721,43 @@ fn createDescriptors() !void {
         .p_pool_sizes = &global_sizes,
     }, null);
 
-    const local_sampler_count = 1;
-    const obj_count = 1024;
-
-    const material_sizes = [_]vk.DescriptorPoolSize{
-        .{
-            .@"type" = .uniform_buffer,
-            .descriptor_count = obj_count,
-        },
-        .{
-            .@"type" = .combined_image_sampler,
-            .descriptor_count = obj_count * local_sampler_count,
-        },
-    };
-
-    material_descriptor_pool = try device.vkd.createDescriptorPool(device.logical, &.{
-        .flags = .{},
-        .max_sets = 1024,
-        .pool_size_count = material_sizes.len,
-        .p_pool_sizes = &material_sizes,
-    }, null);
+    // for now we set all the # descriptors be 1024 and usable in all stages
 
     const global_bindings = [_]vk.DescriptorSetLayoutBinding{
-        // camera
+        // constant data
         .{
             .binding = 0,
             .descriptor_type = .uniform_buffer,
             .descriptor_count = 1,
-            .stage_flags = .{ .vertex_bit = true },
+            .stage_flags = .{
+                .vertex_bit = true,
+                .fragment_bit = true,
+                .compute_bit = true,
+            },
             .p_immutable_samplers = null,
         },
-        // storage for model matricies
+        // larger storage
         .{
             .binding = 1,
             .descriptor_type = .storage_buffer,
             .descriptor_count = 1,
-            .stage_flags = .{ .vertex_bit = true },
+            .stage_flags = .{
+                .vertex_bit = true,
+                .fragment_bit = true,
+                .compute_bit = true,
+            },
+            .p_immutable_samplers = null,
+        },
+        // combined image samplers
+        .{
+            .binding = 2,
+            .descriptor_type = .combined_image_sampler,
+            .descriptor_count = 1,
+            .stage_flags = .{
+                .vertex_bit = true,
+                .fragment_bit = true,
+                .compute_bit = true,
+            },
             .p_immutable_samplers = null,
         },
     };
@@ -773,29 +766,6 @@ fn createDescriptors() !void {
         .flags = .{},
         .binding_count = global_bindings.len,
         .p_bindings = &global_bindings,
-    }, null);
-
-    const material_bindings = [_]vk.DescriptorSetLayoutBinding{
-        .{
-            .binding = 0,
-            .descriptor_type = .uniform_buffer,
-            .descriptor_count = 1,
-            .stage_flags = .{ .fragment_bit = true },
-            .p_immutable_samplers = null,
-        },
-        .{
-            .binding = 1,
-            .descriptor_type = .combined_image_sampler,
-            .descriptor_count = 1,
-            .stage_flags = .{ .fragment_bit = true },
-            .p_immutable_samplers = null,
-        },
-    };
-
-    material_descriptor_layout = try device.vkd.createDescriptorSetLayout(device.logical, &.{
-        .flags = .{},
-        .binding_count = material_bindings.len,
-        .p_bindings = &material_bindings,
     }, null);
 }
 
@@ -820,13 +790,6 @@ fn updateDescriptorSets() !void {
             .buffer = model_buffer.handle,
             .offset = 0,
             .range = @sizeOf(@TypeOf(model_data)),
-        },
-    };
-    const material_infos = [_]vk.DescriptorBufferInfo{
-        .{
-            .buffer = material_buffer.handle,
-            .offset = 0,
-            .range = @sizeOf(MaterialData),
         },
     };
 
@@ -860,18 +823,8 @@ fn updateDescriptorSets() !void {
             .p_texel_buffer_view = undefined,
         },
         .{
-            .dst_set = material_descriptor_sets[getCurrentFrame().index],
-            .dst_binding = 0,
-            .dst_array_element = 0,
-            .descriptor_count = material_infos.len,
-            .descriptor_type = .uniform_buffer,
-            .p_image_info = undefined,
-            .p_buffer_info = material_infos[0..],
-            .p_texel_buffer_view = undefined,
-        },
-        .{
-            .dst_set = material_descriptor_sets[getCurrentFrame().index],
-            .dst_binding = 1,
+            .dst_set = global_descriptor_sets[getCurrentFrame().index],
+            .dst_binding = 2,
             .dst_array_element = 0,
             .descriptor_count = sampler_infos.len,
             .descriptor_type = .combined_image_sampler,
