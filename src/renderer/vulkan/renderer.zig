@@ -707,9 +707,14 @@ fn createDescriptors() !void {
             .@"type" = .storage_buffer,
             .descriptor_count = frames.len,
         },
-        // textures
+        // images
         .{
-            .@"type" = .combined_image_sampler,
+            .@"type" = .sampled_image,
+            .descriptor_count = frames.len,
+        },
+        // samplers
+        .{
+            .@"type" = .sampler,
             .descriptor_count = frames.len,
         },
     };
@@ -748,10 +753,22 @@ fn createDescriptors() !void {
             },
             .p_immutable_samplers = null,
         },
-        // combined image samplers
+        // sampled image
         .{
             .binding = 2,
-            .descriptor_type = .combined_image_sampler,
+            .descriptor_type = .sampled_image,
+            .descriptor_count = 1,
+            .stage_flags = .{
+                .vertex_bit = true,
+                .fragment_bit = true,
+                .compute_bit = true,
+            },
+            .p_immutable_samplers = null,
+        },
+        // sampler for the image
+        .{
+            .binding = 3,
+            .descriptor_type = .sampler,
             .descriptor_count = 1,
             .stage_flags = .{
                 .vertex_bit = true,
@@ -795,9 +812,14 @@ fn updateDescriptorSets() !void {
 
     const sampler_infos = [_]vk.DescriptorImageInfo{
         .{
-            .sampler = default_texture_map.sampler,
+            .sampler = .null_handle,
             .image_view = Resources.textures.get(1).image.view,
             .image_layout = vk.ImageLayout.shader_read_only_optimal,
+        },
+        .{
+            .sampler = default_texture_map.sampler,
+            .image_view = Resources.textures.get(1).image.view,
+            .image_layout = .@"undefined",
         },
     };
 
@@ -826,9 +848,19 @@ fn updateDescriptorSets() !void {
             .dst_set = global_descriptor_sets[getCurrentFrame().index],
             .dst_binding = 2,
             .dst_array_element = 0,
-            .descriptor_count = sampler_infos.len,
-            .descriptor_type = .combined_image_sampler,
+            .descriptor_count = 1,
+            .descriptor_type = .sampled_image,
             .p_image_info = sampler_infos[0..],
+            .p_buffer_info = undefined,
+            .p_texel_buffer_view = undefined,
+        },
+        .{
+            .dst_set = global_descriptor_sets[getCurrentFrame().index],
+            .dst_binding = 3,
+            .dst_array_element = 0,
+            .descriptor_count = 1,
+            .descriptor_type = .sampler,
+            .p_image_info = sampler_infos[1..],
             .p_buffer_info = undefined,
             .p_texel_buffer_view = undefined,
         },

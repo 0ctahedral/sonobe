@@ -5,9 +5,18 @@
 layout(location = 0) in vec3 in_pos;
 layout(location = 1) in vec2 in_texcoord;
 
-layout (set = 0, binding = 0) uniform global_uniform_object {
+// layout (set = 0, binding = 0) uniform readonly buffer global_uniform_object {
+//   mat4 projection;
+//   mat4 view;
+// };
+
+struct Camera {
   mat4 projection;
   mat4 view;
+};
+
+layout (set = 0, binding = 0) readonly buffer global_uniform_buffer {
+  uint data[];
 };
 
 // layout(set = 0, binding = 1) readonly buffer  InputBuffer{
@@ -29,5 +38,8 @@ layout(location = 1) out struct {
 
 void main() {
   out_dto.tex_coord = in_texcoord;
-  gl_Position = projection * view * model * vec4(in_pos, 1.0);    
+
+  Camera camera = Camera(data[0])
+  
+  gl_Position = projection * camera.view * camera.model * vec4(in_pos, 1.0);    
 }
