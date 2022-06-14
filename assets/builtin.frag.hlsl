@@ -5,11 +5,10 @@ Texture2D tex;
 SamplerState samp;
 
 struct VSOutput {
-[[vk::location(0)]] float2 texcoord : TEXCOORD0;
+  [[vk::location(0)]] float2 texcoord : TEXCOORD0;
 };
 
 
 float4 main(VSOutput input) : SV_TARGET {
-  // return tex.Sample(samp, input.texcoord);
-  return float4(0.0, 1.0, 0.0, 1.0);
+  return tex.Sample(samp, input.texcoord);
 }

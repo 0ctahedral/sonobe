@@ -8,7 +8,7 @@ layout (set = 0, binding = 3) uniform sampler samp;
 
 // layout(location = 0) in vec3 output_mode;
 
-layout(location = 1) in struct {
+layout(location = 0) in struct {
   vec2 tex_coord;
 } in_dto;
 

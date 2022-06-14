@@ -277,17 +277,9 @@ pub fn init(provided_allocator: Allocator, app_name: [*:0]const u8, window: Plat
             while (col < tex_dimension) : (col += 1) {
                 var index = (row * tex_dimension) + col;
                 var index_bpp = index * channels;
-
-                if (row % 2 == 1) {
-                    if (col % 2 == 1) {
-                        pixels[index_bpp + 0] = 0;
-                        pixels[index_bpp + 2] = 0;
-                    }
-                } else {
-                    if (col % 2 == 0) {
-                        pixels[index_bpp + 0] = 0;
-                        pixels[index_bpp + 2] = 0;
-                    }
+                if ((col + row) % 4 != 0) {
+                    pixels[index_bpp + 0] = 0;
+                    pixels[index_bpp + 2] = 0;
                 }
             }
         }
