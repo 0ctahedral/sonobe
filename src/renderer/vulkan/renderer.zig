@@ -201,9 +201,9 @@ pub fn init(provided_allocator: Allocator, app_name: [*:0]const u8, window: Plat
     device = try Device.init(.{
         .graphics = true,
         .present = true,
-        .transfer = false,
+        .transfer = true,
         .discrete = false,
-        .compute = false,
+        .compute = true,
     }, instance, vki, surface, allocator);
     errdefer device.deinit();
 

@@ -121,7 +121,7 @@ fn compileBuiltinShaders(b: *Builder, step: *std.build.LibExeObjStep) void {
         const compile_vert = b.addSystemCommand(&[_][]const u8{
             prefix ++ "/bin/glslc",
             "-fshader-stage=vert",
-            name ++ ".vert.hlsl",
+            name ++ ".vert.glsl",
             "-o",
             name ++ ".vert.spv",
         });
@@ -129,7 +129,7 @@ fn compileBuiltinShaders(b: *Builder, step: *std.build.LibExeObjStep) void {
         const compile_frag = b.addSystemCommand(&[_][]const u8{
             prefix ++ "/bin/glslc",
             "-fshader-stage=frag",
-            name ++ ".frag.hlsl",
+            name ++ ".frag.glsl",
             "-o",
             name ++ ".frag.spv",
         });

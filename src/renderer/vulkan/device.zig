@@ -11,8 +11,9 @@ const Requirements = struct {
     compute: bool = true,
     transfer: bool = true,
 
-    extensions: []const [:0]const u8 = &[_][:0]const u8{
+    extensions: []const [*:0]const u8 = &[_][*:0]const u8{
         vk.extension_info.khr_swapchain.name,
+        vk.extension_info.ext_descriptor_indexing.name,
     },
 
     /// idk what this is
@@ -105,21 +106,18 @@ pub const Device = struct {
             }
         }
 
-        self.logical = try vki.createDevice(self.physical, &.{
+        const info = .{
             .flags = .{},
             .queue_create_info_count = n_unique,
-            //.queue_create_info_count = 1,
             .p_queue_create_infos = &qci,
-            // TODO: add features
-            .p_enabled_features = &.{
-                .sampler_anisotropy = vk.TRUE,
-            },
+            .p_enabled_features = &.{ .sampler_anisotropy = vk.TRUE },
             .enabled_extension_count = @intCast(u32, reqs.extensions.len),
-            //.enabled_extension_count = 1,
-            .pp_enabled_extension_names = @ptrCast([*]const [*:0]const u8, reqs.extensions),
+            .pp_enabled_extension_names = @ptrCast([*]const [*:0]const u8, reqs.extensions.ptr),
             .enabled_layer_count = 0,
             .pp_enabled_layer_names = undefined,
-        }, null);
+        };
+
+        self.logical = try vki.createDevice(self.physical, &info, null);
 
         // setup the device dispatch
         self.vkd = try DeviceDispatch.load(self.logical, vki.dispatch.vkGetDeviceProcAddr);
@@ -201,7 +199,7 @@ pub const Device = struct {
                     for (extv) |e| {
                         const len = std.mem.indexOfScalar(u8, &e.extension_name, 0).?;
                         const prop_ext_name = e.extension_name[0..len];
-                        if (std.mem.eql(u8, ext[0..], prop_ext_name)) {
+                        if (std.mem.eql(u8, ext[0..len], prop_ext_name)) {
                             break;
                         }
                     } else {

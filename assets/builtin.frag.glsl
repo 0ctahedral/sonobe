@@ -6,8 +6,6 @@ layout(location = 0) out vec4 o_color;
 layout (set = 0, binding = 2) uniform texture2D tex;
 layout (set = 0, binding = 3) uniform sampler samp;
 
-// layout(location = 0) in vec3 output_mode;
-
 layout(location = 0) in struct {
   vec2 tex_coord;
 } in_dto;
