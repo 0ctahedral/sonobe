@@ -10,6 +10,14 @@ layout (set = 0, binding = 0) uniform readonly global_uniform_object {
   mat4 view;
 };
 
+layout (set = 0, binding = 1) readonly buffer PositionsBuffer {
+  vec3 pos[];
+} Positions[];
+
+layout (set = 0, binding = 1) readonly buffer TexcoordsBuffer {
+  vec3 coord[];
+} Texcoords[];
+
 layout( push_constant ) uniform PushConstants
 {
 	uint id;
@@ -23,6 +31,8 @@ layout(location = 0) out struct {
 
 void main() {
   out_dto.tex_coord = in_texcoord;
+
+  vec3 pos = Texcoords[0].coord[0];
 
   gl_Position = projection * view * model * vec4(in_pos, 1.0);    
 }
