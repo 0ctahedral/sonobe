@@ -5,6 +5,7 @@ const App = @import("app");
 const Platform = @import("platform.zig");
 const Renderer = @import("renderer.zig");
 const Events = @import("events.zig");
+const Input = @import("input.zig");
 
 // TODO: comptime assert that app has everything we need
 
@@ -12,6 +13,9 @@ pub fn main() !void {
     // initialize the event system
     Events.init();
     defer Events.deinit();
+
+    try Input.init();
+    defer Input.deinit();
 
     // open the window
     try Platform.init();

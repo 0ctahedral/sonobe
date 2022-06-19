@@ -4,6 +4,7 @@ const glfw = @import("glfw");
 const InstanceDispatch = @import("../renderer/vulkan/dispatch_types.zig").InstanceDispatch;
 const Events = @import("../events.zig");
 const Event = Events.Event;
+const Input = @import("../input.zig");
 const Window = @import("window.zig");
 const RingBuffer = @import("../containers.zig").RingBuffer;
 const FreeList = @import("../containers.zig").FreeList;
@@ -27,8 +28,10 @@ pub fn createWindow(title: []const u8, w: u32, h: u32) !Window {
         .client_api = .no_api,
         .floating = true,
     });
-    window.setSizeCallback(resize);
-    window.setCloseCallback(close);
+    window.setSizeCallback(onResize);
+    window.setCloseCallback(onClose);
+    // window.setKeyCallback(onKey);
+    window.setMouseButtonCallback(onMouseButton);
     window_store[id] = window;
 
     n_alive += 1;
@@ -46,7 +49,60 @@ fn getWindowIndex(window: glfw.Window) ?u32 {
     return null;
 }
 
-fn resize(win: glfw.Window, ww: i32, wh: i32) void {
+fn onMouseButton(
+    win: glfw.Window,
+    gbutton: glfw.mouse_button.MouseButton,
+    gaction: glfw.Action,
+    gmods: glfw.Mods,
+) void {
+    // std.log.debug("w: {}, b: {}, a: {}, m: {}", .{ win, button, action, mods });
+
+    _ = win;
+    _ = gmods;
+
+    const button: Input.Mouse.Button = switch (gbutton) {
+        .left => .left,
+        .right => .right,
+        .middle => .middle,
+        else => {
+            return;
+        },
+    };
+
+    const action: Input.Mouse.Action = switch (gaction) {
+        .press, .repeat => .press,
+        .release => .release,
+    };
+
+    const pos = win.getCursorPos() catch unreachable;
+
+    Events.enqueue(.{
+        .MouseButton = .{
+            .x = @floatToInt(i16, pos.xpos),
+            .y = @floatToInt(i16, pos.ypos),
+            .button = button,
+            .action = action,
+        },
+    });
+}
+
+fn onKey(
+    win: glfw.Window,
+    key: glfw.Key,
+    scancode: i32,
+    action: glfw.Action,
+    mods: glfw.Mods,
+) void {
+    std.log.debug("w: {}, k: {}, s: {}, a: {}, m: {}", .{
+        win,
+        key,
+        scancode,
+        action,
+        mods,
+    });
+}
+
+fn onResize(win: glfw.Window, ww: i32, wh: i32) void {
     if (getWindowIndex(win)) |wid| {
         Events.enqueue(Event{ .WindowResize = .{
             .handle = @intToEnum(Window.Handle, wid),
@@ -56,7 +112,7 @@ fn resize(win: glfw.Window, ww: i32, wh: i32) void {
     }
 }
 
-fn close(win: glfw.Window) void {
+fn onClose(win: glfw.Window) void {
     if (getWindowIndex(win)) |wid| {
         Events.enqueue(Event{ .WindowClose = @intToEnum(Window.Handle, wid) });
     }

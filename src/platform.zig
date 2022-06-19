@@ -62,7 +62,9 @@ pub fn init() !void {
     timer = try std.time.Timer.start();
 
     // initialize the events
-    try Events.registerAll(handle_event);
+    try Events.register(.Quit, handle_event);
+    try Events.register(.WindowClose, handle_event);
+    try Events.register(.WindowResize, handle_event);
 
     try backend.init();
 }
@@ -83,6 +85,7 @@ pub fn handle_event(ev: Events.Event) bool {
         .WindowResize => |r| {
             std.log.debug("event: {}", .{r});
         },
+        else => {},
     }
 
     return true;

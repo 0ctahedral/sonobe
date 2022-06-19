@@ -7,6 +7,7 @@
 const std = @import("std");
 const Window = @import("platform/window.zig");
 const RingBuffer = @import("containers.zig").RingBuffer;
+const Input = @import("input.zig");
 
 var initialized = false;
 
@@ -14,11 +15,7 @@ pub const EventType = enum {
     Quit,
     WindowResize,
     WindowClose,
-    //KeyPress,
-    //KeyRelease,
-    //MousePress,
-    //MouseRelease,
-    //MouseMoved,
+    MouseButton,
 };
 
 pub const WindowResizeEvent = struct {
@@ -29,15 +26,18 @@ pub const WindowResizeEvent = struct {
     h: u16,
 };
 
+pub const MouseButtonEvent = struct {
+    button: Input.Mouse.Button,
+    action: Input.Mouse.Action,
+    x: i16 = 0,
+    y: i16 = 0,
+};
+
 pub const Event = union(EventType) {
     Quit,
     WindowClose: Window.Handle,
     WindowResize: WindowResizeEvent,
-    //KeyPress: input.keys,
-    //KeyRelease: input.keys,
-    //MousePress: input.mouse_btns,
-    //MouseRelease: input.mouse_btns,
-    //MouseMoved: struct {x: i16, y: i16},
+    MouseButton: MouseButtonEvent,
 };
 
 /// number of events
