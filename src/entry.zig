@@ -47,5 +47,8 @@ pub fn main() !void {
 
         // get events
         Platform.flush();
+        // want to make sure only the last window resize is used
+        Events.sendLastType(.WindowResize);
+        Events.sendAll();
     }
 }

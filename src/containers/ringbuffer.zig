@@ -1,6 +1,8 @@
 const std = @import("std");
 const testing = std.testing;
 
+// TODO: push and pop from front and back?
+
 pub fn RingBuffer(
     comptime T: type,
     comptime capacity: usize,
@@ -159,4 +161,19 @@ test "different types" {
 
     try testing.expect(rb.pop().?.x == 0);
     try testing.expect(rb.pop().?.x == 10);
+}
+
+test "push pop order" {
+    var rb = RingBuffer(u8, 10).init();
+    defer rb.deinit();
+
+    try rb.push(0);
+    try rb.push(1);
+    try rb.push(2);
+    try rb.push(3);
+
+    try testing.expect(rb.pop().? == 0);
+    try testing.expect(rb.pop().? == 1);
+    try testing.expect(rb.pop().? == 2);
+    try testing.expect(rb.pop().? == 3);
 }

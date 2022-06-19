@@ -2,27 +2,22 @@ const std = @import("std");
 const vk = @import("vulkan");
 const glfw = @import("glfw");
 const InstanceDispatch = @import("../renderer/vulkan/dispatch_types.zig").InstanceDispatch;
-const Event = @import("../events.zig").Event;
+const Events = @import("../events.zig");
+const Event = Events.Event;
 const Window = @import("window.zig");
 const RingBuffer = @import("../containers.zig").RingBuffer;
 const FreeList = @import("../containers.zig").FreeList;
 
-/// the window we are using
-// pub var default_window: glfw.Window = undefined;
-
-var events: RingBuffer(Event, 32) = undefined;
 var windows: FreeList(glfw.Window) = undefined;
 var window_store: [10]glfw.Window = undefined;
 var n_alive: usize = 0;
 
 pub fn init() !void {
     try glfw.init(.{});
-    events = RingBuffer(Event, 32).init();
     windows = try FreeList(glfw.Window).initArena(&window_store);
 }
 
 pub fn deinit() void {
-    events.deinit();
     glfw.terminate();
 }
 
@@ -53,40 +48,27 @@ fn getWindowIndex(window: glfw.Window) ?u32 {
 
 fn resize(win: glfw.Window, ww: i32, wh: i32) void {
     if (getWindowIndex(win)) |wid| {
-        events.push(Event{ .WindowResize = .{
+        Events.enqueue(Event{ .WindowResize = .{
             .handle = @intToEnum(Window.Handle, wid),
             .w = @intCast(u16, ww),
             .h = @intCast(u16, wh),
-        } }) catch {
-            std.log.warn("dropping event", .{});
-        };
+        } });
     }
 }
 
 fn close(win: glfw.Window) void {
     if (getWindowIndex(win)) |wid| {
-        events.push(Event{ .WindowClose = @intToEnum(Window.Handle, wid) }) catch {
-            std.log.warn("dropping event", .{});
-        };
+        Events.enqueue(Event{ .WindowClose = @intToEnum(Window.Handle, wid) });
     }
 
     n_alive -= 1;
     if (n_alive == 0) {
-        events.push(Event{ .Quit = .{} }) catch {
-            // need to make sure that we add this event so we discard one
-            _ = events.pop();
-            events.push(Event{ .Quit = .{} }) catch unreachable;
-        };
+        Events.enqueue(Event{ .Quit = .{} });
     }
 }
 
-pub fn nextEvent() ?Event {
+pub fn flush() void {
     glfw.pollEvents() catch unreachable;
-    if (events.pop()) |e| {
-        return e;
-    }
-
-    return null;
 }
 
 pub fn createWindowSurface(vki: InstanceDispatch, instance: vk.Instance, win: Window) !vk.SurfaceKHR {

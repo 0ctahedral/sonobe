@@ -61,6 +61,9 @@ pub fn init() !void {
     // start the timer
     timer = try std.time.Timer.start();
 
+    // initialize the events
+    try Events.registerAll(handle_event);
+
     try backend.init();
 }
 
@@ -69,26 +72,25 @@ pub fn deinit() void {
     backend.deinit();
 }
 
+pub fn handle_event(ev: Events.Event) void {
+    switch (ev) {
+        .Quit => {
+            is_running = false;
+            return;
+        },
+        .WindowClose => |id| std.log.info("window {} closed", .{id}),
+        .WindowResize => |r| {
+            std.log.debug("event: {}", .{r});
+        },
+    }
+}
+
 /// poll for input events on this platform
 pub fn flush() void {
-    var rev: ?Events.WindowResizeEvent = null;
-    while (backend.nextEvent()) |ev| {
-        switch (ev) {
-            .Quit => {
-                is_running = false;
-                return;
-            },
-            .WindowClose => |id| std.log.info("window {} closed", .{id}),
-            .WindowResize => |r| {
-                rev = r;
-                std.log.debug("event: {}", .{ev});
-                //Events.send(ev);
-            },
-        }
-    }
-    if (rev) |r| {
-        Events.send(Events.Event{ .WindowResize = r });
-    }
+    // while (backend.nextEvent()) |ev| {
+    //     Events.enqueue(ev);
+    // }
+    backend.flush();
 }
 
 /// get the vulkan instance address

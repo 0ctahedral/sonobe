@@ -6,6 +6,7 @@
 //! with the same function.
 const std = @import("std");
 const Window = @import("platform/window.zig");
+const RingBuffer = @import("containers.zig").RingBuffer;
 
 var initialized = false;
 
@@ -54,6 +55,9 @@ const Callback = struct {
 /// Where we store our different callbacks for different event types
 var callbacks: [EVENTS_LEN][MAX_CALLBACKS]?Callback = undefined;
 
+/// Queue of pending events
+var event_queue: [EVENTS_LEN]RingBuffer(Event, 32) = undefined;
+
 /// initialize the event subsystem
 pub fn init() void {
     initialized = true;
@@ -62,11 +66,63 @@ pub fn init() void {
             cb.* = null;
         }
     }
+    for (event_queue) |*eq| {
+        eq.* = RingBuffer(Event, 32).init();
+    }
 }
 
 /// shutdown the event subsystem
 pub fn deinit() void {
     initialized = false;
+    for (event_queue) |*eq| {
+        eq.deinit();
+    }
+}
+
+/// add an event to the appropriate queue
+pub fn enqueue(event: Event) void {
+    event_queue[@enumToInt(event)].push(event) catch unreachable;
+}
+
+pub fn clearQueue() void {
+    for (event_queue) |*eq| {
+        eq.clear();
+    }
+}
+
+/// send the last event in the queue, pop all the rest
+pub fn sendLastType(et: EventType) void {
+    var last: ?Event = event_queue[@enumToInt(et)].pop();
+    // nothing is in the queue so return
+    if (last == null) {
+        return;
+    }
+
+    // otherwise keep popping and saving the last one
+    while (true) {
+        if (event_queue[@enumToInt(et)].pop()) |e| {
+            last = e;
+        } else {
+            send(last.?);
+            return;
+        }
+    }
+}
+
+/// send all events of a type in the queue
+pub fn sendAllType(et: EventType) void {
+    while (event_queue[@enumToInt(et)].pop()) |ev| {
+        send(ev);
+    }
+}
+
+/// send all events!
+pub fn sendAll() void {
+    for (event_queue) |*eq| {
+        while (eq.pop()) |ev| {
+            send(ev);
+        }
+    }
 }
 
 // get index of first null in callbacks
@@ -95,6 +151,13 @@ pub fn register(event: EventType, func: anytype) !void {
     }
 
     return error.EventCallbacksFull;
+}
+
+pub fn registerAll(func: anytype) !void {
+    var i: usize = 0;
+    while (i < EVENTS_LEN) : (i += 1) {
+        try register(@intToEnum(EventType, i), func);
+    }
 }
 
 // TODO: figure this out
