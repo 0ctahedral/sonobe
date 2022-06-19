@@ -7,11 +7,13 @@ const Events = @import("events.zig");
 
 pub const Window = @import("platform/window.zig");
 
-const backend = switch (builtin.target.os.tag) {
-    .macos => @import("platform/macos.zig"),
-    .linux => @import("platform/linux.zig"),
-    else => unreachable,
-};
+// const backend = switch (builtin.target.os.tag) {
+//     .macos => @import("platform/macos.zig"),
+//     .linux => @import("platform/linux.zig"),
+//     else => unreachable,
+// };
+
+const backend = @import("platform/glfw.zig");
 
 pub var is_running = true;
 
@@ -74,6 +76,7 @@ pub fn flush() void {
         switch (ev) {
             .Quit => {
                 is_running = false;
+                return;
             },
             .WindowClose => |id| std.log.info("window {} closed", .{id}),
             .WindowResize => |r| {

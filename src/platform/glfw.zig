@@ -1,60 +1,105 @@
 const std = @import("std");
 const vk = @import("vulkan");
 const glfw = @import("glfw");
-const Renderer = @import("renderer.zig");
+const InstanceDispatch = @import("../renderer/vulkan/dispatch_types.zig").InstanceDispatch;
+const Event = @import("../events.zig").Event;
+const Window = @import("window.zig");
+const RingBuffer = @import("../containers.zig").RingBuffer;
+const FreeList = @import("../containers.zig").FreeList;
 
 /// the window we are using
-pub var window: glfw.Window = undefined;
+// pub var default_window: glfw.Window = undefined;
 
-pub var is_running = false;
+var events: RingBuffer(Event, 32) = undefined;
+var windows: FreeList(glfw.Window) = undefined;
+var window_store: [10]glfw.Window = undefined;
+var n_alive: usize = 0;
 
-pub fn init(width: u32, height: u32, app_name: [*:0]const u8) !void {
+pub fn init() !void {
     try glfw.init(.{});
-    window = try glfw.Window.create(width, height, app_name, null, null, .{
-        .client_api = .no_api,
-        .floating = true,
-    });
-
-    window.setSizeCallback(cb);
-
-    is_running = true;
-}
-
-const Size = struct { w: i32, h: i32 };
-
-var resized: ?Size = null;
-
-// TODO: this should be adding a resize event to a queue
-fn cb(g: glfw.Window, w: i32, h: i32) void {
-    _ = g;
-    resized = .{ .w = w, .h = h };
-}
-
-pub fn pollEvents() !void {
-    try glfw.pollEvents();
-    if (resized) |s| {
-        std.log.info("w: {}, h: {}", .{ s.w, s.h });
-        Renderer.resize(@intCast(u32, s.w), @intCast(u32, s.h));
-        resized = null;
-    }
-    is_running = !window.shouldClose();
+    events = RingBuffer(Event, 32).init();
+    windows = try FreeList(glfw.Window).initArena(&window_store);
 }
 
 pub fn deinit() void {
-    window.destroy();
+    events.deinit();
     glfw.terminate();
 }
 
-pub fn getInstanceProcAddress() fn (vk.Instance, [*:0]const u8) callconv(.C) vk.PfnVoidFunction {
-    return @ptrCast(fn (instance: vk.Instance, procname: [*:0]const u8) callconv(.C) vk.PfnVoidFunction, glfw.getInstanceProcAddress);
+pub fn createWindow(title: []const u8, w: u32, h: u32) !Window {
+    const id: u32 = try windows.allocIndex();
+    const window = try glfw.Window.create(w, h, @ptrCast([*:0]const u8, title.ptr), null, null, .{
+        .client_api = .no_api,
+        .floating = true,
+    });
+    window.setSizeCallback(resize);
+    window.setCloseCallback(close);
+    window_store[id] = window;
+
+    n_alive += 1;
+
+    return Window{ .handle = @intToEnum(Window.Handle, id) };
 }
 
-pub fn createWindowSurface(instance: vk.Instance, surface: *vk.SurfaceKHR) !void {
-    if ((try glfw.createWindowSurface(instance, window, null, surface)) != @enumToInt(vk.Result.success)) {
-        return error.SurfaceInitFailed;
+fn getWindowIndex(window: glfw.Window) ?u32 {
+    var iter = windows.iter();
+    while (iter.next()) |wd| {
+        if (@ptrToInt(window.handle) == @ptrToInt(wd.handle)) {
+            return @intCast(u32, iter.i);
+        }
+    }
+    return null;
+}
+
+fn resize(win: glfw.Window, ww: i32, wh: i32) void {
+    if (getWindowIndex(win)) |wid| {
+        events.push(Event{ .WindowResize = .{
+            .handle = @intToEnum(Window.Handle, wid),
+            .w = @intCast(u16, ww),
+            .h = @intCast(u16, wh),
+        } }) catch {
+            std.log.warn("dropping event", .{});
+        };
     }
 }
 
-pub fn getWinSize() !glfw.Window.Size {
-    return try window.getSize();
+fn close(win: glfw.Window) void {
+    if (getWindowIndex(win)) |wid| {
+        events.push(Event{ .WindowClose = @intToEnum(Window.Handle, wid) }) catch {
+            std.log.warn("dropping event", .{});
+        };
+    }
+
+    n_alive -= 1;
+    if (n_alive == 0) {
+        events.push(Event{ .Quit = .{} }) catch {
+            // need to make sure that we add this event so we discard one
+            _ = events.pop();
+            events.push(Event{ .Quit = .{} }) catch unreachable;
+        };
+    }
+}
+
+pub fn nextEvent() ?Event {
+    glfw.pollEvents() catch unreachable;
+    if (events.pop()) |e| {
+        return e;
+    }
+
+    return null;
+}
+
+pub fn createWindowSurface(vki: InstanceDispatch, instance: vk.Instance, win: Window) !vk.SurfaceKHR {
+    _ = vki;
+    const idx = @enumToInt(win.handle);
+
+    std.log.debug("window to surface: {}", .{win});
+    std.log.debug("windows: {any}", .{window_store});
+
+    var surface: vk.SurfaceKHR = undefined;
+    if ((try glfw.createWindowSurface(instance, window_store[idx], null, &surface)) != @enumToInt(vk.Result.success)) {
+        return error.SurfaceInitFailed;
+    }
+
+    return surface;
 }

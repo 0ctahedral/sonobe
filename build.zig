@@ -6,11 +6,15 @@ const vkgen = @import("deps/vulkan-zig/generator/index.zig");
 const zigvulkan = @import("deps/vulkan-zig/build.zig");
 const prefix = @import("src/platform.zig").vkprefix;
 
+const glfw = @import("deps/mach-glfw/build.zig");
+
 pub fn build(b: *Builder) void {
     const mode = b.standardReleaseOptions();
+    const target = b.standardTargetOptions(.{});
 
     var tests = b.addTest("src/main.zig");
     tests.setBuildMode(mode);
+    tests.setTarget(target);
 
     const test_step = b.step("test", "Run engine tests");
     test_step.dependOn(&tests.step);
@@ -51,6 +55,9 @@ fn linkEngineDeps(b: *Builder, step: *std.build.LibExeObjStep) void {
     // add vulkan
     const gen = vkgen.VkGenerateStep.init(b, "deps/vulkan-zig/examples/vk.xml", "vk.zig");
     step.addPackage(gen.package);
+
+    step.addPackagePath("glfw", "deps/mach-glfw/src/main.zig");
+    glfw.link(b, step, .{});
 
     // TOOD: static linking
 

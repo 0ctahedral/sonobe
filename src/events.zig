@@ -21,6 +21,7 @@ pub const EventType = enum {
 };
 
 pub const WindowResizeEvent = struct {
+    handle: Window.Handle = .null_handle,
     x: i16 = 0,
     y: i16 = 0,
     w: u16,
