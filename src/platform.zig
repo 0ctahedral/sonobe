@@ -72,24 +72,24 @@ pub fn deinit() void {
     backend.deinit();
 }
 
-pub fn handle_event(ev: Events.Event) void {
+pub fn handle_event(ev: Events.Event) bool {
     switch (ev) {
         .Quit => {
             is_running = false;
-            return;
+            // nobody else really needs this event
+            return false;
         },
         .WindowClose => |id| std.log.info("window {} closed", .{id}),
         .WindowResize => |r| {
             std.log.debug("event: {}", .{r});
         },
     }
+
+    return true;
 }
 
 /// poll for input events on this platform
 pub fn flush() void {
-    // while (backend.nextEvent()) |ev| {
-    //     Events.enqueue(ev);
-    // }
     backend.flush();
 }
 

@@ -76,11 +76,14 @@ var w: u16 = 800;
 var h: u16 = 600;
 var resizing = false;
 
-pub fn onResize(ev: Events.Event) void {
+pub fn onResize(ev: Events.Event) bool {
     frames_since_resize = 0;
     w = ev.WindowResize.w;
     h = ev.WindowResize.h;
     resizing = true;
+
+    // other systems might need this event
+    return true;
 }
 
 const types = @import("renderer/rendertypes.zig");

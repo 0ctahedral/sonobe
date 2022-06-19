@@ -48,8 +48,9 @@ const MAX_CALLBACKS = 32;
 
 /// a wrapper for a function and object to send
 const Callback = struct {
-    //obj: *anyopaque,
-    func: fn (Event) void,
+    /// return bool of the function determines if this event is propegated
+    /// or swallowed
+    func: fn (Event) bool,
 };
 
 /// Where we store our different callbacks for different event types
@@ -136,6 +137,8 @@ fn firstNull(event: EventType) ?usize {
 }
 
 /// Register a callback for a specific event
+/// if the function returns true then the event will contiue to be used by
+/// other functions that are registered
 pub fn register(event: EventType, func: anytype) !void {
     //if (!initialized) {
     //    return error.NotInitialized;
@@ -189,7 +192,9 @@ pub fn registerAll(func: anytype) !void {
 pub fn send(event: Event) void {
     for (callbacks[@enumToInt(event)]) |cb| {
         if (cb) |c| {
-            c.func(event);
+            if (!c.func(event)) {
+                return;
+            }
         }
     }
 }
