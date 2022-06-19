@@ -31,10 +31,21 @@ pub fn main() !void {
     defer app.deinit();
 
     while (Platform.is_running) {
-        if (Platform.flush()) {
-            try app.update();
+        Platform.startFrame();
+
+        {
+            // update state
+            try app.update(Platform.dt());
+            Renderer.backend.push_constant.model = app.t.mat();
             try app.render();
+
+            // render frame
             try Renderer.drawFrame();
         }
+
+        Platform.endFrame();
+
+        // get events
+        Platform.flush();
     }
 }

@@ -51,7 +51,6 @@ pub fn init(app: *App) !void {
     app.t.scale = .{ .x = 10, .y = 10, .z = 0 };
 
     // allocate buffer and upload data
-    std.log.debug("size of texcoords: {}", .{@sizeOf(@TypeOf(texcoords))});
     app.quad_verts = try Renderer.createBuffer(
         .{
             .size = @sizeOf(@TypeOf(texcoords)) + @sizeOf(@TypeOf(positions)),
@@ -60,6 +59,8 @@ pub fn init(app: *App) !void {
     );
     var offset = try Renderer.updateBuffer(app.quad_verts, 0, Vec3, positions[0..]);
     offset = try Renderer.updateBuffer(app.quad_verts, offset, Vec2, texcoords[0..]);
+
+    std.log.debug("verts handle: {}", .{app.quad_verts});
 
     app.quad_inds = try Renderer.createBuffer(
         .{
@@ -96,9 +97,9 @@ pub fn init(app: *App) !void {
     app.world_pass = try Renderer.createRenderPass(rp_desc);
 }
 
-pub fn update(app: *App) !void {
-    // app.t.rot = Quat.fromAxisAngle(Vec3.FORWARD, app.theta);
-    app.theta += 0.033;
+pub fn update(app: *App, dt: f64) !void {
+    app.theta += std.math.pi * @floatCast(f32, dt);
+    app.t.rot = Quat.fromAxisAngle(Vec3.FORWARD, app.theta);
 }
 
 pub fn render(app: *App) !void {

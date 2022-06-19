@@ -10,8 +10,7 @@ const RingBuffer = @import("containers.zig").RingBuffer;
 const Transform = @import("math.zig").Transform;
 
 // TODO: make private and depend on which backend we are using
-pub const backend_string = "vulkan";
-const backend = @import("renderer/vulkan/renderer.zig");
+pub const backend = @import("renderer/vulkan/renderer.zig");
 
 pub const CmdBuf = @import("renderer/cmdbuf.zig");
 
