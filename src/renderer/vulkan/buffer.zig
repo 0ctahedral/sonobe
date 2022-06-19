@@ -96,13 +96,12 @@ pub const Buffer = struct {
         data: []const T,
         offset: usize,
     ) !void {
-        const dest = try dev.vkd.mapMemory(dev.logical, self.mem, @sizeOf(T) * offset, @sizeOf(T) * data.len, .{});
-        const ptr = @ptrCast([*]T, @alignCast(@alignOf(T), dest));
+        const dest_ptr = try dev.vkd.mapMemory(dev.logical, self.mem, @sizeOf(T) * offset, @sizeOf(T) * data.len, .{});
 
+        const ptr = @ptrCast([*]T, @alignCast(@alignOf(T), dest_ptr));
         for (data) |item, i| {
             ptr[i] = item;
         }
-
         dev.vkd.unmapMemory(dev.logical, self.mem);
     }
 
@@ -131,6 +130,7 @@ pub const Buffer = struct {
     pub fn loadRaw(
         self: Self,
         dev: Device,
+        // data: [*]align(4) const u8,
         data: [*]const u8,
         offset: usize,
         size: usize,

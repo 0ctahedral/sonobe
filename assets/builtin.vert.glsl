@@ -15,7 +15,7 @@ layout (set = 0, binding = 1) readonly buffer PositionsBuffer {
 } Positions[];
 
 layout (set = 0, binding = 1) readonly buffer TexcoordsBuffer {
-  vec3 coord[];
+  float coord[];
 } Texcoords[];
 
 layout( push_constant ) uniform PushConstants
@@ -31,8 +31,12 @@ layout(location = 0) out struct {
 
 void main() {
   out_dto.tex_coord = in_texcoord;
+  // if (gl_VertexIndex == 2) {
+  //   out_dto.tex_coord = vec2(
+  //       Texcoords[1].coord[gl_VertexIndex * 2],
+  //       Texcoords[1].coord[(gl_VertexIndex * 2) + 1]
+  //   );
+  // }
 
-  vec3 pos = Texcoords[0].coord[0];
-
-  gl_Position = projection * view * model * vec4(in_pos, 1.0);    
+  gl_Position = projection * view * model * vec4(Positions[0].pos[gl_VertexIndex], 1.0);
 }

@@ -30,6 +30,7 @@ pub const Resources = @import("resources.zig");
 const mmath = @import("../../math.zig");
 const Mat4 = mmath.Mat4;
 const Vec3 = mmath.Vec3;
+const Vec4 = mmath.Vec4;
 const Vec2 = mmath.Vec2;
 
 // TODO: set this in a config
@@ -125,9 +126,7 @@ var material_buffer: Buffer = undefined;
 /// camera matricies
 var cam_data = GlobalData{};
 /// buffer for the model matricies of objects
-var model_buffer: Buffer = undefined;
-/// cpu side storage for all the model matricies
-var model_data: [10]Mat4 = undefined;
+var storage_buffer: Buffer = undefined;
 
 // functions that are part of the api
 
@@ -386,16 +385,6 @@ pub fn submit(cmdbuf: CmdBuf) !void {
     cb.reset();
     try cb.begin(device, .{});
 
-    // push some constants to this bih
-    device.vkd.cmdPushConstants(
-        cb.handle,
-        pipeline.layout,
-        .{ .vertex_bit = true },
-        0,
-        @intCast(u32, @sizeOf(MeshPushConstants)),
-        &push_constant,
-    );
-
     var i: usize = 0;
     while (i < cmdbuf.idx) : (i += 1) {
         switch (cmdbuf.commands[i]) {
@@ -413,6 +402,16 @@ fn applyBindPipeline(cb: *CommandBuffer, handle: types.Handle) !void {
     _ = handle;
 
     device.vkd.cmdBindPipeline(cb.handle, .graphics, pipeline.handle);
+
+    // push some constants to this bih
+    device.vkd.cmdPushConstants(
+        cb.handle,
+        pipeline.layout,
+        .{ .vertex_bit = true },
+        0,
+        @intCast(u32, @sizeOf(MeshPushConstants)),
+        &push_constant,
+    );
 
     // this is some material system shit
     try updateDescriptorSets();
@@ -481,6 +480,7 @@ fn applyDraw(cb: *CommandBuffer, desc: types.DrawDesc) void {
         @ptrCast([*]const vk.Buffer, buffers[0..]),
         offsets[0..],
     );
+
     device.vkd.cmdBindIndexBuffer(
         cb.handle,
         Resources.getBackingBuffer(ind_res.desc.usage).handle,
@@ -654,18 +654,32 @@ fn createGlobalBuffers() !void {
         .host_coherent_bit = true,
     }, true);
 
-    model_buffer = try Buffer.init(device, @sizeOf(@TypeOf(model_data)), .{
+    // TODO: chagne default size from 1kb
+    storage_buffer = try Buffer.init(device, 1024, .{
         .storage_buffer_bit = true,
         .transfer_dst_bit = true,
     }, .{
         .host_visible_bit = true,
         .host_coherent_bit = true,
     }, true);
+
+    try storage_buffer.load(device, Vec4, &[_]Vec4{
+        Vec4.new(-0.5, -0.5, 0, 0),
+        Vec4.new(0.5, 0.5, 0, 0),
+        Vec4.new(-0.5, 0.5, 0, 0),
+        Vec4.new(0.5, -0.5, 0, 0),
+    }, 0);
+    try storage_buffer.load(device, Vec2, &[_]Vec2{
+        Vec2.new(0.0, 0.0),
+        Vec2.new(1.0, 1.0),
+        Vec2.new(0.0, 1.0),
+        Vec2.new(1.0, 0.0),
+    }, 4 * @sizeOf(Vec4));
 }
 
 fn destroyBuffers() void {
     global_buffer.deinit(device);
-    model_buffer.deinit(device);
+    storage_buffer.deinit(device);
     material_buffer.deinit(device);
 }
 
@@ -686,7 +700,6 @@ fn upload(pool: vk.CommandPool, buffer: Buffer, comptime T: type, items: []const
 }
 
 fn createDescriptors() !void {
-    //
     // create a descriptor pool for the frame data
     const global_sizes = [_]vk.DescriptorPoolSize{
         // constants
@@ -725,7 +738,7 @@ fn createDescriptors() !void {
         .{
             .binding = 0,
             .descriptor_type = .uniform_buffer,
-            .descriptor_count = 1,
+            .descriptor_count = 1024,
             .stage_flags = .{
                 .vertex_bit = true,
                 .fragment_bit = true,
@@ -737,7 +750,7 @@ fn createDescriptors() !void {
         .{
             .binding = 1,
             .descriptor_type = .storage_buffer,
-            .descriptor_count = 1,
+            .descriptor_count = 1024,
             .stage_flags = .{
                 .vertex_bit = true,
                 .fragment_bit = true,
@@ -749,7 +762,7 @@ fn createDescriptors() !void {
         .{
             .binding = 2,
             .descriptor_type = .sampled_image,
-            .descriptor_count = 1,
+            .descriptor_count = 1024,
             .stage_flags = .{
                 .vertex_bit = true,
                 .fragment_bit = true,
@@ -761,7 +774,7 @@ fn createDescriptors() !void {
         .{
             .binding = 3,
             .descriptor_type = .sampler,
-            .descriptor_count = 1,
+            .descriptor_count = 1024,
             .stage_flags = .{
                 .vertex_bit = true,
                 .fragment_bit = true,
@@ -771,16 +784,24 @@ fn createDescriptors() !void {
         },
     };
 
+    const binding_flags = [_]vk.DescriptorBindingFlags{.{ .partially_bound_bit = true }} ** global_bindings.len;
+
+    // flags for the descriptor sets
+    const binding_flags_info = vk.DescriptorSetLayoutBindingFlagsCreateInfo{
+        .binding_count = global_bindings.len,
+        .p_binding_flags = &binding_flags,
+    };
+
     global_descriptor_layout = try device.vkd.createDescriptorSetLayout(device.logical, &.{
         .flags = .{},
         .binding_count = global_bindings.len,
         .p_bindings = &global_bindings,
+        .p_next = &binding_flags_info,
     }, null);
 }
 
 fn updateDescriptorSets() !void {
     try global_buffer.load(device, GlobalData, &[_]GlobalData{cam_data}, 0);
-    try model_buffer.load(device, Mat4, model_data[0..], 0);
     try material_buffer.load(device, MaterialData, &[_]MaterialData{.{
         .albedo = Vec3.new(1, 1, 1),
     }}, 0);
@@ -794,13 +815,6 @@ fn updateDescriptorSets() !void {
             .range = @sizeOf(GlobalData),
         },
     };
-    const model_infos = [_]vk.DescriptorBufferInfo{
-        .{
-            .buffer = model_buffer.handle,
-            .offset = 0,
-            .range = @sizeOf(@TypeOf(model_data)),
-        },
-    };
 
     const sampler_infos = [_]vk.DescriptorImageInfo{
         .{
@@ -812,6 +826,20 @@ fn updateDescriptorSets() !void {
             .sampler = default_texture_map.sampler,
             .image_view = Resources.textures.get(1).image.view,
             .image_layout = .@"undefined",
+        },
+    };
+
+    // maps the vertex position to a descriptor
+    const storage_infos = [_]vk.DescriptorBufferInfo{
+        .{
+            .buffer = storage_buffer.handle,
+            .offset = 0,
+            .range = 4 * @sizeOf(Vec4),
+        },
+        .{
+            .buffer = storage_buffer.handle,
+            .offset = 4 * @sizeOf(Vec4),
+            .range = 4 * @sizeOf(Vec2),
         },
     };
 
@@ -830,10 +858,20 @@ fn updateDescriptorSets() !void {
             .dst_set = global_descriptor_sets[getCurrentFrame().index],
             .dst_binding = 1,
             .dst_array_element = 0,
-            .descriptor_count = model_infos.len,
+            .descriptor_count = 1,
             .descriptor_type = .storage_buffer,
             .p_image_info = undefined,
-            .p_buffer_info = model_infos[0..],
+            .p_buffer_info = storage_infos[0..],
+            .p_texel_buffer_view = undefined,
+        },
+        .{
+            .dst_set = global_descriptor_sets[getCurrentFrame().index],
+            .dst_binding = 1,
+            .dst_array_element = 1,
+            .descriptor_count = 1,
+            .descriptor_type = .storage_buffer,
+            .p_image_info = undefined,
+            .p_buffer_info = storage_infos[1..],
             .p_texel_buffer_view = undefined,
         },
         .{

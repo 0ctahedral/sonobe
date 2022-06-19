@@ -106,6 +106,11 @@ pub const Device = struct {
             }
         }
 
+        const indexing_features = vk.PhysicalDeviceDescriptorIndexingFeatures{
+            // allow us to only bind the parts of the descriptor set that will be used
+            .descriptor_binding_partially_bound = vk.TRUE,
+        };
+
         const info = .{
             .flags = .{},
             .queue_create_info_count = n_unique,
@@ -115,6 +120,7 @@ pub const Device = struct {
             .pp_enabled_extension_names = @ptrCast([*]const [*:0]const u8, reqs.extensions.ptr),
             .enabled_layer_count = 0,
             .pp_enabled_layer_names = undefined,
+            .p_next = &indexing_features,
         };
 
         self.logical = try vki.createDevice(self.physical, &info, null);
