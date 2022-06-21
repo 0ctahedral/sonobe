@@ -7,7 +7,8 @@ var mouse = Mouse{};
 /// initialize input subsytem
 pub fn init() !void {
     // regiter for mouse events
-    try Events.register(.MouseButton, setButton);
+    try Events.register(.MouseButton, setMouseButton);
+    try Events.register(.MouseMove, setMousePos);
 }
 
 pub fn deinit() void {
@@ -15,8 +16,12 @@ pub fn deinit() void {
     mouse = Mouse{};
 }
 
+pub inline fn getMouse() Mouse {
+    return mouse;
+}
+
 /// set the stae of a button
-pub fn setButton(ev: Events.Event) bool {
+pub fn setMouseButton(ev: Events.Event) bool {
     const bev = ev.MouseButton;
     const idx = @enumToInt(bev.button);
 
@@ -24,22 +29,39 @@ pub fn setButton(ev: Events.Event) bool {
 
     if (bev.action == .press) {
         btn.*.action = .press;
+        btn.*.pressed = bev.pos;
+        btn.*.drag = .{};
     } else if (bev.action == .release) {
         if (btn.action != .none) {
-            // TOOD: get distance
+            const dir = bev.pos.sub(btn.pressed);
+            btn.*.drag = dir;
         }
         btn.*.action = .release;
     }
-
-    std.log.debug("mouse: {}", .{mouse});
 
     return true;
 }
 
 /// set the position of the cursor
-pub fn setCursorPos(ev: Events.Event) bool {
-    _ = ev;
+pub fn setMousePos(ev: Events.Event) bool {
+    for (mouse.buttons) |*btn| {
+        if (btn.action == .press) {
+            // make vector of drag dist
+            const dir = ev.MouseMove.sub(btn.pressed);
+            btn.*.drag = dir;
+        }
+    }
+
     return true;
+}
+
+/// reset the mouse state if it was just released (typically at the end of a frame)
+pub fn resetMouse() void {
+    for (mouse.buttons) |*btn| {
+        if (btn.action == .release) {
+            btn.* = .{};
+        }
+    }
 }
 
 /// mouse input
@@ -78,4 +100,8 @@ pub const Mouse = struct {
     };
 
     buttons: [N_BUTTONS]ButtonState = [_]ButtonState{.{}} ** N_BUTTONS,
+
+    pub inline fn getButton(self: Mouse, btn: Button) ButtonState {
+        return self.buttons[@enumToInt(btn)];
+    }
 };

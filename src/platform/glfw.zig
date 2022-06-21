@@ -32,6 +32,7 @@ pub fn createWindow(title: []const u8, w: u32, h: u32) !Window {
     window.setCloseCallback(onClose);
     // window.setKeyCallback(onKey);
     window.setMouseButtonCallback(onMouseButton);
+    window.setCursorPosCallback(onMouseMove);
     window_store[id] = window;
 
     n_alive += 1;
@@ -47,6 +48,19 @@ fn getWindowIndex(window: glfw.Window) ?u32 {
         }
     }
     return null;
+}
+
+fn onMouseMove(
+    win: glfw.Window,
+    x: f64,
+    y: f64,
+) void {
+    _ = win;
+
+    Events.enqueue(.{ .MouseMove = .{
+        .x = @floatCast(f32, x),
+        .y = @floatCast(f32, y),
+    } });
 }
 
 fn onMouseButton(
@@ -78,8 +92,10 @@ fn onMouseButton(
 
     Events.enqueue(.{
         .MouseButton = .{
-            .x = @floatToInt(i16, pos.xpos),
-            .y = @floatToInt(i16, pos.ypos),
+            .pos = .{
+                .x = @floatCast(f32, pos.xpos),
+                .y = @floatCast(f32, pos.ypos),
+            },
             .button = button,
             .action = action,
         },

@@ -2,6 +2,7 @@ const std = @import("std");
 const octal = @import("octal");
 
 const Renderer = octal.Renderer;
+const Input = octal.Input;
 const CmdBuf = Renderer.CmdBuf;
 
 const mmath = octal.mmath;
@@ -100,6 +101,12 @@ pub fn init(app: *App) !void {
 pub fn update(app: *App, dt: f64) !void {
     app.theta += std.math.pi * @floatCast(f32, dt);
     app.t.rot = Quat.fromAxisAngle(Vec3.FORWARD, app.theta);
+
+    const left = Input.getMouse().getButton(.left);
+
+    if (left.action == .release) {
+        std.log.debug("drag: {d:.1} {d:.1}", .{ left.drag.x, left.drag.y });
+    }
 }
 
 pub fn render(app: *App) !void {

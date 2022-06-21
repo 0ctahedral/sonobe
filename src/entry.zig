@@ -37,6 +37,12 @@ pub fn main() !void {
     while (Platform.is_running) {
         Platform.startFrame();
 
+        // get events
+        Platform.flush();
+        // want to make sure only the last window resize is used
+        Events.sendLastType(.WindowResize);
+        Events.sendAll();
+
         {
             // update state
             try app.update(Platform.dt());
@@ -47,12 +53,10 @@ pub fn main() !void {
             try Renderer.drawFrame();
         }
 
-        Platform.endFrame();
+        // reset the mouse
+        Input.resetMouse();
 
-        // get events
-        Platform.flush();
-        // want to make sure only the last window resize is used
-        Events.sendLastType(.WindowResize);
-        Events.sendAll();
+        // end frame
+        Platform.endFrame();
     }
 }
