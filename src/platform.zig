@@ -45,7 +45,7 @@ pub const required_exts = [_][*:0]const u8{
 };
 
 var timer: std.time.Timer = undefined;
-var curr_time: u64 = 0;
+pub var curr_time: u64 = 0;
 var delta: u64 = 0;
 
 /// Initialize the platform layer
@@ -110,6 +110,10 @@ pub fn createWindow(title: []const u8, width: u32, height: u32) anyerror!Window 
     return backend.createWindow(title, width, height);
 }
 
+pub fn setWindowTitle(win: Window, title: []const u8) !void {
+    return backend.setWindowTitle(win, title);
+}
+
 /// starts a frame: used for tracking delta time and stuff
 pub fn startFrame() void {
     curr_time = timer.read();
@@ -122,7 +126,7 @@ pub fn endFrame() void {
     curr_time = new_time;
 }
 
-/// the delta time for the current frame
+/// the delta time for the current frame in seconds
 pub inline fn dt() f64 {
     return @intToFloat(f64, delta) / std.time.ns_per_s;
 }

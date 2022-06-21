@@ -40,6 +40,11 @@ pub fn createWindow(title: []const u8, w: u32, h: u32) !Window {
     return Window{ .handle = @intToEnum(Window.Handle, id) };
 }
 
+pub fn setWindowTitle(win: Window, title: []const u8) !void {
+    const window = window_store[@enumToInt(win.handle)];
+    try window.setTitle(@ptrCast([*:0]const u8, title.ptr));
+}
+
 fn getWindowIndex(window: glfw.Window) ?u32 {
     var iter = windows.iter();
     while (iter.next()) |wd| {

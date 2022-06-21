@@ -23,7 +23,9 @@ pub fn main() !void {
     errdefer Platform.deinit();
 
     const window = try Platform.createWindow(App.name, 800, 600);
-    _ = window;
+    var buf: [80]u8 = undefined;
+
+    var last_fps_time: u64 = 0;
 
     //// setup renderer
     const allocator = std.testing.allocator;
@@ -56,6 +58,10 @@ pub fn main() !void {
         // reset the mouse
         Input.resetMouse();
 
+        if ((Platform.curr_time - last_fps_time) > std.time.ns_per_s) {
+            last_fps_time = Platform.curr_time;
+            try Platform.setWindowTitle(window, try std.fmt.bufPrint(buf[0..], "testbed fps: {d:.2}\x00", .{Platform.fps()}));
+        }
         // end frame
         Platform.endFrame();
     }
