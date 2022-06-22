@@ -23,7 +23,7 @@ const Semaphore = @import("semaphore.zig").Semaphore;
 const Pipeline = @import("pipeline.zig").Pipeline;
 const Mesh = @import("mesh.zig").Mesh;
 const Buffer = @import("buffer.zig").Buffer;
-const TextureMap = @import("texture.zig").TextureMap;
+const Sampler = @import("texture.zig").Sampler;
 const Texture = @import("texture.zig").Texture;
 const RenderTarget = @import("render_target.zig").RenderTarget;
 pub const Resources = @import("resources.zig");
@@ -97,7 +97,7 @@ var global_descriptor_sets: [MAX_FRAMES]vk.DescriptorSet = undefined;
 // --------------------------------------
 
 // TODO: this should be from a resource system
-var default_texture_map: TextureMap = undefined;
+var default_sampler: Sampler = undefined;
 var default_texture: Handle = undefined;
 
 const MeshPushConstants = struct {
@@ -290,7 +290,11 @@ pub fn init(provided_allocator: Allocator, app_name: [*:0]const u8, window: Plat
             .flags = .{},
         }, pixels[0..]);
 
-        default_texture_map = try TextureMap.init(device, Resources.textures.get(1));
+        default_sampler = try Sampler.init(device, .{
+            .filter = .bilinear,
+            .repeat = .wrap,
+            .compare = .greater,
+        });
     }
 }
 
@@ -302,7 +306,7 @@ pub fn deinit() void {
         unreachable;
     };
 
-    default_texture_map.deinit(device);
+    default_sampler.deinit(device);
     // technically don't need to do this since we destroy the texture
     // in the next line
     Resources.destroy(default_texture);
@@ -816,12 +820,12 @@ fn updateDescriptorSets() !void {
     const sampler_infos = [_]vk.DescriptorImageInfo{
         .{
             .sampler = .null_handle,
-            .image_view = Resources.textures.get(1).image.view,
+            .image_view = Resources.getTexture(default_texture).image.view,
             .image_layout = vk.ImageLayout.shader_read_only_optimal,
         },
         .{
-            .sampler = default_texture_map.sampler,
-            .image_view = Resources.textures.get(1).image.view,
+            .sampler = default_sampler.handle,
+            .image_view = Resources.getTexture(default_texture).image.view,
             .image_layout = .@"undefined",
         },
     };
