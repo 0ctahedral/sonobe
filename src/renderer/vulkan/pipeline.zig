@@ -113,13 +113,10 @@ pub const Pipeline = struct {
 
         const vertex_input_ci = vk.PipelineVertexInputStateCreateInfo{
             .flags = .{},
-            .vertex_binding_description_count = @intCast(u32, Mesh.info.bindings.len),
-            .p_vertex_binding_descriptions = @ptrCast(
-                [*]const vk.VertexInputBindingDescription,
-                &Mesh.info.bindings,
-            ),
-            .vertex_attribute_description_count = @intCast(u32, Mesh.info.attrs.len),
-            .p_vertex_attribute_descriptions = &Mesh.info.attrs,
+            .vertex_binding_description_count = 0,
+            .p_vertex_binding_descriptions = undefined,
+            .vertex_attribute_description_count = 0,
+            .p_vertex_attribute_descriptions = undefined,
         };
 
         const input_assembly = vk.PipelineInputAssemblyStateCreateInfo{

@@ -55,7 +55,7 @@ pub fn init(app: *App) !void {
     app.quad_verts = try Renderer.createBuffer(
         .{
             .size = @sizeOf(@TypeOf(texcoords)) + @sizeOf(@TypeOf(positions)),
-            .usage = .Vertex,
+            .usage = .Storage,
         },
     );
     var offset = try Renderer.updateBuffer(app.quad_verts, 0, Vec3, positions[0..]);
@@ -117,7 +117,11 @@ pub fn render(app: *App) !void {
     // update a constant value?
     // try cmd.updateConsts(app.simple_pipeline, "const name", 35)
 
-    try cmd.bindPipeline(app.simple_pipeline);
+    // TODO: this will have the indices of the corresponding buffers attached to
+    // the shader 'slots'
+    // for now we can cheat by sending the vertex buffer instead
+    // try cmd.bindPipeline(app.simple_pipeline);
+    try cmd.bindPipeline(app.quad_verts);
 
     try cmd.drawIndexed(.{
         .count = 6,

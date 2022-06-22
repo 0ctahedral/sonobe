@@ -18,6 +18,7 @@ pub const DrawDesc = struct {
 // buffer stuff
 pub const BufferDesc = struct {
     pub const Usage = enum {
+        // TODO: should hopefully be legacy
         Vertex,
         Index,
         Storage,

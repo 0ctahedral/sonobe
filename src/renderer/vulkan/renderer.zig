@@ -121,12 +121,8 @@ const MaterialData = struct {
 
 /// buffer for global shader data (rn just the camera matricies)
 var global_buffer: Buffer = undefined;
-/// shader
-var material_buffer: Buffer = undefined;
 /// camera matricies
 var cam_data = GlobalData{};
-/// buffer for the model matricies of objects
-var storage_buffer: Buffer = undefined;
 
 // functions that are part of the api
 
@@ -403,7 +399,9 @@ pub fn submit(cmdbuf: CmdBuf) !void {
 }
 
 fn applyBindPipeline(cb: *CommandBuffer, handle: types.Handle) !void {
-    _ = handle;
+    // TODO: this will have the indices of the corresponding buffers attached to
+    // the shader 'slots'
+    // for now we can cheat by sending the vertex buffer instead
 
     device.vkd.cmdBindPipeline(cb.handle, .graphics, pipeline.handle);
 
@@ -418,7 +416,91 @@ fn applyBindPipeline(cb: *CommandBuffer, handle: types.Handle) !void {
     );
 
     // this is some material system shit
-    try updateDescriptorSets();
+    try global_buffer.load(device, GlobalData, &[_]GlobalData{cam_data}, 0);
+
+    // TODO: this should only update what actually needs it
+
+    const cam_infos = [_]vk.DescriptorBufferInfo{
+        .{
+            .buffer = global_buffer.handle,
+            .offset = 0,
+            .range = @sizeOf(GlobalData),
+        },
+    };
+
+    const sampler_infos = [_]vk.DescriptorImageInfo{
+        .{
+            .sampler = .null_handle,
+            .image_view = Resources.getTexture(default_texture).image.view,
+            .image_layout = vk.ImageLayout.shader_read_only_optimal,
+        },
+        .{
+            .sampler = default_sampler.handle,
+            .image_view = Resources.getTexture(default_texture).image.view,
+            .image_layout = .@"undefined",
+        },
+    };
+
+    const vertex_buffer = Resources.getBuffer(handle);
+
+    // maps the vertex position to a descriptor
+    const storage_infos = [_]vk.DescriptorBufferInfo{
+        .{
+            .buffer = vertex_buffer.handle,
+            .offset = 0,
+            .range = 4 * @sizeOf(Vec3),
+        },
+        .{
+            .buffer = vertex_buffer.handle,
+            .offset = 4 * @sizeOf(Vec3),
+            .range = 4 * @sizeOf(Vec2),
+        },
+    };
+
+    const writes = [_]vk.WriteDescriptorSet{
+        .{
+            .dst_set = global_descriptor_sets[getCurrentFrame().index],
+            .dst_binding = 0,
+            .dst_array_element = 0,
+            .descriptor_count = cam_infos.len,
+            .descriptor_type = .uniform_buffer,
+            .p_image_info = undefined,
+            .p_buffer_info = cam_infos[0..],
+            .p_texel_buffer_view = undefined,
+        },
+        .{
+            .dst_set = global_descriptor_sets[getCurrentFrame().index],
+            .dst_binding = 1,
+            .dst_array_element = 0,
+            .descriptor_count = storage_infos.len,
+            .descriptor_type = .storage_buffer,
+            .p_image_info = undefined,
+            .p_buffer_info = storage_infos[0..],
+            .p_texel_buffer_view = undefined,
+        },
+        .{
+            .dst_set = global_descriptor_sets[getCurrentFrame().index],
+            .dst_binding = 2,
+            .dst_array_element = 0,
+            .descriptor_count = 1,
+            .descriptor_type = .sampled_image,
+            .p_image_info = sampler_infos[0..],
+            .p_buffer_info = undefined,
+            .p_texel_buffer_view = undefined,
+        },
+        .{
+            .dst_set = global_descriptor_sets[getCurrentFrame().index],
+            .dst_binding = 3,
+            .dst_array_element = 0,
+            .descriptor_count = 1,
+            .descriptor_type = .sampler,
+            .p_image_info = sampler_infos[1..],
+            .p_buffer_info = undefined,
+            .p_texel_buffer_view = undefined,
+        },
+    };
+
+    device.vkd.updateDescriptorSets(device.logical, writes.len, &writes, 0, undefined);
 
     const descriptor_sets = [_]vk.DescriptorSet{
         global_descriptor_sets[getCurrentFrame().index],
@@ -469,19 +551,6 @@ fn applyEndRenderPass(cb: *CommandBuffer, handle: types.Handle) void {
 }
 
 fn applyDraw(cb: *CommandBuffer, desc: types.DrawDesc) void {
-    const offsets = [_]vk.DeviceSize{ 0, 4 * @sizeOf(Vec3) };
-    const buffers = [_]vk.Buffer{
-        Resources.getBuffer(desc.vertex_handle).handle,
-        Resources.getBuffer(desc.vertex_handle).handle,
-    };
-    device.vkd.cmdBindVertexBuffers(
-        cb.handle,
-        0,
-        2,
-        @ptrCast([*]const vk.Buffer, buffers[0..]),
-        offsets[0..],
-    );
-
     device.vkd.cmdBindIndexBuffer(
         cb.handle,
         Resources.getBuffer(desc.index_handle).handle,
@@ -649,39 +718,10 @@ fn createGlobalBuffers() !void {
         .host_visible_bit = true,
         .host_coherent_bit = true,
     }, true);
-
-    material_buffer = try Buffer.init(device, @sizeOf(MaterialData) * 1024, .{ .transfer_dst_bit = true, .uniform_buffer_bit = true }, .{
-        .host_visible_bit = true,
-        .host_coherent_bit = true,
-    }, true);
-
-    // TODO: chagne default size from 1kb
-    storage_buffer = try Buffer.init(device, 1024, .{
-        .storage_buffer_bit = true,
-        .transfer_dst_bit = true,
-    }, .{
-        .host_visible_bit = true,
-        .host_coherent_bit = true,
-    }, true);
-
-    try storage_buffer.load(device, Vec3, &[_]Vec3{
-        Vec3.new(-0.5, -0.5, 0),
-        Vec3.new(0.5, 0.5, 0),
-        Vec3.new(-0.5, 0.5, 0),
-        Vec3.new(0.5, -0.5, 0),
-    }, 0);
-    try storage_buffer.load(device, Vec2, &[_]Vec2{
-        Vec2.new(0.0, 0.0),
-        Vec2.new(1.0, 1.0),
-        Vec2.new(0.0, 1.0),
-        Vec2.new(1.0, 0.0),
-    }, 4 * @sizeOf(Vec3));
 }
 
 fn destroyBuffers() void {
     global_buffer.deinit(device);
-    storage_buffer.deinit(device);
-    material_buffer.deinit(device);
 }
 
 fn upload(pool: vk.CommandPool, buffer: Buffer, comptime T: type, items: []const T) !void {
@@ -799,105 +839,6 @@ fn createDescriptors() !void {
         .p_bindings = &global_bindings,
         .p_next = &binding_flags_info,
     }, null);
-}
-
-fn updateDescriptorSets() !void {
-    try global_buffer.load(device, GlobalData, &[_]GlobalData{cam_data}, 0);
-    try material_buffer.load(device, MaterialData, &[_]MaterialData{.{
-        .albedo = Vec3.new(1, 1, 1),
-    }}, 0);
-
-    // TODO: this should only update what actually needs it
-
-    const cam_infos = [_]vk.DescriptorBufferInfo{
-        .{
-            .buffer = global_buffer.handle,
-            .offset = 0,
-            .range = @sizeOf(GlobalData),
-        },
-    };
-
-    const sampler_infos = [_]vk.DescriptorImageInfo{
-        .{
-            .sampler = .null_handle,
-            .image_view = Resources.getTexture(default_texture).image.view,
-            .image_layout = vk.ImageLayout.shader_read_only_optimal,
-        },
-        .{
-            .sampler = default_sampler.handle,
-            .image_view = Resources.getTexture(default_texture).image.view,
-            .image_layout = .@"undefined",
-        },
-    };
-
-    // maps the vertex position to a descriptor
-    const storage_infos = [_]vk.DescriptorBufferInfo{
-        .{
-            .buffer = storage_buffer.handle,
-            .offset = 0,
-            .range = 4 * @sizeOf(Vec3),
-        },
-        .{
-            .buffer = storage_buffer.handle,
-            .offset = 4 * @sizeOf(Vec3),
-            .range = 4 * @sizeOf(Vec2),
-        },
-    };
-
-    const writes = [_]vk.WriteDescriptorSet{
-        .{
-            .dst_set = global_descriptor_sets[getCurrentFrame().index],
-            .dst_binding = 0,
-            .dst_array_element = 0,
-            .descriptor_count = cam_infos.len,
-            .descriptor_type = .uniform_buffer,
-            .p_image_info = undefined,
-            .p_buffer_info = cam_infos[0..],
-            .p_texel_buffer_view = undefined,
-        },
-        .{
-            .dst_set = global_descriptor_sets[getCurrentFrame().index],
-            .dst_binding = 1,
-            .dst_array_element = 0,
-            .descriptor_count = storage_infos.len,
-            .descriptor_type = .storage_buffer,
-            .p_image_info = undefined,
-            .p_buffer_info = storage_infos[0..],
-            .p_texel_buffer_view = undefined,
-        },
-        // .{
-        //     .dst_set = global_descriptor_sets[getCurrentFrame().index],
-        //     .dst_binding = 1,
-        //     .dst_array_element = 1,
-        //     .descriptor_count = 1,
-        //     .descriptor_type = .storage_buffer,
-        //     .p_image_info = undefined,
-        //     .p_buffer_info = storage_infos[1..],
-        //     .p_texel_buffer_view = undefined,
-        // },
-        .{
-            .dst_set = global_descriptor_sets[getCurrentFrame().index],
-            .dst_binding = 2,
-            .dst_array_element = 0,
-            .descriptor_count = 1,
-            .descriptor_type = .sampled_image,
-            .p_image_info = sampler_infos[0..],
-            .p_buffer_info = undefined,
-            .p_texel_buffer_view = undefined,
-        },
-        .{
-            .dst_set = global_descriptor_sets[getCurrentFrame().index],
-            .dst_binding = 3,
-            .dst_array_element = 0,
-            .descriptor_count = 1,
-            .descriptor_type = .sampler,
-            .p_image_info = sampler_infos[1..],
-            .p_buffer_info = undefined,
-            .p_texel_buffer_view = undefined,
-        },
-    };
-
-    device.vkd.updateDescriptorSets(device.logical, writes.len, &writes, 0, undefined);
 }
 
 /// Returns the framedata of the frame we should be on

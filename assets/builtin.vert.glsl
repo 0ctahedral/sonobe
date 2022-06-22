@@ -3,11 +3,6 @@
 
 // THIS IS THE TARGET OF OUR GENERATED CODE
 
-// TODO: this should be gone
-layout(location = 0) in vec3 in_pos;
-layout(location = 1) in vec2 in_texcoord;
-
-
 // maybe have global data for all shaders?
 layout (set = 0, binding = 0) uniform readonly global_uniform_object {
   mat4 projection;
