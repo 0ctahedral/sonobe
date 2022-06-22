@@ -94,15 +94,14 @@ pub const Buffer = struct {
         dev: Device,
         comptime T: type,
         data: []const T,
-        offset: usize,
+        offset_bytes: usize,
     ) !void {
-        const dest = try dev.vkd.mapMemory(dev.logical, self.mem, @sizeOf(T) * offset, @sizeOf(T) * data.len, .{});
-        const ptr = @ptrCast([*]T, @alignCast(@alignOf(T), dest));
+        const dest_ptr = try dev.vkd.mapMemory(dev.logical, self.mem, offset_bytes, @sizeOf(T) * data.len, .{});
 
+        const ptr = @ptrCast([*]T, @alignCast(@alignOf(T), dest_ptr));
         for (data) |item, i| {
             ptr[i] = item;
         }
-
         dev.vkd.unmapMemory(dev.logical, self.mem);
     }
 

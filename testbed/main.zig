@@ -100,7 +100,7 @@ pub fn init(app: *App) !void {
 
 pub fn update(app: *App, dt: f64) !void {
     app.theta += std.math.pi * @floatCast(f32, dt);
-    app.t.rot = Quat.fromAxisAngle(Vec3.FORWARD, app.theta);
+    // app.t.rot = Quat.fromAxisAngle(Vec3.FORWARD, app.theta);
 
     const left = Input.getMouse().getButton(.left);
 
@@ -113,6 +113,9 @@ pub fn render(app: *App) !void {
     var cmd = Renderer.getCmdBuf();
 
     try cmd.beginRenderPass(app.world_pass);
+
+    // update a constant value?
+    // try cmd.updateConsts(app.simple_pipeline, "const name", 35)
 
     try cmd.bindPipeline(app.simple_pipeline);
 

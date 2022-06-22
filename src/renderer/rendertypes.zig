@@ -20,8 +20,7 @@ pub const BufferDesc = struct {
     pub const Usage = enum {
         Vertex,
         Index,
-        //        Storage,
-        //        Uniform,
+        Storage,
     };
     usage: Usage,
     size: usize,
