@@ -1,66 +1,74 @@
 const std = @import("std");
 const vk = @import("vulkan");
+const SamplerDesc = @import("../rendertypes.zig").SamplerDesc;
 const Device = @import("device.zig").Device;
 const Image = @import("image.zig").Image;
 const Buffer = @import("buffer.zig").Buffer;
 const CommandBuffer = @import("commandbuffer.zig").CommandBuffer;
 
-pub const TextureMap = struct {
-    /// corresponding texture
-    /// TODO: might end up being a pointer?
-    texture: *Texture = undefined,
-
-    /// filter type for minifying
-    min_filter: vk.Filter = .linear,
-    /// filter type for magnifiying
-    mag_filter: vk.Filter = .linear,
-
-    /// how to repeat the texture in the x direction
-    repeat_u: vk.SamplerAddressMode = .repeat,
-    /// how to repeat the texture in the y direction
-    repeat_v: vk.SamplerAddressMode = .repeat,
-    /// how to repeat the texture in the z direction
-    repeat_w: vk.SamplerAddressMode = .repeat,
-
-    /// sampler for this texture
-    sampler: vk.Sampler = .null_handle,
-
+pub const Sampler = struct {
     const Self = @This();
+
+    /// handle to the sampler
+    handle: vk.Sampler = .null_handle,
 
     pub fn init(
         device: Device,
-        texture: *Texture,
-        // TODO: configurable
+        desc: SamplerDesc,
     ) !Self {
         var self = Self{};
 
+        const Config = struct {
+            filter: vk.Filter,
+            mipmap_mode: vk.SamplerMipmapMode,
+        };
+
+        const mip_filter: Config = switch (desc.filter) {
+            .nearest => .{ .filter = .nearest, .mipmap_mode = .nearest },
+            .bilinear => .{ .filter = .linear, .mipmap_mode = .nearest },
+            .trilinear => .{ .filter = .linear, .mipmap_mode = .linear },
+            .anisotropic => .{ .filter = .linear, .mipmap_mode = .linear },
+        };
+
+        const repeat: vk.SamplerAddressMode = switch (desc.repeat) {
+            .wrap => .repeat,
+            .clamp => .clamp_to_edge,
+        };
+
+        const compare_op: vk.CompareOp = switch (desc.compare) {
+            .never => .never,
+            .less => .less,
+            .greater => .greater,
+            .less_eq => .less_or_equal,
+            .greater_eq => .greater_or_equal,
+        };
+
         const sci = vk.SamplerCreateInfo{
             .flags = .{},
-            .mag_filter = .linear,
-            .min_filter = .linear,
-            .address_mode_u = self.repeat_u,
-            .address_mode_v = self.repeat_v,
-            .address_mode_w = self.repeat_w,
-            .mipmap_mode = vk.SamplerMipmapMode.linear,
+            .mag_filter = mip_filter.filter,
+            .min_filter = mip_filter.filter,
+            .address_mode_u = repeat,
+            .address_mode_v = repeat,
+            .address_mode_w = repeat,
+            .mipmap_mode = mip_filter.mipmap_mode,
             .mip_lod_bias = 0,
-            .anisotropy_enable = vk.TRUE,
+            .anisotropy_enable = if (desc.filter == .anisotropic) vk.TRUE else vk.FALSE,
             .max_anisotropy = 16,
-            .compare_enable = vk.FALSE,
-            .compare_op = vk.CompareOp.always,
+            .compare_enable = if (desc.compare == .never) vk.FALSE else vk.TRUE,
+            .compare_op = compare_op,
             .min_lod = 0,
             .max_lod = 0,
             .border_color = vk.BorderColor.float_opaque_black,
             .unnormalized_coordinates = vk.FALSE,
         };
 
-        self.sampler = try device.vkd.createSampler(device.logical, &sci, null);
-        self.texture = texture;
+        self.handle = try device.vkd.createSampler(device.logical, &sci, null);
 
         return self;
     }
 
     pub fn deinit(self: *Self, device: Device) void {
-        device.vkd.destroySampler(device.logical, self.sampler, null);
+        device.vkd.destroySampler(device.logical, self.handle, null);
     }
 };
 

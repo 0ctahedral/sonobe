@@ -22,17 +22,19 @@ var last_vert: usize = 0;
 
 /// backing buffers we are using for allocating from
 const MAX_BUFFERS = 1024;
-pub var buffers: [@typeInfo(types.BufferDesc.Usage).Enum.fields.len]FreeList(Buffer) = undefined;
+var buffers: [@typeInfo(types.BufferDesc.Usage).Enum.fields.len]FreeList(Buffer) = undefined;
 //pub var buffers: [@typeInfo(types.BufferDesc.Usage).Enum.fields.len]Buffer = undefined;
 /// textures to allocate from
 const MAX_TEXTURES = 1024;
-pub var textures: FreeList(Texture) = undefined;
+var textures: FreeList(Texture) = undefined;
 
 const ResourceType = enum {
     Buffer,
     Texture,
 };
 
+// TODO: add sampler
+// TODO: add shader/pipeline
 const Resource = union(ResourceType) {
     Buffer: struct {
         /// index in buffer freelist
@@ -188,7 +190,8 @@ pub fn getBuffer(handle: Handle) *Buffer {
     return buffers[@enumToInt(res.desc.usage)].get(res.index);
 }
 
-/// helper to get the resource from the freelist
-pub fn getResource(handle: Handle) *Resource {
-    return resources.get(handle.resource);
+/// helper to get a texture based on handle
+pub fn getTexture(handle: Handle) *Texture {
+    const res = resources.get(handle.resource).Texture;
+    return textures.get(res.index);
 }

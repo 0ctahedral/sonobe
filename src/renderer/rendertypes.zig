@@ -39,6 +39,43 @@ pub const TextureDesc = struct {
     },
 };
 
+pub const SamplerDesc = struct {
+    pub const Filter = enum {
+        /// grab the nearest texel to the sample
+        nearest,
+        /// sample four nearest texels
+        bilinear,
+        /// sample four nearest texels on two mip map levels
+        trilinear,
+        /// ???
+        anisotropic,
+    };
+
+    pub const Repeat = enum {
+        /// wrap the texure by repeating (tiled)
+        wrap,
+        /// doesn't tile
+        clamp,
+    };
+
+    pub const Compare = enum {
+        never,
+        less,
+        less_eq,
+        greater,
+        greater_eq,
+    };
+
+    /// how should the texture be filtered when sampled
+    filter: Filter,
+
+    /// how the texture is repeated with uvs outside the range
+    repeat: Repeat,
+
+    /// how the sampler should compare mipmap values
+    compare: Compare,
+};
+
 // TODO: add more details like attachments and subpasses and stuff
 pub const RenderPassDesc = struct {
     /// color this renderpass should clear the rendertarget to
