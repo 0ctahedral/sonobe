@@ -465,13 +465,10 @@ fn applyEndRenderPass(cb: *CommandBuffer, handle: types.Handle) void {
 }
 
 fn applyDraw(cb: *CommandBuffer, desc: types.DrawDesc) void {
-    const vert_res = Resources.getResource(desc.vertex_handle).Buffer;
-    const ind_res = Resources.getResource(desc.index_handle).Buffer;
-
-    const offsets = [_]vk.DeviceSize{ vert_res.offset, vert_res.offset + 4 * @sizeOf(Vec3) };
+    const offsets = [_]vk.DeviceSize{ 0, 4 * @sizeOf(Vec3) };
     const buffers = [_]vk.Buffer{
-        Resources.getBackingBuffer(vert_res.desc.usage).handle,
-        Resources.getBackingBuffer(vert_res.desc.usage).handle,
+        Resources.getBuffer(desc.vertex_handle).handle,
+        Resources.getBuffer(desc.vertex_handle).handle,
     };
     device.vkd.cmdBindVertexBuffers(
         cb.handle,
@@ -483,8 +480,8 @@ fn applyDraw(cb: *CommandBuffer, desc: types.DrawDesc) void {
 
     device.vkd.cmdBindIndexBuffer(
         cb.handle,
-        Resources.getBackingBuffer(ind_res.desc.usage).handle,
-        ind_res.offset,
+        Resources.getBuffer(desc.index_handle).handle,
+        0,
         .uint32,
     );
 
@@ -663,18 +660,18 @@ fn createGlobalBuffers() !void {
         .host_coherent_bit = true,
     }, true);
 
-    try storage_buffer.load(device, Vec4, &[_]Vec4{
-        Vec4.new(-0.5, -0.5, 0, 0),
-        Vec4.new(0.5, 0.5, 0, 0),
-        Vec4.new(-0.5, 0.5, 0, 0),
-        Vec4.new(0.5, -0.5, 0, 0),
+    try storage_buffer.load(device, Vec3, &[_]Vec3{
+        Vec3.new(-0.5, -0.5, 0),
+        Vec3.new(0.5, 0.5, 0),
+        Vec3.new(-0.5, 0.5, 0),
+        Vec3.new(0.5, -0.5, 0),
     }, 0);
     try storage_buffer.load(device, Vec2, &[_]Vec2{
         Vec2.new(0.0, 0.0),
         Vec2.new(1.0, 1.0),
         Vec2.new(0.0, 1.0),
         Vec2.new(1.0, 0.0),
-    }, 4 * @sizeOf(Vec4));
+    }, 4 * @sizeOf(Vec3));
 }
 
 fn destroyBuffers() void {
@@ -834,11 +831,11 @@ fn updateDescriptorSets() !void {
         .{
             .buffer = storage_buffer.handle,
             .offset = 0,
-            .range = 4 * @sizeOf(Vec4),
+            .range = 4 * @sizeOf(Vec3),
         },
         .{
             .buffer = storage_buffer.handle,
-            .offset = 4 * @sizeOf(Vec4),
+            .offset = 4 * @sizeOf(Vec3),
             .range = 4 * @sizeOf(Vec2),
         },
     };
@@ -858,22 +855,22 @@ fn updateDescriptorSets() !void {
             .dst_set = global_descriptor_sets[getCurrentFrame().index],
             .dst_binding = 1,
             .dst_array_element = 0,
-            .descriptor_count = 1,
+            .descriptor_count = storage_infos.len,
             .descriptor_type = .storage_buffer,
             .p_image_info = undefined,
             .p_buffer_info = storage_infos[0..],
             .p_texel_buffer_view = undefined,
         },
-        .{
-            .dst_set = global_descriptor_sets[getCurrentFrame().index],
-            .dst_binding = 1,
-            .dst_array_element = 1,
-            .descriptor_count = 1,
-            .descriptor_type = .storage_buffer,
-            .p_image_info = undefined,
-            .p_buffer_info = storage_infos[1..],
-            .p_texel_buffer_view = undefined,
-        },
+        // .{
+        //     .dst_set = global_descriptor_sets[getCurrentFrame().index],
+        //     .dst_binding = 1,
+        //     .dst_array_element = 1,
+        //     .descriptor_count = 1,
+        //     .descriptor_type = .storage_buffer,
+        //     .p_image_info = undefined,
+        //     .p_buffer_info = storage_infos[1..],
+        //     .p_texel_buffer_view = undefined,
+        // },
         .{
             .dst_set = global_descriptor_sets[getCurrentFrame().index],
             .dst_binding = 2,

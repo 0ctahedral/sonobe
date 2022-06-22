@@ -22,7 +22,8 @@ var last_vert: usize = 0;
 
 /// backing buffers we are using for allocating from
 const MAX_BUFFERS = 1024;
-pub var buffers: [@typeInfo(types.BufferDesc.Usage).Enum.fields.len]Buffer = undefined;
+pub var buffers: [@typeInfo(types.BufferDesc.Usage).Enum.fields.len]FreeList(Buffer) = undefined;
+//pub var buffers: [@typeInfo(types.BufferDesc.Usage).Enum.fields.len]Buffer = undefined;
 /// textures to allocate from
 const MAX_TEXTURES = 1024;
 pub var textures: FreeList(Texture) = undefined;
@@ -34,8 +35,8 @@ const ResourceType = enum {
 
 const Resource = union(ResourceType) {
     Buffer: struct {
-        /// offset in buffer
-        offset: usize,
+        /// index in buffer freelist
+        index: u32,
         desc: types.BufferDesc,
     },
     Texture: struct {
@@ -56,40 +57,18 @@ pub fn init(_device: Device, _allocator: std.mem.Allocator) !void {
 
     resources = try FreeList(Resource).init(allocator, MAX_TEXTURES + MAX_BUFFERS);
     textures = try FreeList(Texture).init(allocator, MAX_TEXTURES);
-
-    for (buffers) |*buf, i| {
-        const usage_type = @intToEnum(types.BufferDesc.Usage, i);
-
-        // fix the types
-        const usage: vk.BufferUsageFlags = switch (usage_type) {
-            .Vertex => .{
-                .vertex_buffer_bit = true,
-                .transfer_src_bit = true,
-                .transfer_dst_bit = true,
-            },
-            .Index => .{
-                .index_buffer_bit = true,
-                .transfer_src_bit = true,
-                .transfer_dst_bit = true,
-            },
-        };
-
-        const size: usize = switch (usage_type) {
-            .Vertex => 1024 * 1024,
-            .Index => @sizeOf(u32) * 1024 * 1024,
-        };
-
-        const mem: vk.MemoryPropertyFlags = switch (usage_type) {
-            .Index, .Vertex => .{ .device_local_bit = true },
-        };
-
-        buf.* = try Buffer.init(device, size, usage, mem, true);
+    for (buffers) |*buf| {
+        buf.* = try FreeList(Buffer).init(allocator, MAX_BUFFERS / 4);
     }
 }
 
 pub fn deinit() void {
-    for (buffers) |b| {
-        b.deinit(device);
+    for (buffers) |*fl| {
+        var iter = fl.iter();
+        while (iter.next()) |buf| {
+            buf.deinit(device);
+        }
+        fl.deinit();
     }
     var tex_iter = textures.iter();
     while (tex_iter.next()) |t| {
@@ -101,20 +80,52 @@ pub fn deinit() void {
 pub fn createBuffer(desc: types.BufferDesc) !Handle {
     // TODO: throw error if too big
 
-    const idx = try resources.allocIndex();
-    const buf_offest = switch (desc.usage) {
-        .Vertex => last_vert,
-        .Index => last_ind,
-        // else => last_vert,
+    const res = try resources.allocIndex();
+    // fix the types
+    const usage: vk.BufferUsageFlags = switch (desc.usage) {
+        .Vertex => .{
+            .vertex_buffer_bit = true,
+            .transfer_src_bit = true,
+            .transfer_dst_bit = true,
+        },
+        .Index => .{
+            .index_buffer_bit = true,
+            .transfer_src_bit = true,
+            .transfer_dst_bit = true,
+        },
+        .Storage => .{
+            .storage_buffer_bit = true,
+            .transfer_dst_bit = true,
+        },
     };
-    resources.set(idx, .{ .Buffer = .{
-        .offset = buf_offest,
+    const size: usize = switch (desc.usage) {
+        .Storage => 1024 * 1024,
+        .Vertex => 1024 * 1024,
+        .Index => 1024 * 1024,
+    };
+
+    const mem: vk.MemoryPropertyFlags = switch (desc.usage) {
+        .Index, .Vertex => .{ .device_local_bit = true },
+        .Storage => .{
+            .host_visible_bit = true,
+            .host_coherent_bit = true,
+        },
+    };
+
+    const idx = try buffers[@enumToInt(desc.usage)].allocIndex();
+
+    const buf = try Buffer.init(device, size, usage, mem, true);
+
+    buffers[@enumToInt(desc.usage)].set(idx, buf);
+
+    resources.set(res, .{ .Buffer = .{
+        .index = idx,
         .desc = desc,
     } });
 
     last_vert += desc.size;
 
-    const handle = Handle{ .resource = idx };
+    const handle = Handle{ .resource = res };
     return handle;
 }
 
@@ -122,12 +133,13 @@ pub fn updateBuffer(handle: Handle, offset: usize, data: [*]const u8, size: usiz
     // TODO: error if handle not found
     const res = resources.get(handle.resource).Buffer;
 
-    // TODO: make this use the appropriate buffer based on the handle
-    try buffers[@enumToInt(res.desc.usage)].stagedLoad(
+    // TODO: make this use the appropriate load type
+    var buf = buffers[@enumToInt(res.desc.usage)].get(res.index);
+    try buf.stagedLoad(
         device,
         device.command_pool,
         data,
-        res.offset + offset,
+        offset,
         size,
     );
 }
@@ -170,9 +182,10 @@ pub fn destroy(handle: Handle) void {
     resources.freeIndex(handle.resource);
 }
 
-/// helper to get the backing buffer based on usage
-pub fn getBackingBuffer(usage: types.BufferDesc.Usage) Buffer {
-    return buffers[@enumToInt(usage)];
+/// helper to get the buffer based on handle
+pub fn getBuffer(handle: Handle) *Buffer {
+    const res = resources.get(handle.resource).Buffer;
+    return buffers[@enumToInt(res.desc.usage)].get(res.index);
 }
 
 /// helper to get the resource from the freelist
