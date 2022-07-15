@@ -59,20 +59,10 @@ fn linkEngineDeps(b: *Builder, step: *std.build.LibExeObjStep) void {
     step.addPackagePath("glfw", "deps/mach-glfw/src/main.zig");
     glfw.link(b, step, .{});
 
-    // TOOD: static linking
+    // TODO: static linking
 
     // add system dependencies
     step.linkLibC();
-    switch (builtin.target.os.tag) {
-        .macos => {
-            step.addCSourceFile("./src/platform/macos.m", &[_][]const u8{});
-            step.linkFramework("AppKit");
-            step.linkFramework("QuartzCore");
-        },
-        else => {},
-    }
-
-    // TODO: configure this by os
     const lib_names = [_][]const u8{
         "xcb",
         "X11-xcb",
@@ -100,7 +90,7 @@ fn link(b: *Builder, step: *std.build.LibExeObjStep) void {
     // add stuff for macos
     switch (builtin.target.os.tag) {
         .macos => {
-            step.addCSourceFile("./src/platform/macos.m", &[_][]const u8{});
+            // step.addCSourceFile("./src/platform/macos.m", &[_][]const u8{});
             step.linkFramework("AppKit");
             step.linkFramework("QuartzCore");
         },

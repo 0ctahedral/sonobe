@@ -720,7 +720,7 @@ fn createDescriptors() !void {
         // data
         .{
             .@"type" = .storage_buffer,
-            .descriptor_count = frames.len,
+            .descriptor_count = 2 * frames.len,
         },
         // images
         .{
@@ -817,13 +817,13 @@ fn updateDescriptorSets() !void {
             .range = @sizeOf(GlobalData),
         },
     };
-    // const model_infos = [_]vk.DescriptorBufferInfo{
-    //     .{
-    //         .buffer = model_buffer.handle,
-    //         .offset = 0,
-    //         .range = @sizeOf(@TypeOf(model_data)),
-    //     },
-    // };
+    const model_infos = [_]vk.DescriptorBufferInfo{
+        .{
+            .buffer = model_buffer.handle,
+            .offset = 0,
+            .range = @sizeOf(@TypeOf(model_data)),
+        },
+    };
 
     const sampler_infos = [_]vk.DescriptorImageInfo{
         .{
@@ -839,18 +839,18 @@ fn updateDescriptorSets() !void {
     };
 
     // maps the vertex position to a descriptor
-    const storage_infos = [_]vk.DescriptorBufferInfo{
-        .{
-            .buffer = storage_buffer.handle,
-            .offset = 0,
-            .range = 4 * @sizeOf(Vec3),
-        },
-        .{
-            .buffer = storage_buffer.handle,
-            .offset = 4 * @sizeOf(Vec3),
-            .range = 4 * @sizeOf(Vec2),
-        },
-    };
+    // const storage_infos = [_]vk.DescriptorBufferInfo{
+    //     .{
+    //         .buffer = storage_buffer.handle,
+    //         .offset = 0,
+    //         .range = 4 * @sizeOf(Vec3),
+    //     },
+    //     .{
+    //         .buffer = storage_buffer.handle,
+    //         .offset = 4 * @sizeOf(Vec3),
+    //         .range = 4 * @sizeOf(Vec2),
+    //     },
+    // };
 
     const writes = [_]vk.WriteDescriptorSet{
         .{
@@ -867,20 +867,20 @@ fn updateDescriptorSets() !void {
             .dst_set = global_descriptor_sets[getCurrentFrame().index],
             .dst_binding = 1,
             .dst_array_element = 0,
-            .descriptor_count = storage_infos.len,
+            .descriptor_count = model_infos.len,
             .descriptor_type = .storage_buffer,
             .p_image_info = undefined,
-            .p_buffer_info = storage_infos[0..],
+            .p_buffer_info = model_infos[0..],
             .p_texel_buffer_view = undefined,
         },
         // .{
         //     .dst_set = global_descriptor_sets[getCurrentFrame().index],
         //     .dst_binding = 1,
-        //     .dst_array_element = 1,
-        //     .descriptor_count = 1,
+        //     .dst_array_element = 0,
+        //     .descriptor_count = storage_infos.len,
         //     .descriptor_type = .storage_buffer,
         //     .p_image_info = undefined,
-        //     .p_buffer_info = storage_infos[1..],
+        //     .p_buffer_info = storage_infos[0..],
         //     .p_texel_buffer_view = undefined,
         // },
         .{
