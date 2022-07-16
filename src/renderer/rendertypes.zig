@@ -99,12 +99,16 @@ pub const StageDesc = struct {
         Fragment,
     },
     path: []const u8,
-
-    // bindings: []const Handle,
 };
 pub const PipelineDesc = struct {
-
     /// render pass this pipeline is going to draw with
     // render_pass: Handle,
-    stages: []const StageDesc,
+    stages: []const StageDesc = undefined,
+
+    // TODO: add multiple binding groups?
+    /// groups of bindings for the shader
+    bindings: []const Handle = undefined,
+
+    // TODO: add this
+    // renderpass: Handle,
 };

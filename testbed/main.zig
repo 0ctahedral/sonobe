@@ -83,6 +83,7 @@ pub fn init(app: *App) !void {
                 .path = "assets/builtin.frag.spv",
             },
         },
+        .bindings = &.{Renderer.default_texture},
     });
 
     const rp_desc = .{

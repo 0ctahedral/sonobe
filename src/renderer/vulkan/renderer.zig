@@ -68,7 +68,7 @@ var fb_height: u32 = 0;
 /// swapchain render targets
 var swapchain_render_targets: []RenderTarget = undefined;
 
-const MAX_FRAMES = 2;
+pub const MAX_FRAMES = 2;
 /// The currently rendering frames
 var frames: [MAX_FRAMES]FrameData = undefined;
 
@@ -97,7 +97,7 @@ var global_descriptor_sets: [MAX_FRAMES]vk.DescriptorSet = undefined;
 
 // TODO: this should be from a resource system
 var default_sampler: Sampler = undefined;
-var default_texture: Handle = undefined;
+pub var default_texture: Handle = undefined;
 
 const MeshPushConstants = struct {
     id: u32 align(16) = 0,
@@ -126,7 +126,6 @@ var material_buffer: Buffer = undefined;
 var cam_data = GlobalData{};
 /// buffer for the model matricies of objects
 var model_buffer: Buffer = undefined;
-var storage_buffer: Buffer = undefined;
 /// cpu side storage for all the model matricies
 var model_data: [10]Mat4 = undefined;
 
@@ -238,26 +237,25 @@ pub fn init(provided_allocator: Allocator, app_name: [*:0]const u8, window: Plat
     try Resources.init(device, allocator);
 
     // create frame objects
-    try createDescriptors();
-
-    // allocate the sets
-    const layouts = [_]vk.DescriptorSetLayout{global_descriptor_layout};
-
-    // create the descriptor set
-    for (global_descriptor_sets) |*gs| {
-        try device.vkd.allocateDescriptorSets(device.logical, &.{
-            .descriptor_pool = global_descriptor_pool,
-            .descriptor_set_count = 1,
-            .p_set_layouts = layouts[0..],
-        }, @ptrCast([*]vk.DescriptorSet, gs));
-    }
+    try createGlobalDescriptors();
 
     for (frames) |*f, i| {
         f.* = try FrameData.init(device, i);
     }
 
     // create pipeline
-    // try createPipeline();
+    try createPipeline(.{
+        .stages = &.{
+            .{
+                .bindpoint = .Vertex,
+                .path = "assets/builtin.vert.spv",
+            },
+            .{
+                .bindpoint = .Fragment,
+                .path = "assets/builtin.frag.spv",
+            },
+        },
+    });
 
     // create a texture
     {
@@ -532,15 +530,18 @@ pub fn endFrame() !void {
 // TODO: find a home for this in pipeline
 pub fn createPipeline(desc: types.PipelineDesc) !void {
     _ = desc;
-    const viewport = vk.Viewport{ .x = 0, .y = @intToFloat(f32, fb_height), .width = @intToFloat(f32, fb_width), .height = -@intToFloat(f32, fb_height), .min_depth = 0, .max_depth = 1 };
 
-    const scissor = vk.Rect2D{
-        .offset = .{ .x = 0, .y = 0 },
-        .extent = .{
-            .width = fb_width,
-            .height = fb_height,
-        },
-    };
+    // allocate the sets
+    const layouts = [_]vk.DescriptorSetLayout{global_descriptor_layout};
+
+    // create the descriptor set
+    for (global_descriptor_sets) |*gs| {
+        try device.vkd.allocateDescriptorSets(device.logical, &.{
+            .descriptor_pool = global_descriptor_pool,
+            .descriptor_set_count = 1,
+            .p_set_layouts = layouts[0..],
+        }, @ptrCast([*]vk.DescriptorSet, gs));
+    }
 
     pipeline = try Pipeline.init(
         device,
@@ -554,8 +555,6 @@ pub fn createPipeline(desc: types.PipelineDesc) !void {
                 .size = @intCast(u32, @sizeOf(MeshPushConstants)),
             },
         },
-        viewport,
-        scissor,
         false,
         allocator,
     );
@@ -663,27 +662,6 @@ fn createGlobalBuffers() !void {
         .host_visible_bit = true,
         .host_coherent_bit = true,
     }, true);
-
-    storage_buffer = try Buffer.init(device, @sizeOf(@TypeOf(model_data)), .{
-        .storage_buffer_bit = true,
-        .transfer_dst_bit = true,
-    }, .{
-        .host_visible_bit = true,
-        .host_coherent_bit = true,
-    }, true);
-
-    try storage_buffer.load(device, Vec3, &[_]Vec3{
-        Vec3.new(-0.5, -0.5, 0),
-        Vec3.new(0.5, 0.5, 0),
-        Vec3.new(-0.5, 0.5, 0),
-        Vec3.new(0.5, -0.5, 0),
-    }, 0);
-    try storage_buffer.load(device, Vec2, &[_]Vec2{
-        Vec2.new(0.0, 0.0),
-        Vec2.new(1.0, 1.0),
-        Vec2.new(0.0, 1.0),
-        Vec2.new(1.0, 0.0),
-    }, 4 * @sizeOf(Vec3));
 }
 
 fn destroyBuffers() void {
@@ -708,7 +686,7 @@ fn upload(pool: vk.CommandPool, buffer: Buffer, comptime T: type, items: []const
     try Buffer.copyTo(device, pool, device.graphics.?, staging_buffer, 0, buffer, 0, size);
 }
 
-fn createDescriptors() !void {
+fn createGlobalDescriptors() !void {
     //
     // create a descriptor pool for the frame data
     const global_sizes = [_]vk.DescriptorPoolSize{
@@ -838,20 +816,6 @@ fn updateDescriptorSets() !void {
         },
     };
 
-    // maps the vertex position to a descriptor
-    // const storage_infos = [_]vk.DescriptorBufferInfo{
-    //     .{
-    //         .buffer = storage_buffer.handle,
-    //         .offset = 0,
-    //         .range = 4 * @sizeOf(Vec3),
-    //     },
-    //     .{
-    //         .buffer = storage_buffer.handle,
-    //         .offset = 4 * @sizeOf(Vec3),
-    //         .range = 4 * @sizeOf(Vec2),
-    //     },
-    // };
-
     const writes = [_]vk.WriteDescriptorSet{
         .{
             .dst_set = global_descriptor_sets[getCurrentFrame().index],
@@ -873,16 +837,6 @@ fn updateDescriptorSets() !void {
             .p_buffer_info = model_infos[0..],
             .p_texel_buffer_view = undefined,
         },
-        // .{
-        //     .dst_set = global_descriptor_sets[getCurrentFrame().index],
-        //     .dst_binding = 1,
-        //     .dst_array_element = 0,
-        //     .descriptor_count = storage_infos.len,
-        //     .descriptor_type = .storage_buffer,
-        //     .p_image_info = undefined,
-        //     .p_buffer_info = storage_infos[0..],
-        //     .p_texel_buffer_view = undefined,
-        // },
         .{
             .dst_set = global_descriptor_sets[getCurrentFrame().index],
             .dst_binding = 2,

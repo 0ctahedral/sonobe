@@ -24,8 +24,6 @@ pub const Pipeline = struct {
         renderpass: RenderPass,
         descriptor_set_layouts: []const vk.DescriptorSetLayout,
         push_constants: []const vk.PushConstantRange,
-        viewport: vk.Viewport,
-        scissor: vk.Rect2D,
         wireframe: bool,
         allocator: std.mem.Allocator,
     ) !Self {
@@ -35,14 +33,13 @@ pub const Pipeline = struct {
             return error.TooManyShaderStages;
         }
 
-        // THINGS THAT DON'T NEED TO BE CONFIGURABLE YET
-
+        // TODO: should these really be 1 since they are null?
         const viewport_state = vk.PipelineViewportStateCreateInfo{
             .flags = .{},
             .viewport_count = 1,
-            .p_viewports = @ptrCast([*]const vk.Viewport, &viewport),
+            .p_viewports = null,
             .scissor_count = 1,
-            .p_scissors = @ptrCast([*]const vk.Rect2D, &scissor),
+            .p_scissors = null,
         };
 
         const rasterization_ci = vk.PipelineRasterizationStateCreateInfo{

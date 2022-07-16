@@ -27,6 +27,8 @@ pub fn init(_allocator: Allocator, app_name: [*:0]const u8, window: Platform.Win
     try Events.register(Events.EventType.WindowResize, onResize);
 
     submitted_cmds = RingBuffer(CmdBuf, 32).init();
+
+    default_texture = backend.default_texture;
 }
 
 var submitted_cmds: RingBuffer(CmdBuf, 32) = undefined;
@@ -91,6 +93,8 @@ pub const Handle = types.Handle;
 pub const BufferDesc = types.BufferDesc;
 pub const RenderPassDesc = types.RenderPassDesc;
 pub const PipelineDesc = types.PipelineDesc;
+// TODO: remove
+pub var default_texture: Handle = .{};
 
 pub fn createRenderPass(desc: RenderPassDesc) !Handle {
     _ = desc;
@@ -99,9 +103,8 @@ pub fn createRenderPass(desc: RenderPassDesc) !Handle {
 }
 
 pub fn createPipeline(desc: PipelineDesc) !Handle {
-    try backend.createPipeline(desc);
     // TOOD: pass to backend
-    return Handle{};
+    return backend.Resources.createPipeline(desc);
 }
 
 pub fn createBuffer(desc: BufferDesc) !Handle {
