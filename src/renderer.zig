@@ -94,27 +94,12 @@ pub const BufferDesc = types.BufferDesc;
 pub const RenderPassDesc = types.RenderPassDesc;
 pub const PipelineDesc = types.PipelineDesc;
 // TODO: remove
-pub var default_texture: Handle = .{};
+pub var default_texture = Handle{};
 
-pub fn createRenderPass(desc: RenderPassDesc) !Handle {
-    _ = desc;
-    // TOOD: pass to backend
-    return Handle{};
-}
-
-pub fn createPipeline(desc: PipelineDesc) !Handle {
-    return backend.Resources.createPipeline(desc);
-}
-
-pub fn createBindingGroup(binds: []types.BindingDesc) !Handle {
-    return backend.Resources.createBindingGroup(binds);
-}
-
-pub fn createBuffer(desc: BufferDesc) !Handle {
-    return backend.Resources.createBuffer(desc);
-}
+pub const Resources = backend.Resources;
 
 /// uploades data to a buffer and returns the resulting offest in bytes
+// TODO: make this just in the Resources
 pub fn updateBuffer(
     handle: types.Handle,
     offset: usize,

@@ -103,17 +103,14 @@ pub const StageDesc = struct {
 
 /// A reference to a resource to be used in a pipeline
 pub const BindingDesc = struct {
-    const BindingType = enum {
+    const Type = enum {
         Buffer,
         Texture,
         Sampler,
     };
 
     /// what type of resource we are binding to
-    binding_type: BindingType,
-
-    /// handle of the resource to bind to
-    handle: Handle,
+    binding_type: Type,
 };
 
 /// A full pipeline for drawing!

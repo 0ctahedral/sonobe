@@ -2,6 +2,7 @@ const std = @import("std");
 const octal = @import("octal");
 
 const Renderer = octal.Renderer;
+const Resources = octal.Renderer.Resources;
 const Input = octal.Input;
 const CmdBuf = Renderer.CmdBuf;
 
@@ -52,7 +53,7 @@ pub fn init(app: *App) !void {
     app.t.scale = .{ .x = 10, .y = 10, .z = 0 };
 
     // allocate buffer and upload data
-    app.quad_verts = try Renderer.createBuffer(
+    app.quad_verts = try Resources.createBuffer(
         .{
             .size = @sizeOf(@TypeOf(texcoords)) + @sizeOf(@TypeOf(positions)),
             .usage = .Vertex,
@@ -63,7 +64,7 @@ pub fn init(app: *App) !void {
 
     std.log.debug("verts handle: {}", .{app.quad_verts});
 
-    app.quad_inds = try Renderer.createBuffer(
+    app.quad_inds = try Resources.createBuffer(
         .{
             .size = @sizeOf(@TypeOf(quad_inds)),
             .usage = .Index,
@@ -71,12 +72,55 @@ pub fn init(app: *App) !void {
     );
     _ = try Renderer.updateBuffer(app.quad_inds, 0, u32, quad_inds[0..]);
 
-    const simple_group = try Renderer.createBindingGroup(&[_]Renderer.types.BindingDesc{
-        .{ .binding_type = .Texture, .handle = Renderer.default_texture },
+    const simple_group = try Resources.createBindingGroup(&.{
+        .{ .binding_type = .Texture },
+        .{ .binding_type = .Sampler },
     });
 
+    // create a texture
+    // generate the pattern
+    const tex_dimension: u32 = 256;
+    const channels: u32 = 4;
+    const pixel_count = tex_dimension * tex_dimension;
+    var pixels: [pixel_count * channels]u8 = undefined;
+
+    // set to 255
+    for (pixels) |*p| {
+        p.* = 255;
+    }
+
+    var row: usize = 0;
+    while (row < tex_dimension) : (row += 1) {
+        var col: usize = 0;
+        while (col < tex_dimension) : (col += 1) {
+            var index = (row * tex_dimension) + col;
+            var index_bpp = index * channels;
+            if ((col + row) % 4 != 0) {
+                pixels[index_bpp + 0] = 0;
+                pixels[index_bpp + 2] = 0;
+            }
+        }
+    }
+
+    const default_texture = try Resources.createTexture(.{
+        .width = tex_dimension,
+        .height = tex_dimension,
+        .channels = channels,
+        .flags = .{},
+    }, pixels[0..]);
+
+    // const default_sampler = try Resources.createSampler(device, .{
+    //     .filter = .bilinear,
+    //     .repeat = .wrap,
+    //     .compare = .greater,
+    // });
+
+    // sets what resource this binding points to
+    // aka writes to the descriptor set
+    try Resources.updateBinding(simple_group, 0, default_texture);
+
     // create our shader pipeline
-    app.simple_pipeline = try Renderer.createPipeline(.{
+    app.simple_pipeline = try Resources.createPipeline(.{
         .stages = &.{
             .{
                 .bindpoint = .Vertex,
@@ -100,7 +144,7 @@ pub fn init(app: *App) !void {
         },
     };
 
-    app.world_pass = try Renderer.createRenderPass(rp_desc);
+    app.world_pass = try Resources.createRenderPass(rp_desc);
 }
 
 pub fn update(app: *App, dt: f64) !void {

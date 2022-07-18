@@ -196,8 +196,13 @@ pub fn createPipeline(desc: types.PipelineDesc) !Handle {
     return Handle{};
 }
 
+pub fn createRenderPass(desc: types.RenderPassDesc) !Handle {
+    _ = desc;
+    return Handle{};
+}
+
 /// creates a binding group for a pipeline
-pub fn createBindingGroup(binds: []types.BindingDesc) !Handle {
+pub fn createBindingGroup(binds: []const types.BindingDesc) !Handle {
     // create layout bindings in place
     var bindings: [32]vk.DescriptorSetLayoutBinding = undefined;
     if (binds.len > bindings.len) return error.TooManyBindings;
@@ -254,6 +259,26 @@ pub fn createBindingGroup(binds: []types.BindingDesc) !Handle {
     );
 
     return Handle{ .resource = handle_idx };
+}
+
+pub fn updateBinding(
+    group: Handle,
+    binding: u8,
+    handle: Handle,
+) !void {
+    // get the group
+    const bg: *BindGroup = bind_groups.get(resources.get(group.resource).BindGroup.index);
+    // get the specific binding
+    if (binding > bg.n_bindings) return error.InvalidBinding;
+
+    const b = bg.bindings[@intCast(usize, binding)];
+    // compare type of binding to resource
+    std.log.debug("updating binding {d} of type {} with resource {}", .{
+        binding,
+        b.binding_type,
+        handle,
+    });
+    // TODO: construct some descriptor set writes
 }
 
 pub fn updateBuffer(handle: Handle, offset: usize, data: [*]const u8, size: usize) !void {
