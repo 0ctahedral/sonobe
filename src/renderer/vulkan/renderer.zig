@@ -92,7 +92,7 @@ var global_bind_group = Handle{};
 // --------------------------------------
 
 // TODO: this should be from a resource system
-var default_sampler: Sampler = undefined;
+var default_sampler: Handle = undefined;
 pub var default_texture: Handle = undefined;
 
 const MeshPushConstants = struct {
@@ -291,7 +291,7 @@ pub fn init(provided_allocator: Allocator, app_name: [*:0]const u8, window: Plat
             .flags = .{},
         }, pixels[0..]);
 
-        default_sampler = try Sampler.init(device, .{
+        default_sampler = try Resources.createSampler(.{
             .filter = .bilinear,
             .repeat = .wrap,
             .compare = .greater,
@@ -306,11 +306,6 @@ pub fn deinit() void {
     device.vkd.deviceWaitIdle(device.logical) catch {
         unreachable;
     };
-
-    default_sampler.deinit(device);
-    // technically don't need to do this since we destroy the texture
-    // in the next line
-    Resources.destroy(default_texture);
 
     Resources.deinit();
     destroyBuffers();
@@ -711,7 +706,7 @@ fn updateDescriptorSets() !void {
             .image_layout = vk.ImageLayout.shader_read_only_optimal,
         },
         .{
-            .sampler = default_sampler.handle,
+            .sampler = Resources.getSampler(default_sampler).handle,
             .image_view = Resources.getTexture(default_texture).image.view,
             .image_layout = .@"undefined",
         },

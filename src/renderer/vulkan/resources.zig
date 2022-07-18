@@ -3,6 +3,7 @@ const vk = @import("vulkan");
 const FreeList = @import("../../containers.zig").FreeList;
 const Device = @import("device.zig").Device;
 const Buffer = @import("buffer.zig").Buffer;
+const Sampler = @import("texture.zig").Sampler;
 const Texture = @import("texture.zig").Texture;
 const MAX_FRAMES = @import("renderer.zig").MAX_FRAMES;
 
@@ -27,6 +28,7 @@ var buffers: [@typeInfo(types.BufferDesc.Usage).Enum.fields.len]FreeList(Buffer)
 /// textures to allocate from
 const MAX_TEXTURES = 1024;
 var textures: FreeList(Texture) = undefined;
+var samplers: FreeList(Sampler) = undefined;
 
 const MAX_BINDGROUPS = 1024;
 /// stores layout and sets needed for updating a pipeline
@@ -41,6 +43,7 @@ var bind_groups: FreeList(BindGroup) = undefined;
 const ResourceType = enum {
     Buffer,
     Texture,
+    Sampler,
     BindGroup,
 };
 
@@ -55,6 +58,10 @@ const Resource = union(ResourceType) {
     Texture: struct {
         index: u32,
         desc: types.TextureDesc,
+    },
+    Sampler: struct {
+        index: u32,
+        desc: types.SamplerDesc,
     },
     BindGroup: struct {
         index: u32,
@@ -75,6 +82,7 @@ pub fn init(_device: Device, _allocator: std.mem.Allocator) !void {
 
     resources = try FreeList(Resource).init(allocator, MAX_TEXTURES + MAX_BUFFERS);
     textures = try FreeList(Texture).init(allocator, MAX_TEXTURES);
+    samplers = try FreeList(Sampler).init(allocator, MAX_TEXTURES);
     bind_groups = try FreeList(BindGroup).init(allocator, MAX_BINDGROUPS);
     for (buffers) |*buf| {
         buf.* = try FreeList(Buffer).init(allocator, MAX_BUFFERS / 4);
@@ -129,6 +137,9 @@ fn destroyResource(res: Resource) void {
     switch (res) {
         .Texture => |t| {
             textures.get(t.index).deinit(device);
+        },
+        .Sampler => |s| {
+            samplers.get(s.index).deinit(device);
         },
         .Buffer => |b| {
             buffers[@enumToInt(b.desc.usage)].get(b.index).deinit(device);
@@ -296,6 +307,7 @@ pub fn updateBuffer(handle: Handle, offset: usize, data: [*]const u8, size: usiz
     );
 }
 
+// TODO: need to be able to update textures
 pub fn createTexture(desc: types.TextureDesc, data: []const u8) !Handle {
     const handle_idx = try resources.allocIndex();
 
@@ -320,12 +332,28 @@ pub fn createTexture(desc: types.TextureDesc, data: []const u8) !Handle {
     return Handle{ .resource = handle_idx };
 }
 
+pub fn createSampler(desc: types.SamplerDesc) !Handle {
+    const handle_idx = try resources.allocIndex();
+    const samp_idx = try samplers.allocIndex();
+
+    samplers.set(samp_idx, try Sampler.init(device, desc));
+
+    resources.set(
+        handle_idx,
+        .{ .Sampler = .{ .index = samp_idx, .desc = desc } },
+    );
+
+    return Handle{ .resource = handle_idx };
+}
+
 /// destroys a resource given the handle
 pub inline fn destroy(handle: Handle) void {
     const res = resources.get(handle.resource);
     destroyResource(res.*);
     resources.freeIndex(handle.resource);
 }
+
+// TODO: should these go somewhere else? it kinda breaks the abstraction
 
 /// helper to get the buffer based on handle
 pub fn getBuffer(handle: Handle) *Buffer {
@@ -337,6 +365,11 @@ pub fn getBuffer(handle: Handle) *Buffer {
 pub fn getTexture(handle: Handle) *Texture {
     const res = resources.get(handle.resource).Texture;
     return textures.get(res.index);
+}
+
+pub fn getSampler(handle: Handle) *Sampler {
+    const res = resources.get(handle.resource).Sampler;
+    return samplers.get(res.index);
 }
 
 pub fn getBindGroup(handle: Handle) *BindGroup {
