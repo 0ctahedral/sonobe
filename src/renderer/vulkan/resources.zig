@@ -28,6 +28,7 @@ var buffers: [@typeInfo(types.BufferDesc.Usage).Enum.fields.len]FreeList(Buffer)
 const MAX_TEXTURES = 1024;
 var textures: FreeList(Texture) = undefined;
 
+const MAX_BINDGROUPS = 1024;
 /// stores layout and sets needed for updating a pipeline
 const BindGroup = struct {
     bindings: [32]types.BindingDesc = undefined,
@@ -74,7 +75,7 @@ pub fn init(_device: Device, _allocator: std.mem.Allocator) !void {
 
     resources = try FreeList(Resource).init(allocator, MAX_TEXTURES + MAX_BUFFERS);
     textures = try FreeList(Texture).init(allocator, MAX_TEXTURES);
-    bind_groups = try FreeList(BindGroup).init(allocator, 64);
+    bind_groups = try FreeList(BindGroup).init(allocator, MAX_BINDGROUPS);
     for (buffers) |*buf| {
         buf.* = try FreeList(Buffer).init(allocator, MAX_BUFFERS / 4);
     }
@@ -82,7 +83,7 @@ pub fn init(_device: Device, _allocator: std.mem.Allocator) !void {
     // create descriptor pool
 
     // TODO: configure?
-    const count = 1024;
+    const count: u32 = MAX_BINDGROUPS * 1024;
     const descriptor_sizes = [_]vk.DescriptorPoolSize{
         // constants
         .{
@@ -107,7 +108,7 @@ pub fn init(_device: Device, _allocator: std.mem.Allocator) !void {
     };
     descriptor_pool = try device.vkd.createDescriptorPool(device.logical, &.{
         .flags = .{},
-        .max_sets = MAX_FRAMES,
+        .max_sets = MAX_BINDGROUPS,
         .pool_size_count = descriptor_sizes.len,
         .p_pool_sizes = &descriptor_sizes,
     }, null);
@@ -217,7 +218,7 @@ pub fn createBindingGroup(binds: []const types.BindingDesc) !Handle {
         bindings[i] = .{
             .binding = @intCast(u32, i),
             .descriptor_type = switch (bind.binding_type) {
-                .Buffer => .storage_buffer,
+                .Buffer => .uniform_buffer,
                 .Texture => .sampled_image,
                 .Sampler => .sampler,
             },
@@ -252,7 +253,6 @@ pub fn createBindingGroup(binds: []const types.BindingDesc) !Handle {
     }, @ptrCast([*]vk.DescriptorSet, &bg.sets));
 
     bind_groups.set(data_idx, bg);
-
     resources.set(
         handle_idx,
         .{ .BindGroup = .{ .index = data_idx } },
@@ -337,4 +337,9 @@ pub fn getBuffer(handle: Handle) *Buffer {
 pub fn getTexture(handle: Handle) *Texture {
     const res = resources.get(handle.resource).Texture;
     return textures.get(res.index);
+}
+
+pub fn getBindGroup(handle: Handle) *BindGroup {
+    const res = resources.get(handle.resource).BindGroup;
+    return bind_groups.get(res.index);
 }

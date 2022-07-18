@@ -85,13 +85,9 @@ var size_gen: usize = 0;
 var last_size_gen: usize = 0;
 
 // these will be part of the shader system
+//
 
-/// descriptor set layout for global data (i.e. camera transform)
-var global_descriptor_layout: vk.DescriptorSetLayout = .null_handle;
-/// pool from which we allocate all descriptor sets
-var global_descriptor_pool: vk.DescriptorPool = .null_handle;
-/// descriptor set for the main shader
-var global_descriptor_sets: [MAX_FRAMES]vk.DescriptorSet = undefined;
+var global_bind_group = Handle{};
 
 // --------------------------------------
 
@@ -236,8 +232,13 @@ pub fn init(provided_allocator: Allocator, app_name: [*:0]const u8, window: Plat
 
     try Resources.init(device, allocator);
 
-    // create frame objects
-    try createGlobalDescriptors();
+    // try createGlobalDescriptors();
+    // create the global binding group
+    global_bind_group = try Resources.createBindingGroup(&.{
+        .{ .binding_type = .Buffer },
+        .{ .binding_type = .Texture },
+        .{ .binding_type = .Sampler },
+    });
 
     for (frames) |*f, i| {
         f.* = try FrameData.init(device, i);
@@ -320,8 +321,8 @@ pub fn deinit() void {
     }
 
     // TODO: make this a resource which will delete free descriptorsets
-    device.vkd.destroyDescriptorPool(device.logical, global_descriptor_pool, null);
-    device.vkd.destroyDescriptorSetLayout(device.logical, global_descriptor_layout, null);
+    // device.vkd.destroyDescriptorPool(device.logical, global_descriptor_pool, null);
+    // device.vkd.destroyDescriptorSetLayout(device.logical, global_descriptor_layout, null);
 
     default_renderpass.deinit(device);
     swapchain.deinit(device, allocator);
@@ -420,8 +421,9 @@ fn applyBindPipeline(cb: *CommandBuffer, handle: types.Handle) !void {
     // this is some material system shit
     try updateDescriptorSets();
 
+    const gbg = Resources.getBindGroup(global_bind_group);
     const descriptor_sets = [_]vk.DescriptorSet{
-        global_descriptor_sets[getCurrentFrame().index],
+        gbg.sets[getCurrentFrame().index],
     };
 
     device.vkd.cmdBindDescriptorSets(
@@ -532,22 +534,14 @@ pub fn createPipeline(desc: types.PipelineDesc) !void {
     _ = desc;
 
     // allocate the sets
-    const layouts = [_]vk.DescriptorSetLayout{global_descriptor_layout};
 
-    // create the descriptor set
-    for (global_descriptor_sets) |*gs| {
-        try device.vkd.allocateDescriptorSets(device.logical, &.{
-            .descriptor_pool = global_descriptor_pool,
-            .descriptor_set_count = 1,
-            .p_set_layouts = layouts[0..],
-        }, @ptrCast([*]vk.DescriptorSet, gs));
-    }
+    const gbg = Resources.getBindGroup(global_bind_group);
 
     pipeline = try Pipeline.init(
         device,
         desc,
         default_renderpass,
-        &[_]vk.DescriptorSetLayout{global_descriptor_layout},
+        &[_]vk.DescriptorSetLayout{gbg.layout},
         &[_]vk.PushConstantRange{
             .{
                 .stage_flags = .{ .vertex_bit = true },
@@ -686,99 +680,6 @@ fn upload(pool: vk.CommandPool, buffer: Buffer, comptime T: type, items: []const
     try Buffer.copyTo(device, pool, device.graphics.?, staging_buffer, 0, buffer, 0, size);
 }
 
-fn createGlobalDescriptors() !void {
-    //
-    // create a descriptor pool for the frame data
-    const global_sizes = [_]vk.DescriptorPoolSize{
-        // constants
-        .{
-            .@"type" = .uniform_buffer,
-            .descriptor_count = frames.len,
-        },
-        // data
-        .{
-            .@"type" = .storage_buffer,
-            .descriptor_count = 2 * frames.len,
-        },
-        // images
-        .{
-            .@"type" = .sampled_image,
-            .descriptor_count = frames.len,
-        },
-        // samplers
-        .{
-            .@"type" = .sampler,
-            .descriptor_count = frames.len,
-        },
-    };
-
-    global_descriptor_pool = try device.vkd.createDescriptorPool(device.logical, &.{
-        .flags = .{},
-        .max_sets = frames.len,
-        .pool_size_count = global_sizes.len,
-        .p_pool_sizes = &global_sizes,
-    }, null);
-
-    // for now we set all the # descriptors be 1024 and usable in all stages
-
-    const global_bindings = [_]vk.DescriptorSetLayoutBinding{
-        // constant data
-        .{
-            .binding = 0,
-            .descriptor_type = .uniform_buffer,
-            .descriptor_count = 1,
-            .stage_flags = .{
-                .vertex_bit = true,
-                .fragment_bit = true,
-                .compute_bit = true,
-            },
-            .p_immutable_samplers = null,
-        },
-        // larger storage
-        .{
-            .binding = 1,
-            .descriptor_type = .storage_buffer,
-            .descriptor_count = 1,
-            .stage_flags = .{
-                .vertex_bit = true,
-                .fragment_bit = true,
-                .compute_bit = true,
-            },
-            .p_immutable_samplers = null,
-        },
-        // sampled image
-        .{
-            .binding = 2,
-            .descriptor_type = .sampled_image,
-            .descriptor_count = 1,
-            .stage_flags = .{
-                .vertex_bit = true,
-                .fragment_bit = true,
-                .compute_bit = true,
-            },
-            .p_immutable_samplers = null,
-        },
-        // sampler for the image
-        .{
-            .binding = 3,
-            .descriptor_type = .sampler,
-            .descriptor_count = 1,
-            .stage_flags = .{
-                .vertex_bit = true,
-                .fragment_bit = true,
-                .compute_bit = true,
-            },
-            .p_immutable_samplers = null,
-        },
-    };
-
-    global_descriptor_layout = try device.vkd.createDescriptorSetLayout(device.logical, &.{
-        .flags = .{},
-        .binding_count = global_bindings.len,
-        .p_bindings = &global_bindings,
-    }, null);
-}
-
 fn updateDescriptorSets() !void {
     try global_buffer.load(device, GlobalData, &[_]GlobalData{cam_data}, 0);
     try model_buffer.load(device, Mat4, model_data[0..], 0);
@@ -795,13 +696,13 @@ fn updateDescriptorSets() !void {
             .range = @sizeOf(GlobalData),
         },
     };
-    const model_infos = [_]vk.DescriptorBufferInfo{
-        .{
-            .buffer = model_buffer.handle,
-            .offset = 0,
-            .range = @sizeOf(@TypeOf(model_data)),
-        },
-    };
+    // const model_infos = [_]vk.DescriptorBufferInfo{
+    //     .{
+    //         .buffer = model_buffer.handle,
+    //         .offset = 0,
+    //         .range = @sizeOf(@TypeOf(model_data)),
+    //     },
+    // };
 
     const sampler_infos = [_]vk.DescriptorImageInfo{
         .{
@@ -816,9 +717,11 @@ fn updateDescriptorSets() !void {
         },
     };
 
+    const gbg = Resources.getBindGroup(global_bind_group);
+
     const writes = [_]vk.WriteDescriptorSet{
         .{
-            .dst_set = global_descriptor_sets[getCurrentFrame().index],
+            .dst_set = gbg.sets[getCurrentFrame().index],
             .dst_binding = 0,
             .dst_array_element = 0,
             .descriptor_count = cam_infos.len,
@@ -828,18 +731,8 @@ fn updateDescriptorSets() !void {
             .p_texel_buffer_view = undefined,
         },
         .{
-            .dst_set = global_descriptor_sets[getCurrentFrame().index],
+            .dst_set = gbg.sets[getCurrentFrame().index],
             .dst_binding = 1,
-            .dst_array_element = 0,
-            .descriptor_count = model_infos.len,
-            .descriptor_type = .storage_buffer,
-            .p_image_info = undefined,
-            .p_buffer_info = model_infos[0..],
-            .p_texel_buffer_view = undefined,
-        },
-        .{
-            .dst_set = global_descriptor_sets[getCurrentFrame().index],
-            .dst_binding = 2,
             .dst_array_element = 0,
             .descriptor_count = 1,
             .descriptor_type = .sampled_image,
@@ -848,8 +741,8 @@ fn updateDescriptorSets() !void {
             .p_texel_buffer_view = undefined,
         },
         .{
-            .dst_set = global_descriptor_sets[getCurrentFrame().index],
-            .dst_binding = 3,
+            .dst_set = gbg.sets[getCurrentFrame().index],
+            .dst_binding = 2,
             .dst_array_element = 0,
             .descriptor_count = 1,
             .descriptor_type = .sampler,
