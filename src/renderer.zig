@@ -88,7 +88,7 @@ pub fn onResize(ev: Events.Event) bool {
     return true;
 }
 
-const types = @import("renderer/rendertypes.zig");
+pub const types = @import("renderer/rendertypes.zig");
 pub const Handle = types.Handle;
 pub const BufferDesc = types.BufferDesc;
 pub const RenderPassDesc = types.RenderPassDesc;
@@ -103,8 +103,11 @@ pub fn createRenderPass(desc: RenderPassDesc) !Handle {
 }
 
 pub fn createPipeline(desc: PipelineDesc) !Handle {
-    // TOOD: pass to backend
     return backend.Resources.createPipeline(desc);
+}
+
+pub fn createBindingGroup(binds: []types.BindingDesc) !Handle {
+    return backend.Resources.createBindingGroup(binds);
 }
 
 pub fn createBuffer(desc: BufferDesc) !Handle {

@@ -71,6 +71,10 @@ pub fn init(app: *App) !void {
     );
     _ = try Renderer.updateBuffer(app.quad_inds, 0, u32, quad_inds[0..]);
 
+    const simple_group = try Renderer.createBindingGroup(&[_]Renderer.types.BindingDesc{
+        .{ .binding_type = .Texture, .handle = Renderer.default_texture },
+    });
+
     // create our shader pipeline
     app.simple_pipeline = try Renderer.createPipeline(.{
         .stages = &.{
@@ -83,7 +87,7 @@ pub fn init(app: *App) !void {
                 .path = "assets/builtin.frag.spv",
             },
         },
-        .bindings = &.{Renderer.default_texture},
+        .binding_groups = &.{simple_group},
     });
 
     const rp_desc = .{
