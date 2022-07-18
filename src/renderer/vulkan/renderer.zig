@@ -56,7 +56,7 @@ var allocator: Allocator = undefined;
 
 // TODO: these will eventually not exist
 
-var default_renderpass: RenderPass = undefined;
+var default_renderpass: Handle = undefined;
 
 /// pipeline currently being used
 var pipeline: Pipeline = undefined;
@@ -203,21 +203,26 @@ pub fn init(provided_allocator: Allocator, app_name: [*:0]const u8, window: Plat
     }, instance, vki, surface, allocator);
     errdefer device.deinit();
 
+    try Resources.init(device, allocator);
+
     swapchain = try Swapchain.init(vki, device, surface, fb_width, fb_height, allocator);
     errdefer swapchain.deinit(device, allocator);
 
     // subscribe to resize events
 
     // create a default_renderpass
-    default_renderpass = try RenderPass.init(swapchain, device, .{ .offset = .{ .x = 0, .y = 0 }, .extent = .{
-        .width = fb_width,
-        .height = fb_height,
-    } }, .{
-        .color = true,
-        .depth = true,
-        .stencil = true,
-    }, .{ 0, 0, 0.1, 1 }, 1.0, 0);
-    errdefer default_renderpass.deinit(device);
+    default_renderpass = try Resources.createRenderPass(
+        .{
+            .clear_flags = .{
+                .color = true,
+                .depth = true,
+                .stencil = true,
+            },
+            .clear_color = .{ 0, 0, 0.1, 1 },
+            .clear_depth = 1.0,
+            .clear_stencil = 0,
+        },
+    );
 
     // create framebuffers
     std.log.info("fbw: {} fbh: {}", .{ fb_width, fb_width });
@@ -229,8 +234,6 @@ pub fn init(provided_allocator: Allocator, app_name: [*:0]const u8, window: Plat
 
     // create global geometry buffers
     try createGlobalBuffers();
-
-    try Resources.init(device, allocator);
 
     // try createGlobalDescriptors();
     // create the global binding group
@@ -315,11 +318,6 @@ pub fn deinit() void {
         f.deinit(device);
     }
 
-    // TODO: make this a resource which will delete free descriptorsets
-    // device.vkd.destroyDescriptorPool(device.logical, global_descriptor_pool, null);
-    // device.vkd.destroyDescriptorSetLayout(device.logical, global_descriptor_layout, null);
-
-    default_renderpass.deinit(device);
     swapchain.deinit(device, allocator);
     for (swapchain_render_targets) |*rt| {
         rt.deinit(device, allocator);
@@ -457,12 +455,15 @@ fn applyBeginRenderPass(cb: *CommandBuffer, handle: types.Handle) void {
 
     device.vkd.cmdSetScissor(cb.handle, 0, 1, @ptrCast([*]const vk.Rect2D, &scissor));
 
-    default_renderpass.begin(device, cb, swapchain_render_targets[image_index].framebuffer);
+    Resources.getRenderPass(handle).begin(device, cb, swapchain_render_targets[image_index].framebuffer, .{ .offset = .{ .x = 0, .y = 0 }, .extent = .{
+        .width = fb_width,
+        .height = fb_height,
+    } });
 }
 
 fn applyEndRenderPass(cb: *CommandBuffer, handle: types.Handle) void {
     _ = handle;
-    default_renderpass.end(device, cb);
+    Resources.getRenderPass(handle).end(device, cb);
 }
 
 fn applyDraw(cb: *CommandBuffer, desc: types.DrawDesc) void {
@@ -535,7 +536,7 @@ pub fn createPipeline(desc: types.PipelineDesc) !void {
     pipeline = try Pipeline.init(
         device,
         desc,
-        default_renderpass,
+        Resources.getRenderPass(default_renderpass).handle,
         &[_]vk.DescriptorSetLayout{gbg.layout},
         &[_]vk.PushConstantRange{
             .{
@@ -575,7 +576,7 @@ pub fn recreateRenderTargets() !void {
 
         try swapchain_render_targets[i].init(
             device,
-            default_renderpass.handle,
+            Resources.getRenderPass(default_renderpass).handle,
             attachments[0..],
             fb_width,
             fb_height,
@@ -619,12 +620,6 @@ fn recreateSwapchain() !bool {
         f.render_fence = try Fence.init(device, true);
         f.cmdbuf = try CommandBuffer.init(device, device.command_pool, true);
     }
-
-    // reset the default_renderpass
-    default_renderpass.render_area = .{ .offset = .{ .x = 0, .y = 0 }, .extent = .{
-        .width = fb_width,
-        .height = fb_height,
-    } };
 
     recreating_swapchain = false;
     std.log.info("done recreating swapchain", .{});

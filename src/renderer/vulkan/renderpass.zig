@@ -6,6 +6,7 @@ const vk = @import("vulkan");
 const Device = @import("device.zig").Device;
 const Swapchain = @import("swapchain.zig").Swapchain;
 const CommandBuffer = @import("commandbuffer.zig").CommandBuffer;
+const types = @import("../rendertypes.zig");
 
 pub const ClearFlags = packed struct {
     color: bool = false,
@@ -15,10 +16,6 @@ pub const ClearFlags = packed struct {
 
 pub const RenderPass = struct {
     handle: vk.RenderPass,
-
-    /// extents of the render area
-    /// aka start and end position
-    render_area: vk.Rect2D,
 
     // TODO: make this a vec4
     clear_color: [4]f32,
@@ -30,21 +27,17 @@ pub const RenderPass = struct {
     const Self = @This();
 
     pub fn init(
-        swapchain: Swapchain,
         device: Device,
-        render_area: vk.Rect2D,
-        clear_flags: ClearFlags,
-        clear_color: [4]f32,
-        depth: f32,
-        stencil: u32,
+        format: vk.Format,
+        desc: types.RenderPassDesc,
     ) !Self {
         // start by making attachments
         // color
         const color_attachment = vk.AttachmentDescription{
             .flags = .{},
-            .format = swapchain.surface_format.format,
+            .format = format,
             .samples = .{ .@"1_bit" = true },
-            .load_op = if (clear_flags.color) .clear else .load,
+            .load_op = if (desc.clear_flags.color) .clear else .load,
             .store_op = .store,
             .stencil_load_op = .dont_care,
             .stencil_store_op = .dont_care,
@@ -63,7 +56,7 @@ pub const RenderPass = struct {
             .flags = .{},
             .format = device.depth_format,
             .samples = .{ .@"1_bit" = true },
-            .load_op = if (clear_flags.depth) .clear else .load,
+            .load_op = if (desc.clear_flags.depth) .clear else .load,
             .store_op = .store,
             .stencil_load_op = .dont_care,
             .stencil_store_op = .dont_care,
@@ -128,10 +121,9 @@ pub const RenderPass = struct {
 
         return Self{
             .handle = rp,
-            .clear_color = clear_color,
-            .depth = depth,
-            .stencil = stencil,
-            .render_area = render_area,
+            .clear_color = desc.clear_color,
+            .depth = desc.clear_depth,
+            .stencil = desc.clear_stencil,
         };
     }
 
@@ -144,7 +136,7 @@ pub const RenderPass = struct {
         dev: Device,
         command_buffer: *CommandBuffer,
         framebuffer: vk.Framebuffer,
-        // TODO: maybe will make this a memeber
+        render_area: vk.Rect2D,
     ) void {
         var clear_values: [2]vk.ClearValue = undefined;
         // color
@@ -158,7 +150,7 @@ pub const RenderPass = struct {
         dev.vkd.cmdBeginRenderPass(command_buffer.handle, &.{
             .render_pass = self.handle,
             .framebuffer = framebuffer,
-            .render_area = self.render_area,
+            .render_area = render_area,
             .clear_value_count = clear_values.len,
             .p_clear_values = @ptrCast([*]const vk.ClearValue, &clear_values[0]),
         }, .@"inline");

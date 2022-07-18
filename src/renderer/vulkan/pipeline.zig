@@ -21,7 +21,7 @@ pub const Pipeline = struct {
     pub fn init(
         device: Device,
         desc: PipelineDesc,
-        renderpass: RenderPass,
+        renderpass: vk.RenderPass,
         descriptor_set_layouts: []const vk.DescriptorSetLayout,
         push_constants: []const vk.PushConstantRange,
         wireframe: bool,
@@ -174,7 +174,7 @@ pub const Pipeline = struct {
             .p_color_blend_state = &color_blend_state_ci,
             .p_dynamic_state = &dynamic_state_ci,
             .layout = self.layout,
-            .render_pass = renderpass.handle,
+            .render_pass = renderpass,
             .subpass = 0,
             .base_pipeline_handle = .null_handle,
             .base_pipeline_index = -1,

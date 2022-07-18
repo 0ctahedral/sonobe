@@ -4,6 +4,7 @@ const FreeList = @import("../../containers.zig").FreeList;
 const Device = @import("device.zig").Device;
 const Buffer = @import("buffer.zig").Buffer;
 const Sampler = @import("texture.zig").Sampler;
+const RenderPass = @import("renderpass.zig").RenderPass;
 const Texture = @import("texture.zig").Texture;
 const MAX_FRAMES = @import("renderer.zig").MAX_FRAMES;
 
@@ -29,6 +30,7 @@ var buffers: [@typeInfo(types.BufferDesc.Usage).Enum.fields.len]FreeList(Buffer)
 const MAX_TEXTURES = 1024;
 var textures: FreeList(Texture) = undefined;
 var samplers: FreeList(Sampler) = undefined;
+var renderpasses: FreeList(RenderPass) = undefined;
 
 const MAX_BINDGROUPS = 1024;
 /// stores layout and sets needed for updating a pipeline
@@ -45,6 +47,7 @@ const ResourceType = enum {
     Texture,
     Sampler,
     BindGroup,
+    RenderPass,
 };
 
 // TODO: add sampler
@@ -66,6 +69,9 @@ const Resource = union(ResourceType) {
     BindGroup: struct {
         index: u32,
     },
+    RenderPass: struct {
+        index: u32,
+    },
 };
 
 var resources: FreeList(Resource) = undefined;
@@ -84,6 +90,7 @@ pub fn init(_device: Device, _allocator: std.mem.Allocator) !void {
     textures = try FreeList(Texture).init(allocator, MAX_TEXTURES);
     samplers = try FreeList(Sampler).init(allocator, MAX_TEXTURES);
     bind_groups = try FreeList(BindGroup).init(allocator, MAX_BINDGROUPS);
+    renderpasses = try FreeList(RenderPass).init(allocator, 32);
     for (buffers) |*buf| {
         buf.* = try FreeList(Buffer).init(allocator, MAX_BUFFERS / 4);
     }
@@ -148,6 +155,9 @@ fn destroyResource(res: Resource) void {
             const layout = bind_groups.get(bg.index).layout;
             device.vkd.destroyDescriptorSetLayout(device.logical, layout, null);
         },
+        .RenderPass => |rp| {
+            renderpasses.get(rp.index).deinit(device);
+        },
     }
 }
 
@@ -209,8 +219,22 @@ pub fn createPipeline(desc: types.PipelineDesc) !Handle {
 }
 
 pub fn createRenderPass(desc: types.RenderPassDesc) !Handle {
-    _ = desc;
-    return Handle{};
+    const handle_idx = try resources.allocIndex();
+    const rp_idx = try renderpasses.allocIndex();
+
+    renderpasses.set(rp_idx, try RenderPass.init(
+        device,
+        // TODO: add swapchain surface format
+        vk.Format.b8g8r8a8_srgb,
+        desc,
+    ));
+
+    resources.set(
+        handle_idx,
+        .{ .RenderPass = .{ .index = rp_idx } },
+    );
+
+    return Handle{ .resource = handle_idx };
 }
 
 /// creates a binding group for a pipeline
@@ -375,4 +399,9 @@ pub fn getSampler(handle: Handle) *Sampler {
 pub fn getBindGroup(handle: Handle) *BindGroup {
     const res = resources.get(handle.resource).BindGroup;
     return bind_groups.get(res.index);
+}
+
+pub fn getRenderPass(handle: Handle) *RenderPass {
+    const res = resources.get(handle.resource).RenderPass;
+    return renderpasses.get(res.index);
 }
