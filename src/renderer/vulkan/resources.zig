@@ -296,24 +296,75 @@ pub fn createBindingGroup(binds: []const types.BindingDesc) !Handle {
     return Handle{ .resource = handle_idx };
 }
 
-pub fn updateBinding(
-    group: Handle,
+// TODO: does this need a different home?
+pub const BindingUpdate = struct {
     binding: u8,
     handle: Handle,
-) !void {
+};
+pub fn updateBindings(group: Handle, updates: []const BindingUpdate) !void {
     // get the group
     const bg: *BindGroup = bind_groups.get(resources.get(group.resource).BindGroup.index);
-    // get the specific binding
-    if (binding > bg.n_bindings) return error.InvalidBinding;
 
-    const b = bg.bindings[@intCast(usize, binding)];
-    // compare type of binding to resource
-    std.log.debug("updating binding {d} of type {} with resource {}", .{
-        binding,
-        b.binding_type,
-        handle,
-    });
+    if (updates.len > bg.n_bindings) return error.TooManyUpdates;
+
+    var writes: [32 * MAX_FRAMES]vk.WriteDescriptorSet = undefined;
+
     // TODO: construct some descriptor set writes
+    for (updates) |u, i| {
+        if (u.binding > bg.n_bindings) return error.InvalidBinding;
+
+        const b = bg.bindings[@intCast(usize, u.binding)];
+
+        var desc_type: vk.DescriptorType = undefined;
+        var image_infos: [1]vk.DescriptorImageInfo = undefined;
+        var buffer_infos: [1]vk.DescriptorBufferInfo = undefined;
+        switch (b.binding_type) {
+            .Buffer => {
+                // const buffer = buffers.get(resources.get(u.handle.resource).Buffer.index);
+                // // TODO: set type here
+                // desc_type = .uniform_buffer;
+                // buffer_infos[0] = .{
+                //     .buffer = buffer.handle,
+                //     .offset = 0,
+                //     .range = buffer.size,
+                // };
+            },
+            .Sampler => {
+                const sampler = samplers.get(resources.get(u.handle.resource).Sampler.index);
+                desc_type = .sampler;
+                image_infos[0] = .{
+                    .sampler = sampler.handle,
+                    .image_view = .null_handle,
+                    .image_layout = .@"undefined",
+                };
+            },
+            .Texture => {
+                const tex = textures.get(resources.get(u.handle.resource).Texture.index);
+                desc_type = .sampled_image;
+                image_infos[0] = .{
+                    .sampler = .null_handle,
+                    .image_view = tex.image.view,
+                    .image_layout = vk.ImageLayout.shader_read_only_optimal,
+                };
+            },
+        }
+
+        var j: usize = 0;
+        while (j < MAX_FRAMES) : (j += 1) {
+            writes[(i * MAX_FRAMES) + j] = .{
+                .dst_set = bg.sets[j],
+                .dst_binding = @intCast(u32, u.binding),
+                .dst_array_element = 0,
+                .descriptor_count = 1,
+                .descriptor_type = desc_type,
+                .p_image_info = image_infos[0..],
+                .p_buffer_info = buffer_infos[0..],
+                .p_texel_buffer_view = undefined,
+            };
+        }
+    }
+
+    device.vkd.updateDescriptorSets(device.logical, @intCast(u32, updates.len * MAX_FRAMES), &writes, 0, undefined);
 }
 
 pub fn updateBuffer(handle: Handle, offset: usize, data: [*]const u8, size: usize) !void {
