@@ -98,7 +98,7 @@ pub fn init(app: *App) !void {
             var index_bpp = index * channels;
             if ((col + row) % 4 != 0) {
                 pixels[index_bpp + 0] = 0;
-                pixels[index_bpp + 2] = 0;
+                pixels[index_bpp + 3] = 0;
             }
         }
     }
@@ -110,15 +110,18 @@ pub fn init(app: *App) !void {
         .flags = .{},
     }, pixels[0..]);
 
-    // const default_sampler = try Resources.createSampler(device, .{
-    //     .filter = .bilinear,
-    //     .repeat = .wrap,
-    //     .compare = .greater,
-    // });
+    const default_sampler = try Resources.createSampler(.{
+        .filter = .bilinear,
+        .repeat = .wrap,
+        .compare = .greater,
+    });
 
     // sets what resource this binding points to
     // aka writes to the descriptor set
-    try Resources.updateBinding(simple_group, 0, default_texture);
+    try Resources.updateBindings(simple_group, &[_]Resources.BindingUpdate{
+        .{ .binding = 0, .handle = default_texture },
+        .{ .binding = 1, .handle = default_sampler },
+    });
 
     const rp_desc = .{
         .clear_color = .{ 0.75, 0.49, 0.89, 1.0 },
