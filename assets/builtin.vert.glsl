@@ -10,15 +10,14 @@ layout(location = 1) in vec2 in_texcoord;
 layout (set = 0, binding = 0) uniform readonly global_uniform_object {
   mat4 projection;
   mat4 view;
+  mat4 model;
 };
 
-// constants lookup buffer?
-
-layout( push_constant ) uniform PushConstants
-{
-	uint id;
-  mat4 model;
-} pc;
+// layout( push_constant ) uniform PushConstants
+// {
+// 	uint id;
+//   mat4 model;
+// } pc;
 
 // data transfer object
 layout(location = 0) out struct {
@@ -27,5 +26,5 @@ layout(location = 0) out struct {
 
 void main() {
   out_dto.tex_coord = in_texcoord;
-  gl_Position = projection * view * pc.model * vec4(in_pos, 1.0);
+  gl_Position = projection * view * model * vec4(in_pos, 1.0);
 }

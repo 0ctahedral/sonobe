@@ -38,6 +38,7 @@ const quad_inds = [_]u32{ 0, 1, 2, 0, 3, 1 };
 const UniformData = struct {
     projection: Mat4 align(16) = Mat4.perspective(mmath.util.rad(70), 800.0 / 600.0, 0.1, 1000),
     view: Mat4 align(16) = Mat4.translate(.{ .x = 0, .y = 0, .z = 10 }).inv(),
+    model: Mat4 align(16) = Mat4.identity(),
 };
 
 // internal state of the app
@@ -172,22 +173,26 @@ pub fn init(app: *App) !void {
 
 pub fn update(app: *App, dt: f64) !void {
     app.theta += std.math.pi * @floatCast(f32, dt);
-    // app.t.rot = Quat.fromAxisAngle(Vec3.FORWARD, app.theta);
+    app.t.rot = Quat.fromAxisAngle(Vec3.FORWARD, app.theta);
+    app.uniform_data.model = app.t.mat();
 
     const left = Input.getMouse().getButton(.left);
 
     if (left.action == .release) {
         std.log.debug("drag: {d:.1} {d:.1}", .{ left.drag.x, left.drag.y });
     }
+
+    // update a constant value from struct rather than entire thing?
+    // this would have to be something in a struct
+    // where we could update by offset
+    // try Resources.updateConst(app.uniform_buffer, UniformData, .const_name, 35)
+    _ = try Renderer.updateBuffer(app.uniform_buffer, 0, UniformData, &[_]UniformData{app.uniform_data});
 }
 
 pub fn render(app: *App) !void {
     var cmd = Renderer.getCmdBuf();
 
     try cmd.beginRenderPass(app.world_pass);
-
-    // update a constant value?
-    // try cmd.updateConsts(app.simple_pipeline, "const name", 35)
 
     try cmd.bindPipeline(app.simple_pipeline);
 

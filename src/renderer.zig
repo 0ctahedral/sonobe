@@ -17,12 +17,6 @@ pub const CmdBuf = @import("renderer/cmdbuf.zig");
 pub fn init(_allocator: Allocator, app_name: [*:0]const u8, window: Platform.Window) !void {
     try backend.init(_allocator, app_name, window);
 
-    // TODO: remove this when we have an api for changing stuff about the mesh
-    var t: Transform = .{};
-    t.pos = .{ .x = 0, .y = 0, .z = 0 };
-    t.scale = .{ .x = 10, .y = 10, .z = 0 };
-    backend.push_constant.model = t.mat();
-
     // register for resize event
     try Events.register(Events.EventType.WindowResize, onResize);
 

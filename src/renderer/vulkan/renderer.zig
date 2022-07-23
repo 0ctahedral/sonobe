@@ -95,13 +95,6 @@ var global_bind_group = Handle{};
 var default_sampler: Handle = undefined;
 pub var default_texture: Handle = undefined;
 
-const MeshPushConstants = struct {
-    id: u32 align(16) = 0,
-    model: Mat4 align(16) = Mat4.identity(),
-};
-
-pub var push_constant = MeshPushConstants{};
-
 /// Data to be used for each frame
 const GlobalData = struct {
     projection: Mat4 align(16) = Mat4.perspective(mmath.util.rad(70), 800.0 / 600.0, 0.1, 1000),
@@ -385,14 +378,14 @@ pub fn submit(cmdbuf: CmdBuf) !void {
     try cb.begin(device, .{});
 
     // push some constants to this bih
-    device.vkd.cmdPushConstants(
-        cb.handle,
-        Resources.getPipeline(pipeline).layout,
-        .{ .vertex_bit = true },
-        0,
-        @intCast(u32, @sizeOf(MeshPushConstants)),
-        &push_constant,
-    );
+    // device.vkd.cmdPushConstants(
+    //     cb.handle,
+    //     Resources.getPipeline(pipeline).layout,
+    //     .{ .vertex_bit = true },
+    //     0,
+    //     @intCast(u32, @sizeOf(MeshPushConstants)),
+    //     &push_constant,
+    // );
 
     var i: usize = 0;
     while (i < cmdbuf.idx) : (i += 1) {

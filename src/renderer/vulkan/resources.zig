@@ -209,13 +209,6 @@ pub fn createBuffer(desc: types.BufferDesc) !Handle {
             .uniform_buffer_bit = true,
         },
     };
-    const size: usize = switch (desc.usage) {
-        .Storage => 1024 * 1024,
-        .Uniform => 1024,
-        .Vertex => 1024 * 1024,
-        .Index => 1024 * 1024,
-    };
-
     const mem: vk.MemoryPropertyFlags = switch (desc.usage) {
         .Index, .Vertex => .{ .device_local_bit = true },
         .Storage, .Uniform => .{
@@ -226,7 +219,7 @@ pub fn createBuffer(desc: types.BufferDesc) !Handle {
 
     const idx = try buffers[@enumToInt(desc.usage)].allocIndex();
 
-    const buf = try Buffer.init(device, size, usage, mem, true);
+    const buf = try Buffer.init(device, desc.size, usage, mem, true);
 
     buffers[@enumToInt(desc.usage)].set(idx, buf);
 
@@ -240,11 +233,6 @@ pub fn createBuffer(desc: types.BufferDesc) !Handle {
     const handle = Handle{ .resource = res };
     return handle;
 }
-const Mat4 = @import("../../math.zig").Mat4;
-const MeshPushConstants = struct {
-    id: u32 align(16) = 0,
-    model: Mat4 align(16) = Mat4.identity(),
-};
 
 pub fn createPipeline(desc: types.PipelineDesc) !Handle {
     const handle_idx = try resources.allocIndex();
@@ -261,13 +249,7 @@ pub fn createPipeline(desc: types.PipelineDesc) !Handle {
         desc,
         getRenderPass(desc.renderpass).handle,
         dsl[0..desc.binding_groups.len],
-        &[_]vk.PushConstantRange{
-            .{
-                .stage_flags = .{ .vertex_bit = true },
-                .offset = 0,
-                .size = @intCast(u32, @sizeOf(MeshPushConstants)),
-            },
-        },
+        &[_]vk.PushConstantRange{},
         false,
         allocator,
     ));

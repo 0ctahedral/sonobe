@@ -48,7 +48,6 @@ pub fn main() !void {
         {
             // update state
             try app.update(Platform.dt());
-            Renderer.backend.push_constant.model = app.t.mat();
             try app.render();
 
             // render frame
