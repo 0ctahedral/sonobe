@@ -56,10 +56,10 @@ var allocator: Allocator = undefined;
 
 // TODO: these will eventually not exist
 
-var default_renderpass: Handle = undefined;
+var default_renderpass: Handle = .{};
 
 /// pipeline currently being used
-var pipeline: Pipeline = undefined;
+var pipeline: Handle = .{};
 
 /// current dimesnsions of the framebuffer
 var fb_width: u32 = 0;
@@ -248,7 +248,7 @@ pub fn init(provided_allocator: Allocator, app_name: [*:0]const u8, window: Plat
     }
 
     // create pipeline
-    try createPipeline(.{
+    pipeline = try Resources.createPipeline(.{
         .stages = &.{
             .{
                 .bindpoint = .Vertex,
@@ -259,6 +259,8 @@ pub fn init(provided_allocator: Allocator, app_name: [*:0]const u8, window: Plat
                 .path = "assets/builtin.frag.spv",
             },
         },
+        .binding_groups = &.{global_bind_group},
+        .renderpass = default_renderpass,
     });
 
     // create a texture
@@ -312,7 +314,6 @@ pub fn deinit() void {
 
     Resources.deinit();
     destroyBuffers();
-    pipeline.deinit(device);
 
     for (frames) |*f| {
         f.deinit(device);
@@ -386,7 +387,7 @@ pub fn submit(cmdbuf: CmdBuf) !void {
     // push some constants to this bih
     device.vkd.cmdPushConstants(
         cb.handle,
-        pipeline.layout,
+        Resources.getPipeline(pipeline).layout,
         .{ .vertex_bit = true },
         0,
         @intCast(u32, @sizeOf(MeshPushConstants)),
@@ -409,7 +410,7 @@ pub fn submit(cmdbuf: CmdBuf) !void {
 fn applyBindPipeline(cb: *CommandBuffer, handle: types.Handle) !void {
     _ = handle;
 
-    device.vkd.cmdBindPipeline(cb.handle, .graphics, pipeline.handle);
+    device.vkd.cmdBindPipeline(cb.handle, .graphics, Resources.getPipeline(pipeline).handle);
 
     // this is some material system shit
     try updateDescriptorSets();
@@ -422,7 +423,7 @@ fn applyBindPipeline(cb: *CommandBuffer, handle: types.Handle) !void {
     device.vkd.cmdBindDescriptorSets(
         cb.handle,
         .graphics,
-        pipeline.layout,
+        Resources.getPipeline(pipeline).layout,
         0,
         descriptor_sets.len,
         &descriptor_sets,
@@ -523,31 +524,6 @@ pub fn endFrame() !void {
     };
 
     frame_number += 1;
-}
-
-// TODO: find a home for this in pipeline
-pub fn createPipeline(desc: types.PipelineDesc) !void {
-    _ = desc;
-
-    // allocate the sets
-
-    const gbg = Resources.getBindGroup(global_bind_group);
-
-    pipeline = try Pipeline.init(
-        device,
-        desc,
-        Resources.getRenderPass(default_renderpass).handle,
-        &[_]vk.DescriptorSetLayout{gbg.layout},
-        &[_]vk.PushConstantRange{
-            .{
-                .stage_flags = .{ .vertex_bit = true },
-                .offset = 0,
-                .size = @intCast(u32, @sizeOf(MeshPushConstants)),
-            },
-        },
-        false,
-        allocator,
-    );
 }
 
 // helpers

@@ -123,5 +123,5 @@ pub const PipelineDesc = struct {
     binding_groups: []const Handle = &.{},
 
     // TODO: add this
-    // renderpass: Handle,
+    renderpass: Handle,
 };

@@ -5,6 +5,7 @@ const Device = @import("device.zig").Device;
 const Buffer = @import("buffer.zig").Buffer;
 const Sampler = @import("texture.zig").Sampler;
 const RenderPass = @import("renderpass.zig").RenderPass;
+const Pipeline = @import("pipeline.zig").Pipeline;
 const Texture = @import("texture.zig").Texture;
 const MAX_FRAMES = @import("renderer.zig").MAX_FRAMES;
 
@@ -31,6 +32,7 @@ const MAX_TEXTURES = 1024;
 var textures: FreeList(Texture) = undefined;
 var samplers: FreeList(Sampler) = undefined;
 var renderpasses: FreeList(RenderPass) = undefined;
+var pipelines: FreeList(Pipeline) = undefined;
 
 const MAX_BINDGROUPS = 1024;
 /// stores layout and sets needed for updating a pipeline
@@ -48,6 +50,7 @@ const ResourceType = enum {
     Sampler,
     BindGroup,
     RenderPass,
+    Pipeline,
 };
 
 // TODO: add sampler
@@ -72,6 +75,9 @@ const Resource = union(ResourceType) {
     RenderPass: struct {
         index: u32,
     },
+    Pipeline: struct {
+        index: u32,
+    },
 };
 
 var resources: FreeList(Resource) = undefined;
@@ -87,10 +93,13 @@ pub fn init(_device: Device, _allocator: std.mem.Allocator) !void {
     allocator = _allocator;
 
     resources = try FreeList(Resource).init(allocator, MAX_TEXTURES + MAX_BUFFERS);
+
     textures = try FreeList(Texture).init(allocator, MAX_TEXTURES);
     samplers = try FreeList(Sampler).init(allocator, MAX_TEXTURES);
     bind_groups = try FreeList(BindGroup).init(allocator, MAX_BINDGROUPS);
     renderpasses = try FreeList(RenderPass).init(allocator, 32);
+    pipelines = try FreeList(Pipeline).init(allocator, 1024);
+
     for (buffers) |*buf| {
         buf.* = try FreeList(Buffer).init(allocator, MAX_BUFFERS / 4);
     }
@@ -137,6 +146,16 @@ pub fn deinit() void {
 
     device.vkd.destroyDescriptorPool(device.logical, descriptor_pool, null);
 
+    textures.deinit();
+    samplers.deinit();
+    bind_groups.deinit();
+    renderpasses.deinit();
+    pipelines.deinit();
+
+    for (buffers) |*buf| {
+        buf.deinit();
+    }
+
     resources.deinit();
 }
 
@@ -157,6 +176,9 @@ fn destroyResource(res: Resource) void {
         },
         .RenderPass => |rp| {
             renderpasses.get(rp.index).deinit(device);
+        },
+        .Pipeline => |pl| {
+            pipelines.get(pl.index).deinit(device);
         },
     }
 }
@@ -212,10 +234,44 @@ pub fn createBuffer(desc: types.BufferDesc) !Handle {
     const handle = Handle{ .resource = res };
     return handle;
 }
+const Mat4 = @import("../../math.zig").Mat4;
+const MeshPushConstants = struct {
+    id: u32 align(16) = 0,
+    model: Mat4 align(16) = Mat4.identity(),
+};
 
 pub fn createPipeline(desc: types.PipelineDesc) !Handle {
-    _ = desc;
-    return Handle{};
+    const handle_idx = try resources.allocIndex();
+    const pl_idx = try pipelines.allocIndex();
+
+    // TODO: bounds check
+    var dsl: [16]vk.DescriptorSetLayout = undefined;
+    for (desc.binding_groups) |bgh, i| {
+        dsl[i] = getBindGroup(bgh).layout;
+    }
+
+    pipelines.set(pl_idx, try Pipeline.init(
+        device,
+        desc,
+        getRenderPass(desc.renderpass).handle,
+        dsl[0..desc.binding_groups.len],
+        &[_]vk.PushConstantRange{
+            .{
+                .stage_flags = .{ .vertex_bit = true },
+                .offset = 0,
+                .size = @intCast(u32, @sizeOf(MeshPushConstants)),
+            },
+        },
+        false,
+        allocator,
+    ));
+
+    resources.set(
+        handle_idx,
+        .{ .Pipeline = .{ .index = pl_idx } },
+    );
+
+    return Handle{ .resource = handle_idx };
 }
 
 pub fn createRenderPass(desc: types.RenderPassDesc) !Handle {
@@ -249,10 +305,10 @@ pub fn createBindingGroup(binds: []const types.BindingDesc) !Handle {
     bg.n_bindings = bindings.len;
 
     for (binds) |bind, i| {
-        // TODO: filter out handles of types that cannot be bound (another pipeline)
         bindings[i] = .{
             .binding = @intCast(u32, i),
             .descriptor_type = switch (bind.binding_type) {
+                // TODO: use different buffer types?
                 .Buffer => .uniform_buffer,
                 .Texture => .sampled_image,
                 .Sampler => .sampler,
@@ -404,4 +460,9 @@ pub fn getBindGroup(handle: Handle) *BindGroup {
 pub fn getRenderPass(handle: Handle) *RenderPass {
     const res = resources.get(handle.resource).RenderPass;
     return renderpasses.get(res.index);
+}
+
+pub fn getPipeline(handle: Handle) *Pipeline {
+    const res = resources.get(handle.resource).Pipeline;
+    return pipelines.get(res.index);
 }

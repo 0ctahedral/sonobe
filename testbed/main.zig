@@ -73,6 +73,7 @@ pub fn init(app: *App) !void {
     _ = try Renderer.updateBuffer(app.quad_inds, 0, u32, quad_inds[0..]);
 
     const simple_group = try Resources.createBindingGroup(&.{
+        .{ .binding_type = .Buffer },
         .{ .binding_type = .Texture },
         .{ .binding_type = .Sampler },
     });
@@ -119,6 +120,18 @@ pub fn init(app: *App) !void {
     // aka writes to the descriptor set
     try Resources.updateBinding(simple_group, 0, default_texture);
 
+    const rp_desc = .{
+        .clear_color = .{ 0.75, 0.49, 0.89, 1.0 },
+        .clear_depth = 1.0,
+        .clear_stencil = 1.0,
+        .clear_flags = .{
+            .color = true,
+            .depth = true,
+        },
+    };
+
+    app.world_pass = try Resources.createRenderPass(rp_desc);
+
     // create our shader pipeline
     app.simple_pipeline = try Resources.createPipeline(.{
         .stages = &.{
@@ -132,19 +145,8 @@ pub fn init(app: *App) !void {
             },
         },
         .binding_groups = &.{simple_group},
+        .renderpass = app.world_pass,
     });
-
-    const rp_desc = .{
-        .clear_color = .{ 0.75, 0.49, 0.89, 1.0 },
-        .clear_depth = 1.0,
-        .clear_stencil = 1.0,
-        .clear_flags = .{
-            .color = true,
-            .depth = true,
-        },
-    };
-
-    app.world_pass = try Resources.createRenderPass(rp_desc);
 }
 
 pub fn update(app: *App, dt: f64) !void {
