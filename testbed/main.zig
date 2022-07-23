@@ -10,6 +10,7 @@ const mmath = octal.mmath;
 const Vec3 = mmath.Vec3;
 const Vec2 = mmath.Vec2;
 const Quat = mmath.Quat;
+const Mat4 = mmath.Mat4;
 const Transform = mmath.Transform;
 
 // since this file is implicitly a struct we can store state in here
@@ -34,6 +35,11 @@ const texcoords = [_]Vec2{
 };
 const quad_inds = [_]u32{ 0, 1, 2, 0, 3, 1 };
 
+const UniformData = struct {
+    projection: Mat4 align(16) = Mat4.perspective(mmath.util.rad(70), 800.0 / 600.0, 0.1, 1000),
+    view: Mat4 align(16) = Mat4.translate(.{ .x = 0, .y = 0, .z = 10 }).inv(),
+};
+
 // internal state of the app
 /// angle that we have rotated the quad to
 theta: f32 = 0,
@@ -44,6 +50,11 @@ quad_verts: Renderer.Handle = .{},
 quad_inds: Renderer.Handle = .{},
 simple_pipeline: Renderer.Handle = .{},
 world_pass: Renderer.Handle = .{},
+uniform_buffer: Renderer.Handle = .{},
+uniform_data: UniformData = .{},
+simple_group: Renderer.Handle = .{},
+default_texture: Renderer.Handle = .{},
+default_sampler: Renderer.Handle = .{},
 
 pub fn init(app: *App) !void {
     _ = app;
@@ -62,8 +73,6 @@ pub fn init(app: *App) !void {
     var offset = try Renderer.updateBuffer(app.quad_verts, 0, Vec3, positions[0..]);
     offset = try Renderer.updateBuffer(app.quad_verts, offset, Vec2, texcoords[0..]);
 
-    std.log.debug("verts handle: {}", .{app.quad_verts});
-
     app.quad_inds = try Resources.createBuffer(
         .{
             .size = @sizeOf(@TypeOf(quad_inds)),
@@ -72,7 +81,15 @@ pub fn init(app: *App) !void {
     );
     _ = try Renderer.updateBuffer(app.quad_inds, 0, u32, quad_inds[0..]);
 
-    const simple_group = try Resources.createBindingGroup(&.{
+    app.uniform_buffer = try Resources.createBuffer(
+        .{
+            .size = @sizeOf(UniformData),
+            .usage = .Uniform,
+        },
+    );
+    _ = try Renderer.updateBuffer(app.uniform_buffer, 0, UniformData, &[_]UniformData{app.uniform_data});
+
+    app.simple_group = try Resources.createBindingGroup(&.{
         .{ .binding_type = .Buffer },
         .{ .binding_type = .Texture },
         .{ .binding_type = .Sampler },
@@ -103,14 +120,14 @@ pub fn init(app: *App) !void {
         }
     }
 
-    const default_texture = try Resources.createTexture(.{
+    app.default_texture = try Resources.createTexture(.{
         .width = tex_dimension,
         .height = tex_dimension,
         .channels = channels,
         .flags = .{},
     }, pixels[0..]);
 
-    const default_sampler = try Resources.createSampler(.{
+    app.default_sampler = try Resources.createSampler(.{
         .filter = .bilinear,
         .repeat = .wrap,
         .compare = .greater,
@@ -118,9 +135,10 @@ pub fn init(app: *App) !void {
 
     // sets what resource this binding points to
     // aka writes to the descriptor set
-    try Resources.updateBindings(simple_group, &[_]Resources.BindingUpdate{
-        .{ .binding = 0, .handle = default_texture },
-        .{ .binding = 1, .handle = default_sampler },
+    try Resources.updateBindings(app.simple_group, &[_]Resources.BindingUpdate{
+        .{ .binding = 0, .handle = app.uniform_buffer },
+        .{ .binding = 1, .handle = app.default_texture },
+        .{ .binding = 2, .handle = app.default_sampler },
     });
 
     const rp_desc = .{
@@ -147,7 +165,7 @@ pub fn init(app: *App) !void {
                 .path = "assets/builtin.frag.spv",
             },
         },
-        .binding_groups = &.{simple_group},
+        .binding_groups = &.{app.simple_group},
         .renderpass = app.world_pass,
     });
 }

@@ -21,6 +21,7 @@ pub const BufferDesc = struct {
         Vertex,
         Index,
         Storage,
+        Uniform,
     };
     usage: Usage,
     size: usize,

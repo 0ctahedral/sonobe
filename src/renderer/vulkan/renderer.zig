@@ -408,24 +408,22 @@ pub fn submit(cmdbuf: CmdBuf) !void {
 }
 
 fn applyBindPipeline(cb: *CommandBuffer, handle: types.Handle) !void {
-    _ = handle;
+    const pl = Resources.getPipeline(handle);
+    device.vkd.cmdBindPipeline(cb.handle, .graphics, pl.handle);
 
-    device.vkd.cmdBindPipeline(cb.handle, .graphics, Resources.getPipeline(pipeline).handle);
-
-    // this is some material system shit
-    try updateDescriptorSets();
-
-    const gbg = Resources.getBindGroup(global_bind_group);
-    const descriptor_sets = [_]vk.DescriptorSet{
-        gbg.sets[getCurrentFrame().index],
-    };
+    var descriptor_sets: [8]vk.DescriptorSet = undefined;
+    const res = Resources.resources.get(handle.resource).Pipeline;
+    for (res.desc.binding_groups) |h, i| {
+        const bg = Resources.getBindGroup(h);
+        descriptor_sets[i] = bg.sets[getCurrentFrame().index];
+    }
 
     device.vkd.cmdBindDescriptorSets(
         cb.handle,
         .graphics,
-        Resources.getPipeline(pipeline).layout,
+        pl.layout,
         0,
-        descriptor_sets.len,
+        @intCast(u32, res.desc.binding_groups.len),
         &descriptor_sets,
         0,
         undefined,
@@ -678,7 +676,8 @@ fn updateDescriptorSets() !void {
         },
         .{
             .sampler = Resources.getSampler(default_sampler).handle,
-            .image_view = Resources.getTexture(default_texture).image.view,
+            // .image_view = Resources.getTexture(default_texture).image.view,
+            .image_view = .null_handle,
             .image_layout = .@"undefined",
         },
     };

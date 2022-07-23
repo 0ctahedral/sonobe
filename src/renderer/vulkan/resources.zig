@@ -77,10 +77,11 @@ const Resource = union(ResourceType) {
     },
     Pipeline: struct {
         index: u32,
+        desc: types.PipelineDesc,
     },
 };
 
-var resources: FreeList(Resource) = undefined;
+pub var resources: FreeList(Resource) = undefined;
 
 var device: Device = undefined;
 
@@ -203,16 +204,21 @@ pub fn createBuffer(desc: types.BufferDesc) !Handle {
             .storage_buffer_bit = true,
             .transfer_dst_bit = true,
         },
+        .Uniform => .{
+            .transfer_dst_bit = true,
+            .uniform_buffer_bit = true,
+        },
     };
     const size: usize = switch (desc.usage) {
         .Storage => 1024 * 1024,
+        .Uniform => 1024,
         .Vertex => 1024 * 1024,
         .Index => 1024 * 1024,
     };
 
     const mem: vk.MemoryPropertyFlags = switch (desc.usage) {
         .Index, .Vertex => .{ .device_local_bit = true },
-        .Storage => .{
+        .Storage, .Uniform => .{
             .host_visible_bit = true,
             .host_coherent_bit = true,
         },
@@ -268,7 +274,7 @@ pub fn createPipeline(desc: types.PipelineDesc) !Handle {
 
     resources.set(
         handle_idx,
-        .{ .Pipeline = .{ .index = pl_idx } },
+        .{ .Pipeline = .{ .index = pl_idx, .desc = desc } },
     );
 
     return Handle{ .resource = handle_idx };
@@ -365,61 +371,82 @@ pub fn updateBindings(group: Handle, updates: []const BindingUpdate) !void {
 
     var writes: [32 * MAX_FRAMES]vk.WriteDescriptorSet = undefined;
 
-    // TODO: construct some descriptor set writes
     for (updates) |u, i| {
         if (u.binding > bg.n_bindings) return error.InvalidBinding;
 
         const b = bg.bindings[@intCast(usize, u.binding)];
 
-        var desc_type: vk.DescriptorType = undefined;
-        var image_infos: [1]vk.DescriptorImageInfo = undefined;
-        var buffer_infos: [1]vk.DescriptorBufferInfo = undefined;
+        var new_write: vk.WriteDescriptorSet = undefined;
+
         switch (b.binding_type) {
             .Buffer => {
-                // const buffer = buffers.get(resources.get(u.handle.resource).Buffer.index);
-                // // TODO: set type here
-                // desc_type = .uniform_buffer;
-                // buffer_infos[0] = .{
-                //     .buffer = buffer.handle,
-                //     .offset = 0,
-                //     .range = buffer.size,
-                // };
-            },
-            .Sampler => {
-                const sampler = samplers.get(resources.get(u.handle.resource).Sampler.index);
-                desc_type = .sampler;
-                image_infos[0] = .{
-                    .sampler = sampler.handle,
-                    .image_view = .null_handle,
-                    .image_layout = .@"undefined",
+                const res = resources.get(u.handle.resource).Buffer;
+                const buffer = buffers[@enumToInt(res.desc.usage)].get(res.index);
+                const buf_infos = [_]vk.DescriptorBufferInfo{
+                    .{
+                        .buffer = buffer.handle,
+                        .offset = 0,
+                        .range = buffer.size,
+                    },
+                };
+
+                new_write = .{
+                    .dst_set = bg.sets[0],
+                    .dst_binding = 0,
+                    .dst_array_element = 0,
+                    .descriptor_count = 1,
+                    .descriptor_type = .uniform_buffer,
+                    .p_image_info = undefined,
+                    .p_buffer_info = buf_infos[0..],
+                    .p_texel_buffer_view = undefined,
                 };
             },
             .Texture => {
                 const tex = textures.get(resources.get(u.handle.resource).Texture.index);
-                desc_type = .sampled_image;
-                image_infos[0] = .{
+                const tex_infos = [_]vk.DescriptorImageInfo{.{
                     .sampler = .null_handle,
                     .image_view = tex.image.view,
                     .image_layout = vk.ImageLayout.shader_read_only_optimal,
+                }};
+
+                new_write = .{
+                    .dst_set = bg.sets[0],
+                    .dst_binding = 1,
+                    .dst_array_element = 0,
+                    .descriptor_count = 1,
+                    .descriptor_type = .sampled_image,
+                    .p_image_info = tex_infos[0..],
+                    .p_buffer_info = undefined,
+                    .p_texel_buffer_view = undefined,
+                };
+            },
+            .Sampler => {
+                const sampler = samplers.get(resources.get(u.handle.resource).Sampler.index);
+                const sampler_infos = [_]vk.DescriptorImageInfo{.{
+                    .sampler = sampler.handle,
+                    .image_view = .null_handle,
+                    .image_layout = .@"undefined",
+                }};
+
+                new_write = .{
+                    .dst_set = bg.sets[0],
+                    .dst_binding = 2,
+                    .dst_array_element = 0,
+                    .descriptor_count = 1,
+                    .descriptor_type = .sampler,
+                    .p_image_info = sampler_infos[0..],
+                    .p_buffer_info = undefined,
+                    .p_texel_buffer_view = undefined,
                 };
             },
         }
 
         var j: usize = 0;
         while (j < MAX_FRAMES) : (j += 1) {
-            writes[(i * MAX_FRAMES) + j] = .{
-                .dst_set = bg.sets[j],
-                .dst_binding = @intCast(u32, u.binding),
-                .dst_array_element = 0,
-                .descriptor_count = 1,
-                .descriptor_type = desc_type,
-                .p_image_info = image_infos[0..],
-                .p_buffer_info = buffer_infos[0..],
-                .p_texel_buffer_view = undefined,
-            };
+            new_write.dst_set = bg.sets[j];
+            writes[(i * MAX_FRAMES) + j] = new_write;
         }
     }
-
     device.vkd.updateDescriptorSets(device.logical, @intCast(u32, updates.len * MAX_FRAMES), &writes, 0, undefined);
 }
 
