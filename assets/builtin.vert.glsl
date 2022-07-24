@@ -25,6 +25,7 @@ layout(location = 0) out struct {
 } out_dto;
 
 void main() {
-  out_dto.tex_coord = in_texcoord;
+  vec2 tiling = vec2(25, 25);
+  out_dto.tex_coord = in_texcoord * tiling;
   gl_Position = projection * view * model * vec4(in_pos, 1.0);
 }

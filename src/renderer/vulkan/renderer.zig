@@ -22,8 +22,6 @@ const Fence = @import("fence.zig").Fence;
 const Semaphore = @import("semaphore.zig").Semaphore;
 const Pipeline = @import("pipeline.zig").Pipeline;
 const Mesh = @import("mesh.zig").Mesh;
-const Buffer = @import("buffer.zig").Buffer;
-const Sampler = @import("texture.zig").Sampler;
 const Texture = @import("texture.zig").Texture;
 const RenderTarget = @import("render_target.zig").RenderTarget;
 pub const Resources = @import("resources.zig");
@@ -91,10 +89,6 @@ var global_bind_group = Handle{};
 
 // --------------------------------------
 
-// TODO: this should be from a resource system
-var default_sampler: Handle = undefined;
-pub var default_texture: Handle = undefined;
-
 /// Data to be used for each frame
 const GlobalData = struct {
     projection: Mat4 align(16) = Mat4.perspective(mmath.util.rad(70), 800.0 / 600.0, 0.1, 1000),
@@ -106,17 +100,6 @@ const GlobalData = struct {
 const MaterialData = struct {
     albedo: Vec3 align(16),
 };
-
-/// buffer for global shader data (rn just the camera matricies)
-var global_buffer: Buffer = undefined;
-/// shader
-var material_buffer: Buffer = undefined;
-/// camera matricies
-var cam_data = GlobalData{};
-/// buffer for the model matricies of objects
-var model_buffer: Buffer = undefined;
-/// cpu side storage for all the model matricies
-var model_data: [10]Mat4 = undefined;
 
 // functions that are part of the api
 
@@ -226,9 +209,6 @@ pub fn init(provided_allocator: Allocator, app_name: [*:0]const u8, window: Plat
     try recreateRenderTargets();
 
     // create global geometry buffers
-    try createGlobalBuffers();
-
-    // try createGlobalDescriptors();
     // create the global binding group
     global_bind_group = try Resources.createBindingGroup(&.{
         .{ .binding_type = .Buffer },
@@ -255,46 +235,6 @@ pub fn init(provided_allocator: Allocator, app_name: [*:0]const u8, window: Plat
         .binding_groups = &.{global_bind_group},
         .renderpass = default_renderpass,
     });
-
-    // create a texture
-    {
-        // generate the pattern
-        const tex_dimension: u32 = 256;
-        const channels: u32 = 4;
-        const pixel_count = tex_dimension * tex_dimension;
-        var pixels: [pixel_count * channels]u8 = undefined;
-
-        // set to 255
-        for (pixels) |*p| {
-            p.* = 255;
-        }
-
-        var row: usize = 0;
-        while (row < tex_dimension) : (row += 1) {
-            var col: usize = 0;
-            while (col < tex_dimension) : (col += 1) {
-                var index = (row * tex_dimension) + col;
-                var index_bpp = index * channels;
-                if ((col + row) % 4 != 0) {
-                    pixels[index_bpp + 0] = 0;
-                    pixels[index_bpp + 2] = 0;
-                }
-            }
-        }
-
-        default_texture = try Resources.createTexture(.{
-            .width = tex_dimension,
-            .height = tex_dimension,
-            .channels = channels,
-            .flags = .{},
-        }, pixels[0..]);
-
-        default_sampler = try Resources.createSampler(.{
-            .filter = .bilinear,
-            .repeat = .wrap,
-            .compare = .greater,
-        });
-    }
 }
 
 // shutdown the renderer
@@ -306,7 +246,6 @@ pub fn deinit() void {
     };
 
     Resources.deinit();
-    destroyBuffers();
 
     for (frames) |*f| {
         f.deinit(device);
@@ -366,7 +305,6 @@ pub fn beginFrame() !bool {
     };
 
     try getCurrentFrame().render_fence.reset(device);
-    //std.log.debug("image idx: {}", .{image_index});
 
     return true;
 }
@@ -406,8 +344,9 @@ fn applyBindPipeline(cb: *CommandBuffer, handle: types.Handle) !void {
 
     var descriptor_sets: [8]vk.DescriptorSet = undefined;
     const res = Resources.resources.get(handle.resource).Pipeline;
-    for (res.desc.binding_groups) |h, i| {
-        const bg = Resources.getBindGroup(h);
+    var i: usize = 0;
+    while (i < res.n_bind_groups) : (i += 1) {
+        const bg = Resources.getBindGroup(res.bind_groups[i]);
         descriptor_sets[i] = bg.sets[getCurrentFrame().index];
     }
 
@@ -416,7 +355,7 @@ fn applyBindPipeline(cb: *CommandBuffer, handle: types.Handle) !void {
         .graphics,
         pl.layout,
         0,
-        @intCast(u32, res.desc.binding_groups.len),
+        @intCast(u32, res.n_bind_groups),
         &descriptor_sets,
         0,
         undefined,
@@ -533,7 +472,6 @@ fn vk_debug(
     return vk.FALSE;
 }
 
-// TODO: move to render target stuff
 pub fn recreateRenderTargets() !void {
     std.log.info("fbw: {} fbh: {}", .{ fb_width, fb_height });
     for (swapchain.render_textures) |tex, i| {
@@ -592,125 +530,6 @@ fn recreateSwapchain() !bool {
     std.log.info("done recreating swapchain", .{});
 
     return true;
-}
-
-/// creates the global buffers
-fn createGlobalBuffers() !void {
-    global_buffer = try Buffer.init(device, @sizeOf(GlobalData), .{ .transfer_dst_bit = true, .uniform_buffer_bit = true }, .{
-        .host_visible_bit = true,
-        .host_coherent_bit = true,
-    }, true);
-
-    material_buffer = try Buffer.init(device, @sizeOf(MaterialData) * 1024, .{ .transfer_dst_bit = true, .uniform_buffer_bit = true }, .{
-        .host_visible_bit = true,
-        .host_coherent_bit = true,
-    }, true);
-
-    model_buffer = try Buffer.init(device, @sizeOf(@TypeOf(model_data)), .{
-        .storage_buffer_bit = true,
-        .transfer_dst_bit = true,
-    }, .{
-        .host_visible_bit = true,
-        .host_coherent_bit = true,
-    }, true);
-}
-
-fn destroyBuffers() void {
-    global_buffer.deinit(device);
-    model_buffer.deinit(device);
-    material_buffer.deinit(device);
-}
-
-fn upload(pool: vk.CommandPool, buffer: Buffer, comptime T: type, items: []const T) !void {
-    const size = @sizeOf(T) * items.len;
-    const staging_buffer = try Buffer.init(
-        device,
-        size,
-        .{ .transfer_src_bit = true },
-        .{ .host_visible_bit = true, .host_coherent_bit = true },
-        true,
-    );
-    defer staging_buffer.deinit(device);
-
-    try staging_buffer.load(device, T, items, 0);
-
-    try Buffer.copyTo(device, pool, device.graphics.?, staging_buffer, 0, buffer, 0, size);
-}
-
-fn updateDescriptorSets() !void {
-    try global_buffer.load(device, GlobalData, &[_]GlobalData{cam_data}, 0);
-    try model_buffer.load(device, Mat4, model_data[0..], 0);
-    try material_buffer.load(device, MaterialData, &[_]MaterialData{.{
-        .albedo = Vec3.new(1, 1, 1),
-    }}, 0);
-
-    // TODO: this should only update what actually needs it
-
-    const cam_infos = [_]vk.DescriptorBufferInfo{
-        .{
-            .buffer = global_buffer.handle,
-            .offset = 0,
-            .range = @sizeOf(GlobalData),
-        },
-    };
-    // const model_infos = [_]vk.DescriptorBufferInfo{
-    //     .{
-    //         .buffer = model_buffer.handle,
-    //         .offset = 0,
-    //         .range = @sizeOf(@TypeOf(model_data)),
-    //     },
-    // };
-
-    const sampler_infos = [_]vk.DescriptorImageInfo{
-        .{
-            .sampler = .null_handle,
-            .image_view = Resources.getTexture(default_texture).image.view,
-            .image_layout = vk.ImageLayout.shader_read_only_optimal,
-        },
-        .{
-            .sampler = Resources.getSampler(default_sampler).handle,
-            // .image_view = Resources.getTexture(default_texture).image.view,
-            .image_view = .null_handle,
-            .image_layout = .@"undefined",
-        },
-    };
-
-    const gbg = Resources.getBindGroup(global_bind_group);
-
-    const writes = [_]vk.WriteDescriptorSet{
-        .{
-            .dst_set = gbg.sets[getCurrentFrame().index],
-            .dst_binding = 0,
-            .dst_array_element = 0,
-            .descriptor_count = cam_infos.len,
-            .descriptor_type = .uniform_buffer,
-            .p_image_info = undefined,
-            .p_buffer_info = cam_infos[0..],
-            .p_texel_buffer_view = undefined,
-        },
-        .{
-            .dst_set = gbg.sets[getCurrentFrame().index],
-            .dst_binding = 1,
-            .dst_array_element = 0,
-            .descriptor_count = 1,
-            .descriptor_type = .sampled_image,
-            .p_image_info = sampler_infos[0..],
-            .p_buffer_info = undefined,
-            .p_texel_buffer_view = undefined,
-        },
-        .{
-            .dst_set = gbg.sets[getCurrentFrame().index],
-            .dst_binding = 2,
-            .dst_array_element = 0,
-            .descriptor_count = 1,
-            .descriptor_type = .sampler,
-            .p_image_info = sampler_infos[1..],
-            .p_buffer_info = undefined,
-            .p_texel_buffer_view = undefined,
-        },
-    };
-
-    device.vkd.updateDescriptorSets(device.logical, writes.len, &writes, 0, undefined);
 }
 
 /// Returns the framedata of the frame we should be on

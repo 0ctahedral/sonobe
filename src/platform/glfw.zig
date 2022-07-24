@@ -74,8 +74,6 @@ fn onMouseButton(
     gaction: glfw.Action,
     gmods: glfw.Mods,
 ) void {
-    // std.log.debug("w: {}, b: {}, a: {}, m: {}", .{ win, button, action, mods });
-
     _ = win;
     _ = gmods;
 
@@ -151,9 +149,6 @@ pub fn flush() void {
 pub fn createWindowSurface(vki: InstanceDispatch, instance: vk.Instance, win: Window) !vk.SurfaceKHR {
     _ = vki;
     const idx = @enumToInt(win.handle);
-
-    std.log.debug("window to surface: {}", .{win});
-    std.log.debug("windows: {any}", .{window_store});
 
     var surface: vk.SurfaceKHR = undefined;
     if ((try glfw.createWindowSurface(instance, window_store[idx], null, &surface)) != @enumToInt(vk.Result.success)) {

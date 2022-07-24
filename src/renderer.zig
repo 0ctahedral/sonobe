@@ -21,8 +21,6 @@ pub fn init(_allocator: Allocator, app_name: [*:0]const u8, window: Platform.Win
     try Events.register(Events.EventType.WindowResize, onResize);
 
     submitted_cmds = RingBuffer(CmdBuf, 32).init();
-
-    default_texture = backend.default_texture;
 }
 
 var submitted_cmds: RingBuffer(CmdBuf, 32) = undefined;
@@ -87,8 +85,6 @@ pub const Handle = types.Handle;
 pub const BufferDesc = types.BufferDesc;
 pub const RenderPassDesc = types.RenderPassDesc;
 pub const PipelineDesc = types.PipelineDesc;
-// TODO: remove
-pub var default_texture = Handle{};
 
 pub const Resources = backend.Resources;
 

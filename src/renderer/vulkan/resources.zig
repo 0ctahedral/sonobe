@@ -77,7 +77,8 @@ const Resource = union(ResourceType) {
     },
     Pipeline: struct {
         index: u32,
-        desc: types.PipelineDesc,
+        n_bind_groups: u8,
+        bind_groups: [8]Handle,
     },
 };
 
@@ -254,9 +255,18 @@ pub fn createPipeline(desc: types.PipelineDesc) !Handle {
         allocator,
     ));
 
+    var bgs = [_]Handle{.{}} ** 8;
+    for (desc.binding_groups) |h, i| {
+        bgs[i] = h;
+    }
+
     resources.set(
         handle_idx,
-        .{ .Pipeline = .{ .index = pl_idx, .desc = desc } },
+        .{ .Pipeline = .{
+            .index = pl_idx,
+            .n_bind_groups = @intCast(u8, desc.binding_groups.len),
+            .bind_groups = bgs,
+        } },
     );
 
     return Handle{ .resource = handle_idx };

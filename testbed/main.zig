@@ -35,7 +35,7 @@ const texcoords = [_]Vec2{
 };
 const quad_inds = [_]u32{ 0, 1, 2, 0, 3, 1 };
 
-const UniformData = struct {
+const CameraData = struct {
     projection: Mat4 align(16) = Mat4.perspective(mmath.util.rad(70), 800.0 / 600.0, 0.1, 1000),
     view: Mat4 align(16) = Mat4.translate(.{ .x = 0, .y = 0, .z = 10 }).inv(),
     model: Mat4 align(16) = Mat4.identity(),
@@ -51,9 +51,9 @@ quad_verts: Renderer.Handle = .{},
 quad_inds: Renderer.Handle = .{},
 simple_pipeline: Renderer.Handle = .{},
 world_pass: Renderer.Handle = .{},
-uniform_buffer: Renderer.Handle = .{},
-uniform_data: UniformData = .{},
-simple_group: Renderer.Handle = .{},
+camera_buffer: Renderer.Handle = .{},
+camera_data: CameraData = .{},
+camera_group: Renderer.Handle = .{},
 default_texture: Renderer.Handle = .{},
 default_sampler: Renderer.Handle = .{},
 
@@ -82,64 +82,46 @@ pub fn init(app: *App) !void {
     );
     _ = try Renderer.updateBuffer(app.quad_inds, 0, u32, quad_inds[0..]);
 
-    app.uniform_buffer = try Resources.createBuffer(
+    app.camera_buffer = try Resources.createBuffer(
         .{
-            .size = @sizeOf(UniformData),
+            .size = @sizeOf(CameraData),
             .usage = .Uniform,
         },
     );
-    _ = try Renderer.updateBuffer(app.uniform_buffer, 0, UniformData, &[_]UniformData{app.uniform_data});
+    _ = try Renderer.updateBuffer(app.camera_buffer, 0, CameraData, &[_]CameraData{app.camera_data});
 
-    app.simple_group = try Resources.createBindingGroup(&.{
+    app.camera_group = try Resources.createBindingGroup(&.{
         .{ .binding_type = .Buffer },
         .{ .binding_type = .Texture },
         .{ .binding_type = .Sampler },
     });
 
-    // create a texture
-    // generate the pattern
-    const tex_dimension: u32 = 256;
+    // app.camera_group = try Resources.createBindingGroup(&.{
+    //     .{ .binding_type = .Buffer },
+    //     .{ .binding_type = .Texture },
+    //     .{ .binding_type = .Sampler },
+    // });
+
+    const tex_dimension: u32 = 2;
     const channels: u32 = 4;
-    const pixel_count = tex_dimension * tex_dimension;
-    var pixels: [pixel_count * channels]u8 = undefined;
-
-    // set to 255
-    for (pixels) |*p| {
-        p.* = 255;
-    }
-
-    var row: usize = 0;
-    while (row < tex_dimension) : (row += 1) {
-        var col: usize = 0;
-        while (col < tex_dimension) : (col += 1) {
-            var index = (row * tex_dimension) + col;
-            var index_bpp = index * channels;
-            if ((col + row) % 4 != 0) {
-                pixels[index_bpp + 0] = 0;
-                pixels[index_bpp + 3] = 0;
-            }
-        }
-    }
+    var pixels: [tex_dimension * tex_dimension * channels]u8 = .{
+        0, 255, 0, 255, // 0, 0
+        255, 255, 255, 255, // 0, 1
+        255, 255, 255, 255, // 1, 0
+        0, 255, 0, 255, // 1, 1
+    };
 
     app.default_texture = try Resources.createTexture(.{
         .width = tex_dimension,
         .height = tex_dimension,
         .channels = channels,
         .flags = .{},
-    }, pixels[0..]);
+    }, &pixels);
 
     app.default_sampler = try Resources.createSampler(.{
-        .filter = .bilinear,
+        .filter = .nearest,
         .repeat = .wrap,
         .compare = .greater,
-    });
-
-    // sets what resource this binding points to
-    // aka writes to the descriptor set
-    try Resources.updateBindings(app.simple_group, &[_]Resources.BindingUpdate{
-        .{ .binding = 0, .handle = app.uniform_buffer },
-        .{ .binding = 1, .handle = app.default_texture },
-        .{ .binding = 2, .handle = app.default_sampler },
     });
 
     const rp_desc = .{
@@ -166,15 +148,23 @@ pub fn init(app: *App) !void {
                 .path = "assets/builtin.frag.spv",
             },
         },
-        .binding_groups = &.{app.simple_group},
+        .binding_groups = &.{app.camera_group},
         .renderpass = app.world_pass,
+    });
+
+    // sets what resource this binding points to
+    // aka writes to the descriptor set
+    try Resources.updateBindings(app.camera_group, &[_]Resources.BindingUpdate{
+        .{ .binding = 0, .handle = app.camera_buffer },
+        .{ .binding = 1, .handle = app.default_texture },
+        .{ .binding = 2, .handle = app.default_sampler },
     });
 }
 
 pub fn update(app: *App, dt: f64) !void {
-    app.theta += std.math.pi * @floatCast(f32, dt);
+    app.theta += (std.math.pi / 4.0) * @floatCast(f32, dt);
     app.t.rot = Quat.fromAxisAngle(Vec3.FORWARD, app.theta);
-    app.uniform_data.model = app.t.mat();
+    app.camera_data.model = app.t.mat();
 
     const left = Input.getMouse().getButton(.left);
 
@@ -185,8 +175,8 @@ pub fn update(app: *App, dt: f64) !void {
     // update a constant value from struct rather than entire thing?
     // this would have to be something in a struct
     // where we could update by offset
-    // try Resources.updateConst(app.uniform_buffer, UniformData, .const_name, 35)
-    _ = try Renderer.updateBuffer(app.uniform_buffer, 0, UniformData, &[_]UniformData{app.uniform_data});
+    // try Resources.updateConst(app.camera_buffer, CameraData, .const_name, 35)
+    _ = try Renderer.updateBuffer(app.camera_buffer, 0, CameraData, &[_]CameraData{app.camera_data});
 }
 
 pub fn render(app: *App) !void {

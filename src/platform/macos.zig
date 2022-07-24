@@ -86,7 +86,7 @@ pub fn createWindow(title: []const u8, w: u32, h: u32) !Window {
 
 export fn close_window(ptr: *anyopaque) void {
     const id: u32 = @truncate(u32, @ptrToInt(ptr));
-    std.log.debug("closing {x}", .{id});
+    std.log.info("closing {x}", .{id});
     num_living -= 1;
 }
 

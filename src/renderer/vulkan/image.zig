@@ -171,7 +171,6 @@ pub const Image = struct {
         buffer: Buffer,
         cmdbuf: CommandBuffer,
     ) !void {
-        std.log.debug("copying width: {} height: {}", .{ self.width, self.height });
         const bic = vk.BufferImageCopy{
             .buffer_offset = 0,
             .buffer_row_length = 0,

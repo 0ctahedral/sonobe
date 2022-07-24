@@ -135,8 +135,6 @@ pub const Texture = struct {
         return self;
     }
 
-    // TODO: For writeable textues
-
     pub fn resize(
         self: *Self,
         device: Device,
@@ -180,7 +178,7 @@ pub const Texture = struct {
         }, true);
         defer staging.deinit(device);
 
-        try staging.load(device, u8, data, offset);
+        try staging.load(device, u8, data[0..size], offset);
 
         var cmdbuf = try CommandBuffer.beginSingleUse(device, device.command_pool);
 
