@@ -384,7 +384,7 @@ pub fn updateBindings(group: Handle, updates: []const BindingUpdate) !void {
 
                 new_write = .{
                     .dst_set = bg.sets[0],
-                    .dst_binding = 0,
+                    .dst_binding = u.binding,
                     .dst_array_element = 0,
                     .descriptor_count = 1,
                     .descriptor_type = .uniform_buffer,
@@ -403,7 +403,7 @@ pub fn updateBindings(group: Handle, updates: []const BindingUpdate) !void {
 
                 new_write = .{
                     .dst_set = bg.sets[0],
-                    .dst_binding = 1,
+                    .dst_binding = u.binding,
                     .dst_array_element = 0,
                     .descriptor_count = 1,
                     .descriptor_type = .sampled_image,
@@ -422,7 +422,7 @@ pub fn updateBindings(group: Handle, updates: []const BindingUpdate) !void {
 
                 new_write = .{
                     .dst_set = bg.sets[0],
-                    .dst_binding = 2,
+                    .dst_binding = u.binding,
                     .dst_array_element = 0,
                     .descriptor_count = 1,
                     .descriptor_type = .sampler,
