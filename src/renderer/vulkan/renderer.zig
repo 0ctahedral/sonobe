@@ -20,7 +20,6 @@ const RenderPass = @import("renderpass.zig").RenderPass;
 const CommandBuffer = @import("commandbuffer.zig").CommandBuffer;
 const Fence = @import("fence.zig").Fence;
 const Semaphore = @import("semaphore.zig").Semaphore;
-const Pipeline = @import("pipeline.zig").Pipeline;
 const Mesh = @import("mesh.zig").Mesh;
 const Texture = @import("texture.zig").Texture;
 const RenderTarget = @import("render_target.zig").RenderTarget;
@@ -55,9 +54,6 @@ var allocator: Allocator = undefined;
 // TODO: these will eventually not exist
 
 var default_renderpass: Handle = .{};
-
-/// pipeline currently being used
-var pipeline: Handle = .{};
 
 /// current dimesnsions of the framebuffer
 var fb_width: u32 = 0;
@@ -219,22 +215,6 @@ pub fn init(provided_allocator: Allocator, app_name: [*:0]const u8, window: Plat
     for (frames) |*f, i| {
         f.* = try FrameData.init(device, i);
     }
-
-    // create pipeline
-    pipeline = try Resources.createPipeline(.{
-        .stages = &.{
-            .{
-                .bindpoint = .Vertex,
-                .path = "assets/builtin.vert.spv",
-            },
-            .{
-                .bindpoint = .Fragment,
-                .path = "assets/builtin.frag.spv",
-            },
-        },
-        .binding_groups = &.{global_bind_group},
-        .renderpass = default_renderpass,
-    });
 }
 
 // shutdown the renderer
@@ -314,16 +294,6 @@ pub fn submit(cmdbuf: CmdBuf) !void {
     var cb: *CommandBuffer = &getCurrentFrame().cmdbuf;
     cb.reset();
     try cb.begin(device, .{});
-
-    // push some constants to this bih
-    // device.vkd.cmdPushConstants(
-    //     cb.handle,
-    //     Resources.getPipeline(pipeline).layout,
-    //     .{ .vertex_bit = true },
-    //     0,
-    //     @intCast(u32, @sizeOf(MeshPushConstants)),
-    //     &push_constant,
-    // );
 
     var i: usize = 0;
     while (i < cmdbuf.idx) : (i += 1) {

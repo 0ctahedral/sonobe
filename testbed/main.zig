@@ -41,6 +41,10 @@ const CameraData = struct {
     model: Mat4 align(16) = Mat4.identity(),
 };
 
+const MaterialData = struct {
+    tile: Vec2 align(16) = Vec2.new(25, 25),
+};
+
 // internal state of the app
 /// angle that we have rotated the quad to
 theta: f32 = 0,
@@ -49,13 +53,20 @@ t: Transform = .{},
 
 quad_verts: Renderer.Handle = .{},
 quad_inds: Renderer.Handle = .{},
-simple_pipeline: Renderer.Handle = .{},
+
 world_pass: Renderer.Handle = .{},
+
+camera_group: Renderer.Handle = .{},
 camera_buffer: Renderer.Handle = .{},
 camera_data: CameraData = .{},
-camera_group: Renderer.Handle = .{},
+
+material_group: Renderer.Handle = .{},
+material_buffer: Renderer.Handle = .{},
+material_data: MaterialData = .{},
 default_texture: Renderer.Handle = .{},
 default_sampler: Renderer.Handle = .{},
+
+simple_pipeline: Renderer.Handle = .{},
 
 pub fn init(app: *App) !void {
     _ = app;
@@ -64,7 +75,8 @@ pub fn init(app: *App) !void {
     app.t.pos = .{ .x = 0, .y = 0, .z = 0 };
     app.t.scale = .{ .x = 10, .y = 10, .z = 0 };
 
-    // allocate buffer and upload data
+    // setup the quad
+
     app.quad_verts = try Resources.createBuffer(
         .{
             .size = @sizeOf(@TypeOf(texcoords)) + @sizeOf(@TypeOf(positions)),
@@ -82,6 +94,11 @@ pub fn init(app: *App) !void {
     );
     _ = try Renderer.updateBuffer(app.quad_inds, 0, u32, quad_inds[0..]);
 
+    // setup the camera
+
+    app.camera_group = try Resources.createBindingGroup(&.{
+        .{ .binding_type = .Buffer },
+    });
     app.camera_buffer = try Resources.createBuffer(
         .{
             .size = @sizeOf(CameraData),
@@ -89,18 +106,24 @@ pub fn init(app: *App) !void {
         },
     );
     _ = try Renderer.updateBuffer(app.camera_buffer, 0, CameraData, &[_]CameraData{app.camera_data});
+    try Resources.updateBindings(app.camera_group, &[_]Resources.BindingUpdate{
+        .{ .binding = 0, .handle = app.camera_buffer },
+    });
 
-    app.camera_group = try Resources.createBindingGroup(&.{
+    // setup the material
+    app.material_group = try Resources.createBindingGroup(&.{
         .{ .binding_type = .Buffer },
         .{ .binding_type = .Texture },
         .{ .binding_type = .Sampler },
     });
 
-    // app.camera_group = try Resources.createBindingGroup(&.{
-    //     .{ .binding_type = .Buffer },
-    //     .{ .binding_type = .Texture },
-    //     .{ .binding_type = .Sampler },
-    // });
+    app.material_buffer = try Resources.createBuffer(
+        .{
+            .size = @sizeOf(MaterialData),
+            .usage = .Uniform,
+        },
+    );
+    _ = try Renderer.updateBuffer(app.material_buffer, 0, MaterialData, &[_]MaterialData{app.material_data});
 
     const tex_dimension: u32 = 2;
     const channels: u32 = 4;
@@ -124,6 +147,13 @@ pub fn init(app: *App) !void {
         .compare = .greater,
     });
 
+    try Resources.updateBindings(app.material_group, &[_]Resources.BindingUpdate{
+        .{ .binding = 0, .handle = app.material_buffer },
+        .{ .binding = 1, .handle = app.default_texture },
+        .{ .binding = 2, .handle = app.default_sampler },
+    });
+
+    // renderpass
     const rp_desc = .{
         .clear_color = .{ 0.75, 0.49, 0.89, 1.0 },
         .clear_depth = 1.0,
@@ -141,23 +171,15 @@ pub fn init(app: *App) !void {
         .stages = &.{
             .{
                 .bindpoint = .Vertex,
-                .path = "assets/builtin.vert.spv",
+                .path = "testbed/assets/default.vert.spv",
             },
             .{
                 .bindpoint = .Fragment,
-                .path = "assets/builtin.frag.spv",
+                .path = "testbed/assets/default.frag.spv",
             },
         },
-        .binding_groups = &.{app.camera_group},
+        .binding_groups = &.{ app.camera_group, app.material_group },
         .renderpass = app.world_pass,
-    });
-
-    // sets what resource this binding points to
-    // aka writes to the descriptor set
-    try Resources.updateBindings(app.camera_group, &[_]Resources.BindingUpdate{
-        .{ .binding = 0, .handle = app.camera_buffer },
-        .{ .binding = 1, .handle = app.default_texture },
-        .{ .binding = 2, .handle = app.default_sampler },
     });
 }
 

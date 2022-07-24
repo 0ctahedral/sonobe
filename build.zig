@@ -107,28 +107,26 @@ fn link(b: *Builder, step: *std.build.LibExeObjStep) void {
     }
 }
 
-// TODO: make this compile all shaders in the folder
 fn compileBuiltinShaders(b: *Builder, step: *std.build.LibExeObjStep) void {
-    const shader_names = [_][]const u8{
-        "assets/builtin",
-        // "assets/test",
+    const shader_path = [_][]const u8{
+        "testbed/assets/default",
     };
 
-    inline for (shader_names) |name| {
+    inline for (shader_path) |path| {
         const compile_vert = b.addSystemCommand(&[_][]const u8{
             prefix ++ "/bin/glslc",
             "-fshader-stage=vert",
-            name ++ ".vert.glsl",
+            path ++ ".vert.glsl",
             "-o",
-            name ++ ".vert.spv",
+            path ++ ".vert.spv",
         });
 
         const compile_frag = b.addSystemCommand(&[_][]const u8{
             prefix ++ "/bin/glslc",
             "-fshader-stage=frag",
-            name ++ ".frag.glsl",
+            path ++ ".frag.glsl",
             "-o",
-            name ++ ".frag.spv",
+            path ++ ".frag.spv",
         });
 
         step.step.dependOn(&compile_vert.step);
