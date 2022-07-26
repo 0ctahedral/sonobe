@@ -56,6 +56,7 @@ pub fn main() !void {
 
         // reset the mouse
         Input.resetMouse();
+        Input.resetKeyboard();
 
         if ((Platform.curr_time - last_fps_time) > std.time.ns_per_s) {
             last_fps_time = Platform.curr_time;
