@@ -13,11 +13,6 @@ layout (set = 0, binding = 0) uniform readonly global_uniform_object {
   mat4 model;
 };
 
-// material data
-layout (set = 1, binding = 0) uniform readonly material_data {
-  vec2 tiling;
-};
-
 // layout( push_constant ) uniform PushConstants
 // {
 // 	uint id;
@@ -30,6 +25,6 @@ layout(location = 0) out struct {
 } out_dto;
 
 void main() {
-  out_dto.uv = in_texcoord * tiling;
+  out_dto.uv = in_texcoord;
   gl_Position = projection * (view * model) * vec4(in_pos, 1.0);
 }

@@ -78,25 +78,6 @@ var recreating_swapchain = false;
 var size_gen: usize = 0;
 var last_size_gen: usize = 0;
 
-// these will be part of the shader system
-//
-
-var global_bind_group = Handle{};
-
-// --------------------------------------
-
-/// Data to be used for each frame
-const GlobalData = struct {
-    projection: Mat4 align(16) = Mat4.perspective(mmath.util.rad(70), 800.0 / 600.0, 0.1, 1000),
-    // projection: Mat4 = Mat4.ortho(0, 800.0, 0, 600.0, -100, 100),
-    view: Mat4 align(16) = Mat4.translate(.{ .x = 0, .y = 0, .z = 10 }).inv(),
-};
-
-/// Data to be used per material
-const MaterialData = struct {
-    albedo: Vec3 align(16),
-};
-
 // functions that are part of the api
 
 // initialize the renderer
@@ -203,14 +184,6 @@ pub fn init(provided_allocator: Allocator, app_name: [*:0]const u8, window: Plat
         rt.framebuffer = .null_handle;
     }
     try recreateRenderTargets();
-
-    // create global geometry buffers
-    // create the global binding group
-    global_bind_group = try Resources.createBindingGroup(&.{
-        .{ .binding_type = .Buffer },
-        .{ .binding_type = .Texture },
-        .{ .binding_type = .Sampler },
-    });
 
     for (frames) |*f, i| {
         f.* = try FrameData.init(device, i);

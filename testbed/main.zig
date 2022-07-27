@@ -7,6 +7,7 @@ const Input = octal.Input;
 const CmdBuf = Renderer.CmdBuf;
 
 const mmath = octal.mmath;
+const Vec4 = mmath.Vec4;
 const Vec3 = mmath.Vec3;
 const Vec2 = mmath.Vec2;
 const Quat = mmath.Quat;
@@ -45,7 +46,8 @@ const CameraData = struct {
 };
 
 const MaterialData = struct {
-    tile: Vec2 align(16) = Vec2.new(1, 1),
+    albedo: Vec4 = Vec4.new(1, 1, 1, 1),
+    tile: Vec2 = Vec2.new(10, 10),
 };
 
 const Camera = struct {
@@ -74,8 +76,6 @@ const Camera = struct {
 };
 
 // internal state of the app
-/// angle that we have rotated the quad to
-theta: f32 = 0,
 /// transform of the quad
 t: Transform = .{},
 
@@ -213,25 +213,24 @@ pub fn init(app: *App) !void {
 }
 
 pub fn update(app: *App, dt: f64) !void {
-    app.theta += (std.math.pi / 4.0) * @floatCast(f32, dt);
-    // app.t.rot = Quat.fromAxisAngle(Vec3.FORWARD, app.theta);
-
-    const mouse = Input.getMouse();
-    const left = mouse.getButton(.left);
-
     var input = Vec3{};
-
     if (Input.keyIs(.right, .down) or Input.keyIs(.d, .down)) {
-        input = input.add(Vec3.RIGHT);
+        input = input.add(app.camera.rot.rotate(Vec3.RIGHT));
     }
     if (Input.keyIs(.left, .down) or Input.keyIs(.a, .down)) {
-        input = input.add(Vec3.LEFT);
+        input = input.add(app.camera.rot.rotate(Vec3.LEFT));
     }
     if (Input.keyIs(.up, .down) or Input.keyIs(.w, .down)) {
-        input = input.add(Vec3.FORWARD);
+        input = input.add(app.camera.rot.rotate(Vec3.FORWARD));
     }
     if (Input.keyIs(.down, .down) or Input.keyIs(.s, .down)) {
-        input = input.add(Vec3.BACKWARD);
+        input = input.add(app.camera.rot.rotate(Vec3.BACKWARD));
+    }
+    if (Input.keyIs(.q, .down)) {
+        input = input.add(Vec3.UP);
+    }
+    if (Input.keyIs(.e, .down)) {
+        input = input.add(Vec3.DOWN);
     }
 
     const mag = input.len();
@@ -239,11 +238,10 @@ pub fn update(app: *App, dt: f64) !void {
         app.camera.pos = app.camera.pos.add(input.scale(move_speed * @floatCast(f32, dt) / mag));
     }
 
+    const left = Input.getMouse().getButton(.left);
     if (left.action == .drag) {
         const amt = left.drag.sub(app.last_pos).scale(drag_scale);
-
         app.camera.updateRot(amt);
-
         app.last_pos = left.drag;
     } else {
         app.last_pos = .{};
