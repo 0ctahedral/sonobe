@@ -47,32 +47,12 @@ const MaterialData = struct {
 
 const Camera = struct {
     pos: Vec3,
-    look_at: Vec3,
-    rot: Quat = .{},
+    rot: Quat = Quat.fromAxisAngle(Vec3.UP, 0),
     projection: Mat4 = Mat4.perspective(mmath.util.rad(70), 800.0 / 600.0, 0.1, 1000),
 
     pub fn view(self: @This()) Mat4 {
-        var rot = Mat4.identity();
-
-        const f = self.look_at.norm();
-        const u = self.look_at.cross(Vec3.RIGHT).norm();
-        const r = u.cross(f);
-
-        // x basis
-        rot.m[0][0] = r.x;
-        rot.m[0][1] = r.y;
-        rot.m[0][2] = r.z;
-        // y basis
-        rot.m[1][0] = u.x;
-        rot.m[1][1] = u.y;
-        rot.m[1][2] = u.z;
-        // z basis
-        rot.m[2][0] = f.x;
-        rot.m[2][1] = f.y;
-        rot.m[2][2] = f.z;
-
-        var ret = rot.mul(Mat4.translate(self.pos));
-        // var ret = self.rot.toMat4().mul(Mat4.translate(self.pos));
+        var ret = self.rot.toMat4();
+        ret = ret.mul(Mat4.translate(self.pos));
         return ret.inv();
     }
 };
@@ -90,7 +70,6 @@ world_pass: Renderer.Handle = .{},
 
 camera: Camera = .{
     .pos = .{ .z = 5 },
-    .look_at = .{ .z = 1 },
 },
 camera_group: Renderer.Handle = .{},
 camera_buffer: Renderer.Handle = .{},
@@ -110,7 +89,7 @@ pub fn init(app: *App) !void {
     std.log.info("{s}: initialized", .{App.name});
 
     app.t.pos = .{ .x = 0, .y = 0, .z = 0 };
-    app.t.scale = .{ .x = 10, .y = 10, .z = 0 };
+    app.t.scale = .{ .x = 1, .y = 1, .z = 0 };
 
     // setup the quad
 
@@ -242,12 +221,15 @@ pub fn update(app: *App, dt: f64) !void {
     app.camera.pos = app.camera.pos.add(input.scale(@floatCast(f32, dt)));
 
     if (middle.action == .drag) {
-        const amt = app.last_pos.sub(middle.drag);
-        // const dragScale = (-1.0 / 400.0);
-        const yaw = Quat.fromAxisAngle(Vec3.UP, amt.x * (std.math.pi / 2.0) * @floatCast(f32, dt)).norm();
-        const pitch = Quat.fromAxisAngle(Vec3.RIGHT, amt.y * (std.math.pi / 2.0) * @floatCast(f32, dt)).norm();
-        app.camera.look_at = yaw.mul(pitch).rotate(app.camera.look_at);
+        const amt = middle.drag.sub(app.last_pos);
+        const dragScale = (-mmath.util.rad(60) / 400.0);
+        const yaw = Quat.fromAxisAngle(Vec3.UP, amt.x * dragScale);
+        const pitch = Quat.fromAxisAngle(Vec3.RIGHT, amt.y * dragScale);
+        app.camera.rot = yaw.mul(pitch).mul(app.camera.rot).norm();
+        // app.camera.rot = app.camera.rot.mul(yaw);
         app.last_pos = middle.drag;
+    } else {
+        app.last_pos = .{};
     }
 
     // update a constant value from struct rather than entire thing?
@@ -257,6 +239,7 @@ pub fn update(app: *App, dt: f64) !void {
     _ = try Renderer.updateBuffer(app.camera_buffer, 0, CameraData, &[_]CameraData{.{
         .view = app.camera.view(),
         .projection = app.camera.projection,
+        .model = app.t.mat(),
     }});
 }
 

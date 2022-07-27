@@ -26,10 +26,10 @@ layout (set = 1, binding = 0) uniform readonly material_data {
 
 // data transfer object
 layout(location = 0) out struct {
-  vec2 tex_coord;
+  vec2 uv;
 } out_dto;
 
 void main() {
-  out_dto.tex_coord = in_texcoord * tiling;
-  gl_Position = projection * view * model * vec4(in_pos, 1.0);
+  out_dto.uv = in_texcoord * tiling;
+  gl_Position = projection * (view * model) * vec4(in_pos, 1.0);
 }
