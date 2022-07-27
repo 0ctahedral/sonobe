@@ -35,6 +35,9 @@ const texcoords = [_]Vec2{
 };
 const quad_inds = [_]u32{ 0, 1, 2, 0, 3, 1 };
 
+// camera settings
+const move_speed = 2.0;
+const drag_scale = (-mmath.util.rad(60) / 400.0);
 const CameraData = struct {
     projection: Mat4,
     view: Mat4,
@@ -50,10 +53,23 @@ const Camera = struct {
     rot: Quat = Quat.fromAxisAngle(Vec3.UP, 0),
     projection: Mat4 = Mat4.perspective(mmath.util.rad(70), 800.0 / 600.0, 0.1, 1000),
 
-    pub fn view(self: @This()) Mat4 {
+    const Self = @This();
+
+    /// compute the view matrix for the camera
+    pub fn view(self: Self) Mat4 {
         var ret = self.rot.toMat4();
         ret = ret.mul(Mat4.translate(self.pos));
         return ret.inv();
+    }
+
+    /// change the camera rotation based on a pitch and yaw vector
+    pub fn updateRot(self: *Self, amt: Vec2) void {
+        const yaw = Quat.fromAxisAngle(Vec3.UP, amt.x);
+        const pitch = Quat.fromAxisAngle(Vec3.RIGHT, amt.y);
+
+        var new_rot = self.rot.mul(pitch);
+        new_rot = yaw.mul(new_rot);
+        self.rot = new_rot;
     }
 };
 
@@ -201,33 +217,34 @@ pub fn update(app: *App, dt: f64) !void {
     // app.t.rot = Quat.fromAxisAngle(Vec3.FORWARD, app.theta);
 
     const mouse = Input.getMouse();
-    const middle = mouse.getButton(.middle);
+    const left = mouse.getButton(.left);
 
     var input = Vec3{};
 
-    if (Input.getKey(.right) == .down) {
-        input.x += 1.0;
+    if (Input.keyIs(.right, .down) or Input.keyIs(.d, .down)) {
+        input = input.add(Vec3.RIGHT);
     }
-    if (Input.getKey(.left) == .down) {
-        input.x -= 1.0;
+    if (Input.keyIs(.left, .down) or Input.keyIs(.a, .down)) {
+        input = input.add(Vec3.LEFT);
     }
-    if (Input.getKey(.up) == .down) {
-        input.z += 1.0;
+    if (Input.keyIs(.up, .down) or Input.keyIs(.w, .down)) {
+        input = input.add(Vec3.FORWARD);
     }
-    if (Input.getKey(.down) == .down) {
-        input.z -= 1.0;
+    if (Input.keyIs(.down, .down) or Input.keyIs(.s, .down)) {
+        input = input.add(Vec3.BACKWARD);
     }
 
-    app.camera.pos = app.camera.pos.add(input.scale(@floatCast(f32, dt)));
+    const mag = input.len();
+    if (mag > 0.0) {
+        app.camera.pos = app.camera.pos.add(input.scale(move_speed * @floatCast(f32, dt) / mag));
+    }
 
-    if (middle.action == .drag) {
-        const amt = middle.drag.sub(app.last_pos);
-        const dragScale = (-mmath.util.rad(60) / 400.0);
-        const yaw = Quat.fromAxisAngle(Vec3.UP, amt.x * dragScale);
-        const pitch = Quat.fromAxisAngle(Vec3.RIGHT, amt.y * dragScale);
-        app.camera.rot = yaw.mul(pitch).mul(app.camera.rot).norm();
-        // app.camera.rot = app.camera.rot.mul(yaw);
-        app.last_pos = middle.drag;
+    if (left.action == .drag) {
+        const amt = left.drag.sub(app.last_pos).scale(drag_scale);
+
+        app.camera.updateRot(amt);
+
+        app.last_pos = left.drag;
     } else {
         app.last_pos = .{};
     }

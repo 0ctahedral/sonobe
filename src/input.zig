@@ -147,6 +147,10 @@ pub fn getKey(key: Key) Key.State {
     return keymap[@enumToInt(key)];
 }
 
+pub fn keyIs(key: Key, state: Key.State) bool {
+    return keymap[@enumToInt(key)] == state;
+}
+
 pub const N_KEYS = @typeInfo(Key).Enum.fields.len;
 var keymap: [N_KEYS]Key.State = [_]Key.State{.up} ** N_KEYS;
 // TODO: do we need the numbers?
