@@ -36,13 +36,45 @@ const texcoords = [_]Vec2{
 const quad_inds = [_]u32{ 0, 1, 2, 0, 3, 1 };
 
 const CameraData = struct {
-    projection: Mat4 align(16) = Mat4.perspective(mmath.util.rad(70), 800.0 / 600.0, 0.1, 1000),
-    view: Mat4 align(16) = Mat4.translate(.{ .x = 0, .y = 0, .z = 10 }).inv(),
-    model: Mat4 align(16) = Mat4.identity(),
+    projection: Mat4,
+    view: Mat4,
+    model: Mat4 = Mat4.identity(),
 };
 
 const MaterialData = struct {
-    tile: Vec2 align(16) = Vec2.new(25, 25),
+    tile: Vec2 align(16) = Vec2.new(1, 1),
+};
+
+const Camera = struct {
+    pos: Vec3,
+    look_at: Vec3,
+    rot: Quat = .{},
+    projection: Mat4 = Mat4.perspective(mmath.util.rad(70), 800.0 / 600.0, 0.1, 1000),
+
+    pub fn view(self: @This()) Mat4 {
+        var rot = Mat4.identity();
+
+        const f = self.look_at.norm();
+        const u = self.look_at.cross(Vec3.RIGHT).norm();
+        const r = u.cross(f);
+
+        // x basis
+        rot.m[0][0] = r.x;
+        rot.m[0][1] = r.y;
+        rot.m[0][2] = r.z;
+        // y basis
+        rot.m[1][0] = u.x;
+        rot.m[1][1] = u.y;
+        rot.m[1][2] = u.z;
+        // z basis
+        rot.m[2][0] = f.x;
+        rot.m[2][1] = f.y;
+        rot.m[2][2] = f.z;
+
+        var ret = rot.mul(Mat4.translate(self.pos));
+        // var ret = self.rot.toMat4().mul(Mat4.translate(self.pos));
+        return ret.inv();
+    }
 };
 
 // internal state of the app
@@ -56,9 +88,12 @@ quad_inds: Renderer.Handle = .{},
 
 world_pass: Renderer.Handle = .{},
 
+camera: Camera = .{
+    .pos = .{ .z = 5 },
+    .look_at = .{ .z = 1 },
+},
 camera_group: Renderer.Handle = .{},
 camera_buffer: Renderer.Handle = .{},
-camera_data: CameraData = .{},
 
 material_group: Renderer.Handle = .{},
 material_buffer: Renderer.Handle = .{},
@@ -67,6 +102,8 @@ default_texture: Renderer.Handle = .{},
 default_sampler: Renderer.Handle = .{},
 
 simple_pipeline: Renderer.Handle = .{},
+
+last_pos: Vec2 = .{},
 
 pub fn init(app: *App) !void {
     _ = app;
@@ -94,8 +131,6 @@ pub fn init(app: *App) !void {
     );
     _ = try Renderer.updateBuffer(app.quad_inds, 0, u32, quad_inds[0..]);
 
-    // setup the camera
-
     app.camera_group = try Resources.createBindingGroup(&.{
         .{ .binding_type = .Buffer },
     });
@@ -105,7 +140,6 @@ pub fn init(app: *App) !void {
             .usage = .Uniform,
         },
     );
-    _ = try Renderer.updateBuffer(app.camera_buffer, 0, CameraData, &[_]CameraData{app.camera_data});
     try Resources.updateBindings(app.camera_group, &[_]Resources.BindingUpdate{
         .{ .binding = 0, .handle = app.camera_buffer },
     });
@@ -185,20 +219,45 @@ pub fn init(app: *App) !void {
 
 pub fn update(app: *App, dt: f64) !void {
     app.theta += (std.math.pi / 4.0) * @floatCast(f32, dt);
-    app.t.rot = Quat.fromAxisAngle(Vec3.FORWARD, app.theta);
-    app.camera_data.model = app.t.mat();
+    // app.t.rot = Quat.fromAxisAngle(Vec3.FORWARD, app.theta);
 
-    const left = Input.getMouse().getButton(.left);
+    const mouse = Input.getMouse();
+    const middle = mouse.getButton(.middle);
 
-    if (left.action == .release) {
-        std.log.debug("drag: {d:.1} {d:.1}", .{ left.drag.x, left.drag.y });
+    var input = Vec3{};
+
+    if (Input.getKey(.right) == .down) {
+        input.x += 1.0;
+    }
+    if (Input.getKey(.left) == .down) {
+        input.x -= 1.0;
+    }
+    if (Input.getKey(.up) == .down) {
+        input.z += 1.0;
+    }
+    if (Input.getKey(.down) == .down) {
+        input.z -= 1.0;
+    }
+
+    app.camera.pos = app.camera.pos.add(input.scale(@floatCast(f32, dt)));
+
+    if (middle.action == .drag) {
+        const amt = app.last_pos.sub(middle.drag);
+        // const dragScale = (-1.0 / 400.0);
+        const yaw = Quat.fromAxisAngle(Vec3.UP, amt.x * (std.math.pi / 2.0) * @floatCast(f32, dt)).norm();
+        const pitch = Quat.fromAxisAngle(Vec3.RIGHT, amt.y * (std.math.pi / 2.0) * @floatCast(f32, dt)).norm();
+        app.camera.look_at = yaw.mul(pitch).rotate(app.camera.look_at);
+        app.last_pos = middle.drag;
     }
 
     // update a constant value from struct rather than entire thing?
     // this would have to be something in a struct
     // where we could update by offset
     // try Resources.updateConst(app.camera_buffer, CameraData, .const_name, 35)
-    _ = try Renderer.updateBuffer(app.camera_buffer, 0, CameraData, &[_]CameraData{app.camera_data});
+    _ = try Renderer.updateBuffer(app.camera_buffer, 0, CameraData, &[_]CameraData{.{
+        .view = app.camera.view(),
+        .projection = app.camera.projection,
+    }});
 }
 
 pub fn render(app: *App) !void {

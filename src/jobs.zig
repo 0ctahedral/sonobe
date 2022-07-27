@@ -1,7 +1,7 @@
 const std = @import("std");
 const expect = std.testing.expect;
 const containers = @import("containers.zig");
-const Ringbuffer = containers.Ringbuffer;
+const RingBuffer = containers.RingBuffer;
 const FreeList = containers.FreeList;
 
 pub const Jobs = @This();
@@ -18,9 +18,9 @@ done: bool = false,
 worker_threads: [num_threads]std.Thread = undefined,
 
 /// fibers that are ready
-frame_queue: Ringbuffer(anyframe, num_jobs),
+frame_queue: RingBuffer(anyframe, num_jobs),
 /// fibers that are waiting
-wait_queue: Ringbuffer(WaitingFrame, num_jobs),
+wait_queue: RingBuffer(WaitingFrame, num_jobs),
 
 alloc: std.mem.Allocator,
 
@@ -60,8 +60,8 @@ const WaitingFrame = struct {
 /// this creates an instance
 pub fn init(allocator: std.mem.Allocator) !void {
     global = Jobs{
-        .frame_queue = Ringbuffer(anyframe, num_jobs).init(),
-        .wait_queue = Ringbuffer(WaitingFrame, num_jobs).init(),
+        .frame_queue = RingBuffer(anyframe, num_jobs).init(),
+        .wait_queue = RingBuffer(WaitingFrame, num_jobs).init(),
         .alloc = allocator,
         .stacks = try FreeList([stack_size]u8).init(allocator, num_jobs),
     };
@@ -127,7 +127,7 @@ pub fn run(comptime func: anytype, args: anytype, counter: ?*Counter) !void {
 
 fn loop(self: *Jobs, tn: u32) void {
     while (!self.done) {
-        var tmp_queue = Ringbuffer(WaitingFrame, 10).init();
+        var tmp_queue = RingBuffer(WaitingFrame, 10).init();
 
         while (self.wait_queue.pop()) |w| {
             // pop and check if the condition is met
