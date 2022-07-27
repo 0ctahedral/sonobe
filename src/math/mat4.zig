@@ -223,6 +223,14 @@ pub const Mat4 = struct {
         }
         return true;
     }
+
+    pub fn mulVec3(mat: Self, v: Vec3) Vec3 {
+        var ret = Vec3{};
+        ret.x = mat.m[0][0] * v.x + mat.m[1][0] * v.y + mat.m[2][0] * v.z;
+        ret.y = mat.m[0][1] * v.x + mat.m[1][1] * v.y + mat.m[2][1] * v.z;
+        ret.z = mat.m[0][2] * v.x + mat.m[1][2] * v.y + mat.m[2][2] * v.z;
+        return ret;
+    }
 };
 
 test "init" {
@@ -420,4 +428,20 @@ test "eql" {
     try testing.expect(b.eql(b));
     try testing.expect(!a.eql(b));
     try testing.expect(!b.eql(a));
+}
+
+test "mulVec3" {
+    const mat = Mat4.identity();
+    var p = Vec3.UP;
+    var q = mat.mulVec3(p);
+
+    try testing.expectApproxEqAbs(p.x, q.x, 0.001);
+    try testing.expectApproxEqAbs(p.y, q.y, 0.001);
+    try testing.expectApproxEqAbs(p.z, q.z, 0.001);
+
+    q = Mat4.rotate(.x, std.math.pi).mulVec3(p);
+
+    try testing.expectApproxEqAbs(q.x, Vec3.DOWN.x, 0.001);
+    try testing.expectApproxEqAbs(q.y, Vec3.DOWN.y, 0.001);
+    try testing.expectApproxEqAbs(q.z, Vec3.DOWN.z, 0.001);
 }

@@ -29,6 +29,18 @@ pub const Transform = struct {
         // apply scale
             .mul(Mat4.scale(self.scale));
     }
+
+    pub fn translate(self: *Self, amt: Vec3) void {
+        self.pos = self.pos.add(amt);
+    }
+
+    pub fn rotate(self: *Self, amt: Quat) void {
+        self.rot = self.rot.mul(amt).mul(self.rot.inv());
+    }
+
+    pub fn xform(self: Self, v: Vec3) Vec3 {
+        return v.matMul(self.mat());
+    }
 };
 
 test "init" {

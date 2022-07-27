@@ -95,14 +95,6 @@ pub const Quat = struct {
         return Self.new(n.w, -n.x, -n.y, -n.z);
     }
 
-    /// rotates a vector by a quaternion
-    pub inline fn rotate(q: Self, v: Vec3) Vec3 {
-        // create quat from vec
-        var p = Self.fromVec3(v);
-        p = q.mul(p).mul(q.inv());
-        return Vec3.new(p.x, p.y, p.z);
-    }
-
     pub inline fn toMat4(q: Self) Mat4 {
         var mat: Mat4 = undefined;
         const n = q.norm();
@@ -167,6 +159,14 @@ pub const Quat = struct {
             .scale(math.sin(theta));
 
         return ret;
+    }
+
+    /// rotates a vector by a quaternion
+    pub inline fn rotate(q: Self, v: Vec3) Vec3 {
+        // create quat from vec
+        var p = Self.fromVec3(v);
+        p = q.mul(p).mul(q.inv());
+        return Vec3.new(p.x, p.y, p.z);
     }
 };
 
