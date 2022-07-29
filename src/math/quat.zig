@@ -130,6 +130,51 @@ pub const Quat = struct {
         return mat;
     }
 
+    // TODO: basis type?
+    /// assumes that this is a pure rotation matrix
+    pub inline fn fromMat4(mat: Mat4) Self {
+        const trace = mat.m[0][0] + mat.m[1][1] + mat.m[2][2];
+
+        var q = Self{};
+
+        // check diagonal
+        if (trace > 0.0) {
+            const s = @sqrt(trace + 1.0);
+            q.w = s * 0.5;
+
+            const t = 0.5 / s;
+            q.x = (mat.m[2][1] - mat.m[1][2]) * t;
+            q.y = (mat.m[0][2] - mat.m[2][0]) * t;
+            q.z = (mat.m[1][0] - mat.m[0][1]) * t;
+        } else {
+            var i: usize = 0;
+            if (mat.m[1][1] > mat.m[0][0]) i = 1;
+            if (mat.m[2][2] > mat.m[i][i]) i = 2;
+
+            const next = [_]usize{ 1, 2, 0 };
+            var vals = [_]f32{ 0, 0, 0, 0 };
+
+            const j = next[i];
+            const k = next[j];
+
+            const s = @sqrt((mat.m[i][i] - (mat.m[j][j] + mat.m[k][k])) + 1.0);
+
+            var t: f32 = if (s != 0.0) (0.5 / s) else s;
+
+            vals[i] = s * 0.5;
+
+            q.w = (mat.m[k][j] - mat.m[j][k]) * t;
+            vals[j] = (mat.m[j][i] + mat.m[i][j]) * t;
+            vals[k] = (mat.m[k][i] + mat.m[i][k]) * t;
+
+            q.x = vals[0];
+            q.y = vals[1];
+            q.z = vals[2];
+        }
+
+        return q;
+    }
+
     /// linerar interpolation between two Quaternions
     /// returns a normalized output since the calculation does not
     /// preserve length
@@ -167,6 +212,43 @@ pub const Quat = struct {
         var p = Self.fromVec3(v);
         p = q.mul(p).mul(q.inv());
         return Vec3.new(p.x, p.y, p.z);
+    }
+
+    /// creates a quaterion rotation toward the specified point 
+    /// expects dir to be normalized
+    pub fn lookAt(dir: Vec3, up: Vec3) Self {
+        // _ = up;
+        // // const rot_axis = Vec3.FORWARD.cross(dir).norm();
+        // const rot_axis = up;
+        // // TODO: if the length is zero (aka parallel)
+        // // create angle around rotation axis
+        // const dot = Vec3.FORWARD.dot(dir);
+        // const theta = std.math.acos(dot);
+        // // TODO: is the trig function worth it?
+        // return Self.fromAxisAngle(rot_axis, theta);
+
+        var m = Mat4.identity();
+
+        const ndir = Vec3.new(-dir.x, -dir.y, -dir.z);
+
+        m.m[2][0] = ndir.x;
+        m.m[2][1] = ndir.y;
+        m.m[2][2] = ndir.z;
+
+        var right = up.cross(ndir);
+        right = right.scale(1.0 / @sqrt(std.math.max(0.00001, right.dot(right))));
+
+        m.m[0][0] = right.x;
+        m.m[0][1] = right.y;
+        m.m[0][2] = right.z;
+
+        const new_up = ndir.cross(right);
+
+        m.m[1][0] = new_up.x;
+        m.m[1][1] = new_up.y;
+        m.m[1][2] = new_up.z;
+
+        return Quat.fromMat4(m);
     }
 };
 
@@ -385,4 +467,24 @@ test "eql" {
     try testing.expect(q.eql(q));
     try testing.expect(!q.eql(p));
     try testing.expect(!p.eql(q));
+}
+
+test "fromMat4" {
+    const eps_value = comptime std.math.epsilon(f32);
+
+    var q = Quat.fromAxisAngle(Vec3.new(1, 0, 0), math.pi);
+    // var p = Quat.fromMat4(q.toMat4());
+
+    // try testing.expectApproxEqAbs(p.w, q.w, eps_value);
+    // try testing.expectApproxEqAbs(p.x, q.x, eps_value);
+    // try testing.expectApproxEqAbs(p.y, q.y, eps_value);
+    // try testing.expectApproxEqAbs(p.z, q.z, eps_value);
+
+    q = Quat.fromAxisAngle(Vec3.RIGHT, math.pi / 2.0).mul(q);
+    var p = Quat.fromMat4(q.toMat4());
+
+    try testing.expectApproxEqAbs(q.w, p.w, eps_value);
+    try testing.expectApproxEqAbs(q.x, p.x, eps_value);
+    try testing.expectApproxEqAbs(q.y, p.y, eps_value);
+    try testing.expectApproxEqAbs(q.z, p.z, eps_value);
 }

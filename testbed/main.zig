@@ -38,7 +38,7 @@ const quad_inds = [_]u32{ 0, 1, 2, 0, 3, 1 };
 
 // camera settings
 const move_speed = 2.0;
-const drag_scale = (-mmath.util.rad(60) / 400.0);
+const drag_scale = (-1 / 400.0);
 const CameraData = struct {
     projection: Mat4,
     view: Mat4,
@@ -66,12 +66,21 @@ const Camera = struct {
 
     /// change the camera rotation based on a pitch and yaw vector
     pub fn updateRot(self: *Self, amt: Vec2) void {
-        const yaw = Quat.fromAxisAngle(Vec3.UP, amt.x);
-        const pitch = Quat.fromAxisAngle(Vec3.RIGHT, amt.y);
+        // const yaw = Quat.fromAxisAngle(Vec3.UP, amt.x);
+        // const pitch = Quat.fromAxisAngle(Vec3.RIGHT, amt.y);
 
-        var new_rot = self.rot.mul(pitch);
-        new_rot = yaw.mul(new_rot);
-        self.rot = new_rot;
+        const target = Vec3{};
+        const dir = self.pos.sub(target);
+        var rotated_dir = Quat.fromAxisAngle(Vec3.UP, amt.x).rotate(dir);
+
+        self.pos = self.pos.add(rotated_dir.sub(dir));
+        self.rot = Quat.lookAt(dir.norm(), Vec3.UP);
+
+        std.log.debug("{}", .{self.rot});
+
+        // var new_rot = self.rot.mul(pitch);
+        // new_rot = yaw.mul(new_rot);
+        // self.rot = new_rot;
     }
 };
 
@@ -213,30 +222,31 @@ pub fn init(app: *App) !void {
 }
 
 pub fn update(app: *App, dt: f64) !void {
-    var input = Vec3{};
-    if (Input.keyIs(.right, .down) or Input.keyIs(.d, .down)) {
-        input = input.add(app.camera.rot.rotate(Vec3.RIGHT));
-    }
-    if (Input.keyIs(.left, .down) or Input.keyIs(.a, .down)) {
-        input = input.add(app.camera.rot.rotate(Vec3.LEFT));
-    }
-    if (Input.keyIs(.up, .down) or Input.keyIs(.w, .down)) {
-        input = input.add(app.camera.rot.rotate(Vec3.FORWARD));
-    }
-    if (Input.keyIs(.down, .down) or Input.keyIs(.s, .down)) {
-        input = input.add(app.camera.rot.rotate(Vec3.BACKWARD));
-    }
-    if (Input.keyIs(.q, .down)) {
-        input = input.add(Vec3.UP);
-    }
-    if (Input.keyIs(.e, .down)) {
-        input = input.add(Vec3.DOWN);
-    }
+    _ = dt;
+    // var input = Vec3{};
+    // if (Input.keyIs(.right, .down) or Input.keyIs(.d, .down)) {
+    //     input = input.add(app.camera.rot.rotate(Vec3.RIGHT));
+    // }
+    // if (Input.keyIs(.left, .down) or Input.keyIs(.a, .down)) {
+    //     input = input.add(app.camera.rot.rotate(Vec3.LEFT));
+    // }
+    // if (Input.keyIs(.up, .down) or Input.keyIs(.w, .down)) {
+    //     input = input.add(app.camera.rot.rotate(Vec3.FORWARD));
+    // }
+    // if (Input.keyIs(.down, .down) or Input.keyIs(.s, .down)) {
+    //     input = input.add(app.camera.rot.rotate(Vec3.BACKWARD));
+    // }
+    // if (Input.keyIs(.q, .down)) {
+    //     input = input.add(Vec3.UP);
+    // }
+    // if (Input.keyIs(.e, .down)) {
+    //     input = input.add(Vec3.DOWN);
+    // }
 
-    const mag = input.len();
-    if (mag > 0.0) {
-        app.camera.pos = app.camera.pos.add(input.scale(move_speed * @floatCast(f32, dt) / mag));
-    }
+    // const mag = input.len();
+    // if (mag > 0.0) {
+    //     app.camera.pos = app.camera.pos.add(input.scale(move_speed * @floatCast(f32, dt) / mag));
+    // }
 
     const left = Input.getMouse().getButton(.left);
     if (left.action == .drag) {

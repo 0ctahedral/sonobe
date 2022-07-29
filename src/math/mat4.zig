@@ -5,9 +5,9 @@
 //!
 //! U is rotation and scale
 //! t is translation
-//!  .{ U, U, U, 0 },
-//!  .{ U, U, U, 0 },
-//!  .{ U, U, U, 0 },
+//!  .{ U, U, U, 0 }, xbasis
+//!  .{ U, U, U, 0 }, ybasis
+//!  .{ U, U, U, 0 }, zbasis
 //!  .{ t, t, t, 1 },
 //! we use this order so that we can multiply ROW VECTORS
 //! e.g. v x M

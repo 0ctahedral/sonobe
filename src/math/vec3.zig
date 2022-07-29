@@ -58,6 +58,7 @@ pub const Vec3 = struct {
     /// normalize the vector
     pub fn norm(v: Self) Self {
         const l = v.len();
+        if (l == 0) return .{};
         return .{ .x = v.x / l, .y = v.y / l, .z = v.z / l };
     }
 
