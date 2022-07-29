@@ -42,13 +42,20 @@ pub const Pipeline = struct {
             .p_scissors = null,
         };
 
+        const cull_mode: vk.CullModeFlags = switch (desc.cull_mode) {
+            .none => .{},
+            .front => .{ .front_bit = true },
+            .back => .{ .back_bit = true },
+            .both => .{ .front_bit = true, .back_bit = true },
+        };
+
         const rasterization_ci = vk.PipelineRasterizationStateCreateInfo{
             .flags = .{},
             .depth_clamp_enable = vk.FALSE,
             .rasterizer_discard_enable = vk.FALSE,
             .polygon_mode = if (wireframe) .line else .fill,
             .line_width = 1,
-            .cull_mode = .{ .back_bit = true },
+            .cull_mode = cull_mode,
             .front_face = .counter_clockwise,
             .depth_bias_enable = vk.FALSE,
             .depth_bias_constant_factor = 0,

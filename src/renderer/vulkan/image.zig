@@ -5,6 +5,7 @@ const InstanceDispatch = dispatch_types.InstanceDispatch;
 const Device = @import("device.zig").Device;
 const Buffer = @import("buffer.zig").Buffer;
 const CommandBuffer = @import("commandbuffer.zig").CommandBuffer;
+const types = @import("../rendertypes.zig");
 
 pub const Image = struct {
     handle: vk.Image = .null_handle,
@@ -25,11 +26,16 @@ pub const Image = struct {
         device: Device,
         format: vk.Format,
         aspect_mask: vk.ImageAspectFlags,
+        texture_type: types.TextureDesc.Type,
     ) !void {
+        const img_type: vk.ImageViewType = switch (texture_type) {
+            .@"2d" => .@"2d",
+            .cubemap => .cube,
+        };
         const info = vk.ImageViewCreateInfo{
             .flags = .{},
             .image = self.handle,
-            .view_type = .@"2d",
+            .view_type = img_type,
             .format = format,
             // TODO: set with config
             .components = .{ .r = .identity, .g = .identity, .b = .identity, .a = .identity },
@@ -38,7 +44,7 @@ pub const Image = struct {
                 .aspect_mask = aspect_mask,
                 .level_count = 1,
                 .base_mip_level = 0,
-                .layer_count = 1,
+                .layer_count = if (texture_type == .cubemap) 6 else 1,
                 .base_array_layer = 0,
             },
         };
@@ -48,7 +54,6 @@ pub const Image = struct {
 
     pub fn init(
         device: Device,
-        img_type: vk.ImageType,
         width: u32,
         height: u32,
         depth: u32,
@@ -57,23 +62,30 @@ pub const Image = struct {
         usage: vk.ImageUsageFlags,
         mem_flags: vk.MemoryPropertyFlags,
         aspect_mask: vk.ImageAspectFlags,
+        texture_type: types.TextureDesc.Type,
     ) !Self {
         var self: Self = undefined;
 
         self.width = width;
         self.height = height;
 
+        const img_type = switch (texture_type) {
+            .@"2d", .cubemap => .@"2d",
+        };
+
         const info = vk.ImageCreateInfo{
             .image_type = img_type,
-            .flags = .{},
+            .flags = .{
+                .cube_compatible_bit = texture_type == .cubemap,
+            },
             .extent = .{
                 .width = width,
                 .height = height,
                 .depth = depth,
             },
             // TODO: mip mapping
-            .mip_levels = 4,
-            .array_layers = 1,
+            .mip_levels = 2,
+            .array_layers = if (texture_type == .cubemap) 6 else 1,
             .format = format,
             .tiling = tiling,
             .initial_layout = .@"undefined",
@@ -101,7 +113,7 @@ pub const Image = struct {
 
         self.format = format;
 
-        try self.createView(device, format, aspect_mask);
+        try self.createView(device, format, aspect_mask, texture_type);
 
         return self;
     }
@@ -112,6 +124,7 @@ pub const Image = struct {
         old_layout: vk.ImageLayout,
         new_layout: vk.ImageLayout,
         cmdbuf: CommandBuffer,
+        texture_type: types.TextureDesc.Type,
     ) !void {
         var barrier = vk.ImageMemoryBarrier{
             .src_access_mask = .{},
@@ -126,7 +139,7 @@ pub const Image = struct {
                 .base_mip_level = 0,
                 .level_count = 1,
                 .base_array_layer = 0,
-                .layer_count = 1,
+                .layer_count = if (texture_type == .cubemap) 6 else 1,
             },
         };
 
@@ -170,6 +183,7 @@ pub const Image = struct {
         device: Device,
         buffer: Buffer,
         cmdbuf: CommandBuffer,
+        texture_type: types.TextureDesc.Type,
     ) !void {
         const bic = vk.BufferImageCopy{
             .buffer_offset = 0,
@@ -178,7 +192,7 @@ pub const Image = struct {
             .image_subresource = .{
                 .aspect_mask = .{ .color_bit = true },
                 .mip_level = 0,
-                .layer_count = 1,
+                .layer_count = if (texture_type == .cubemap) 6 else 1,
                 .base_array_layer = 0,
             },
             .image_offset = .{ .x = 0, .y = 0, .z = 0 },

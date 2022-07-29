@@ -1,5 +1,6 @@
 const std = @import("std");
 const vk = @import("vulkan");
+const types = @import("../rendertypes.zig");
 const SamplerDesc = @import("../rendertypes.zig").SamplerDesc;
 const Device = @import("device.zig").Device;
 const Image = @import("image.zig").Image;
@@ -75,34 +76,19 @@ pub const Sampler = struct {
 /// An image we read and write from
 pub const Texture = struct {
     image: Image = .{},
-
-    flags: Flags = .{},
-
-    const Flags = packed struct {
-        /// is this texture be transparent?
-        transparent: bool = false,
-        /// can this texture be written to?
-        writable: bool = false,
-        /// is this owned externally?
-        owned: bool = false,
-    };
+    desc: types.TextureDesc,
 
     const Self = @This();
 
     pub fn init(
         device: Device,
-        width: u32,
-        height: u32,
-        depth: u32,
-        channels: u32,
-        flags: Flags,
+        desc: types.TextureDesc,
         data: []const u8,
     ) !Self {
         var self: Self = undefined;
+        self.desc = desc;
 
-        self.flags = flags;
-
-        const img_format = switch (channels) {
+        const img_format = switch (desc.channels) {
             1 => vk.Format.r8_unorm,
             2 => vk.Format.r8g8_unorm,
             3 => vk.Format.r8g8b8_unorm,
@@ -112,10 +98,9 @@ pub const Texture = struct {
 
         self.image = try Image.init(
             device,
-            .@"2d",
-            width,
-            height,
-            depth,
+            desc.width,
+            desc.height,
+            desc.depth,
             img_format,
             .optimal,
             .{
@@ -127,10 +112,11 @@ pub const Texture = struct {
             },
             .{ .device_local_bit = true },
             .{ .color_bit = true },
+            desc.texture_type,
         );
 
-        const image_size = width * height * channels;
-        try self.write(device, 0, image_size, data);
+        // const image_size = desc.width * desc.height * @as(u32, desc.channels);
+        try self.write(device, 0, data);
 
         return self;
     }
@@ -147,7 +133,6 @@ pub const Texture = struct {
         self.image.deinit(device);
         self.image = try Image.init(
             device,
-            .@"2d",
             new_width,
             new_height,
             new_depth,
@@ -162,6 +147,7 @@ pub const Texture = struct {
             },
             .{ .device_local_bit = true },
             .{ .color_bit = true },
+            self.desc.texture_type,
         );
     }
 
@@ -169,22 +155,21 @@ pub const Texture = struct {
         self: *Self,
         device: Device,
         offset: u32,
-        size: u32,
         data: []const u8,
     ) !void {
-        var staging = try Buffer.init(device, size, .{ .transfer_src_bit = true }, .{
+        var staging = try Buffer.init(device, data.len, .{ .transfer_src_bit = true }, .{
             .host_visible_bit = true,
             .host_coherent_bit = true,
         }, true);
         defer staging.deinit(device);
 
-        try staging.load(device, u8, data[0..size], offset);
+        try staging.load(device, u8, data, offset);
 
         var cmdbuf = try CommandBuffer.beginSingleUse(device, device.command_pool);
 
-        try self.image.transitionLayout(device, .@"undefined", .transfer_dst_optimal, cmdbuf);
-        try self.image.copyFromBuffer(device, staging, cmdbuf);
-        try self.image.transitionLayout(device, .transfer_dst_optimal, .shader_read_only_optimal, cmdbuf);
+        try self.image.transitionLayout(device, .@"undefined", .transfer_dst_optimal, cmdbuf, self.desc.texture_type);
+        try self.image.copyFromBuffer(device, staging, cmdbuf, self.desc.texture_type);
+        try self.image.transitionLayout(device, .transfer_dst_optimal, .shader_read_only_optimal, cmdbuf, self.desc.texture_type);
 
         try cmdbuf.endSingleUse(device, device.command_pool, device.graphics.?.handle);
     }

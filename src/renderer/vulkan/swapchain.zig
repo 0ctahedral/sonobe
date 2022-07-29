@@ -161,13 +161,16 @@ pub const Swapchain = struct {
                 .width = extent.width,
                 .height = extent.height,
             };
-            try self.render_textures[i].image.createView(dev, self.surface_format.format, .{ .color_bit = true });
-            self.render_textures[i].flags.owned = true;
+            try self.render_textures[i].image.createView(
+                dev,
+                self.surface_format.format,
+                .{ .color_bit = true },
+                .@"2d",
+            );
         }
 
         self.depth_texture.image = try Image.init(
             dev,
-            .@"2d",
             extent.width,
             extent.height,
             1,
@@ -176,8 +179,8 @@ pub const Swapchain = struct {
             .{ .depth_stencil_attachment_bit = true },
             .{ .device_local_bit = true },
             .{ .depth_bit = true },
+            .@"2d",
         );
-        self.depth_texture.flags.owned = true;
 
         // create the depth image
     }

@@ -28,16 +28,21 @@ pub const BufferDesc = struct {
 };
 
 pub const TextureDesc = struct {
+    pub const Type = enum {
+        @"2d",
+        cubemap,
+    };
     width: u32,
     height: u32,
     depth: u32 = 1,
-    channels: u32,
+    channels: u8,
     flags: packed struct {
         /// is this texture be transparent?
         transparent: bool = false,
         /// can this texture be written to?
         writable: bool = false,
     },
+    texture_type: Type,
 };
 
 pub const SamplerDesc = struct {
@@ -79,6 +84,11 @@ pub const SamplerDesc = struct {
 
 // TODO: add more details like attachments and subpasses and stuff
 pub const RenderPassDesc = struct {
+    pub const ClearFlags = packed struct {
+        color: bool = false,
+        depth: bool = false,
+        stencil: bool = false,
+    };
     /// color this renderpass should clear the rendertarget to
     clear_color: [4]f32,
     /// value the renderpass should clear the rendertarget depth bufffer to
@@ -86,11 +96,7 @@ pub const RenderPassDesc = struct {
     /// value the renderpass should clear the rendertarget stencil buffer to
     clear_stencil: u32,
     /// flags for which values should actully be cleared
-    clear_flags: packed struct {
-        color: bool = false,
-        depth: bool = false,
-        stencil: bool = false,
-    },
+    clear_flags: ClearFlags,
 };
 
 /// Describes a shader pipeline for drawing
@@ -116,6 +122,12 @@ pub const BindingDesc = struct {
 
 /// A full pipeline for drawing!
 pub const PipelineDesc = struct {
+    const CullMode = enum {
+        none,
+        front,
+        back,
+        both,
+    };
     /// render pass this pipeline is going to draw with
     // render_pass: Handle,
     stages: []const StageDesc = undefined,
@@ -125,4 +137,8 @@ pub const PipelineDesc = struct {
 
     // TODO: add this
     renderpass: Handle,
+
+    cull_mode: CullMode = .back,
+
+    wireframe: bool = false,
 };

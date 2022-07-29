@@ -251,7 +251,7 @@ pub fn createPipeline(desc: types.PipelineDesc) !Handle {
         getRenderPass(desc.renderpass).handle,
         dsl[0..desc.binding_groups.len],
         &[_]vk.PushConstantRange{},
-        false,
+        desc.wireframe,
         allocator,
     ));
 
@@ -460,19 +460,9 @@ pub fn updateBuffer(handle: Handle, offset: usize, data: [*]const u8, size: usiz
 // TODO: need to be able to update textures
 pub fn createTexture(desc: types.TextureDesc, data: []const u8) !Handle {
     const handle_idx = try resources.allocIndex();
-
-    _ = desc;
     const tex_idx = try textures.allocIndex();
 
-    textures.set(tex_idx, try Texture.init(
-        device,
-        desc.width,
-        desc.height,
-        desc.depth,
-        desc.channels,
-        .{},
-        data[0..],
-    ));
+    textures.set(tex_idx, try Texture.init(device, desc, data[0..]));
 
     resources.set(
         handle_idx,
