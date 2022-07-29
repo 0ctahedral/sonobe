@@ -8,7 +8,7 @@ const prefix = @import("src/platform.zig").vkprefix;
 
 const glfw = @import("deps/mach-glfw/build.zig");
 
-pub fn build(b: *Builder) void {
+pub fn build(b: *Builder) !void {
     const mode = b.standardReleaseOptions();
     const target = b.standardTargetOptions(.{});
 
@@ -23,7 +23,7 @@ pub fn build(b: *Builder) void {
     const exe = try makeApp(b, "testbed");
     exe.install();
 
-    compileBuiltinShaders(b, exe);
+    try compileShadersInDir(b, "testbed/assets", exe);
 }
 
 pub fn makeApp(b: *Builder, name: []const u8) !*std.build.LibExeObjStep {
@@ -107,30 +107,40 @@ fn link(b: *Builder, step: *std.build.LibExeObjStep) void {
     }
 }
 
-fn compileBuiltinShaders(b: *Builder, step: *std.build.LibExeObjStep) void {
-    const shader_path = [_][]const u8{
-        "testbed/assets/default",
-        "testbed/assets/skybox",
-    };
+fn compileShadersInDir(b: *Builder, shader_path: []const u8, step: *std.build.LibExeObjStep) !void {
+    var dir = try std.fs.cwd().openDir(shader_path, .{ .iterate = true });
+    var iter = dir.iterate();
+    while (try iter.next()) |e| {
+        if (e.kind == .File) {
+            const len = e.name.len;
+            if (len <= 10) continue;
+            const ext = e.name[(len - 10)..];
+            const file_name = e.name[0..(len - 10)];
 
-    inline for (shader_path) |path| {
-        const compile_vert = b.addSystemCommand(&[_][]const u8{
-            prefix ++ "/bin/glslc",
-            "-fshader-stage=vert",
-            path ++ ".vert.glsl",
-            "-o",
-            path ++ ".vert.spv",
-        });
+            var stage: []const u8 = "";
 
-        const compile_frag = b.addSystemCommand(&[_][]const u8{
-            prefix ++ "/bin/glslc",
-            "-fshader-stage=frag",
-            path ++ ".frag.glsl",
-            "-o",
-            path ++ ".frag.spv",
-        });
+            if (std.mem.eql(u8, ext, ".vert.glsl")) {
+                stage = "vert";
+            } else if (std.mem.eql(u8, ext, ".frag.glsl")) {
+                stage = "frag";
+            } else {
+                continue;
+            }
 
-        step.step.dependOn(&compile_vert.step);
-        step.step.dependOn(&compile_frag.step);
+            var buf1: [256]u8 = undefined;
+            var buf2: [256]u8 = undefined;
+
+            var cmd_str = [_][]const u8{
+                prefix ++ "/bin/glslc",
+                try std.fmt.bufPrint(&buf1, "-fshader-stage={s}", .{stage}),
+                try std.fs.path.join(b.allocator, &.{ shader_path, e.name }),
+                "-o",
+                try std.fmt.bufPrint(&buf2, "{s}/{s}.{s}.spv", .{ shader_path, file_name, stage }),
+            };
+
+            const compile_spv = b.addSystemCommand(&cmd_str);
+
+            step.step.dependOn(&compile_spv.step);
+        }
     }
 }
