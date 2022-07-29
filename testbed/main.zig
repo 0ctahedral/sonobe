@@ -60,8 +60,7 @@ const Camera = struct {
     /// compute the view matrix for the camera
     pub fn view(self: Self) Mat4 {
         var ret = self.rot.toMat4();
-        ret = ret.mul(Mat4.translate(self.pos));
-        return ret.inv();
+        return ret.mul(Mat4.translate(self.pos)).inv();
     }
 
     /// change the camera rotation based on a pitch and yaw vector
@@ -261,6 +260,7 @@ pub fn init(app: *App) !void {
         .binding_groups = &.{ app.camera_group, app.material_group },
         .renderpass = app.world_pass,
         .cull_mode = .none,
+        .inputs = &.{ .Vec3, .Vec2 },
     });
     // skybox stuff
     // setup the texture
@@ -401,6 +401,7 @@ pub fn update(app: *App, dt: f64) !void {
         .projection = app.camera.projection,
         .model = app.t.mat(),
     }});
+
     _ = try Renderer.updateBuffer(app.skybox_buffer, 0, Mat4, &[_]Mat4{
         app.camera.projection,
         app.camera.rot.toMat4(),
@@ -440,7 +441,6 @@ pub fn render(app: *App) !void {
     try cmd.beginRenderPass(app.skybox_pass);
 
     try cmd.bindPipeline(app.skybox_pipeline);
-    // try cmd.bindPipeline(app.simple_pipeline);
 
     try cmd.drawIndexed(.{
         .count = cube_inds.len,

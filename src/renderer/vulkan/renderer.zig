@@ -306,7 +306,6 @@ fn applyBindPipeline(cb: *CommandBuffer, handle: types.Handle) !void {
 }
 
 fn applyBeginRenderPass(cb: *CommandBuffer, handle: types.Handle) void {
-    _ = handle;
     // set the viewport
     const viewport = vk.Viewport{
         .x = 0,

@@ -25,6 +25,8 @@ pub const Pipeline = struct {
         descriptor_set_layouts: []const vk.DescriptorSetLayout,
         push_constants: []const vk.PushConstantRange,
         wireframe: bool,
+        vertex_inputs: []const vk.VertexInputBindingDescription,
+        vertex_attrs: []const vk.VertexInputAttributeDescription,
         allocator: std.mem.Allocator,
     ) !Self {
         var self: Self = .{};
@@ -115,15 +117,14 @@ pub const Pipeline = struct {
             .p_dynamic_states = &dynamic_state,
         };
 
+        const binds = if (vertex_inputs.len == 0) undefined else @ptrCast([*]const vk.VertexInputBindingDescription, vertex_inputs);
+        const attrs = if (vertex_attrs.len == 0) undefined else @ptrCast([*]const vk.VertexInputAttributeDescription, vertex_attrs);
         const vertex_input_ci = vk.PipelineVertexInputStateCreateInfo{
             .flags = .{},
-            .vertex_binding_description_count = @intCast(u32, Mesh.info.bindings.len),
-            .p_vertex_binding_descriptions = @ptrCast(
-                [*]const vk.VertexInputBindingDescription,
-                &Mesh.info.bindings,
-            ),
-            .vertex_attribute_description_count = @intCast(u32, Mesh.info.attrs.len),
-            .p_vertex_attribute_descriptions = &Mesh.info.attrs,
+            .vertex_binding_description_count = @intCast(u32, vertex_inputs.len),
+            .p_vertex_binding_descriptions = binds,
+            .vertex_attribute_description_count = @intCast(u32, vertex_attrs.len),
+            .p_vertex_attribute_descriptions = attrs,
         };
 
         const input_assembly = vk.PipelineInputAssemblyStateCreateInfo{

@@ -7,6 +7,7 @@ const Sampler = @import("texture.zig").Sampler;
 const RenderPass = @import("renderpass.zig").RenderPass;
 const Pipeline = @import("pipeline.zig").Pipeline;
 const Texture = @import("texture.zig").Texture;
+const Mesh = @import("mesh.zig").Mesh;
 const MAX_FRAMES = @import("renderer.zig").MAX_FRAMES;
 
 const types = @import("../rendertypes.zig");
@@ -245,6 +246,10 @@ pub fn createPipeline(desc: types.PipelineDesc) !Handle {
         dsl[i] = getBindGroup(bgh).layout;
     }
 
+    // create the bindings and attrs
+    const bindings = if (desc.inputs.len > 0) &Mesh.info.bindings else &[_]vk.VertexInputBindingDescription{};
+    const attrs = if (desc.inputs.len > 0) &Mesh.info.attrs else &[_]vk.VertexInputAttributeDescription{};
+
     pipelines.set(pl_idx, try Pipeline.init(
         device,
         desc,
@@ -252,6 +257,8 @@ pub fn createPipeline(desc: types.PipelineDesc) !Handle {
         dsl[0..desc.binding_groups.len],
         &[_]vk.PushConstantRange{},
         desc.wireframe,
+        bindings,
+        attrs,
         allocator,
     ));
 

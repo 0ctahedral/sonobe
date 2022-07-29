@@ -2,8 +2,6 @@
 #extension GL_ARB_separate_shader_objects : enable
 
 
-layout(location = 0) in vec3 in_pos;
-layout(location = 1) in vec2 in_texcoord;
 
 
 // global data
@@ -19,6 +17,9 @@ layout(location = 0) out struct {
 } out_dto;
 
 void main() {
-  out_dto.uvw = in_pos;
-  gl_Position = projection * view * vec4(in_pos, 1.0);
+  int i = gl_VertexIndex;
+  vec3 pos = vec3(((i << 1) & 2), (i & 2), ((i >> 1) & 2)) - vec3(1);
+
+  out_dto.uvw = pos;
+  gl_Position = projection * view * vec4(pos, 1.0);
 }

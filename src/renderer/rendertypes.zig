@@ -122,6 +122,15 @@ pub const BindingDesc = struct {
 
 /// A full pipeline for drawing!
 pub const PipelineDesc = struct {
+    const InputType = enum {
+        Vec3,
+        Vec2,
+        f32,
+        u8,
+        u16,
+        u32,
+        u64,
+    };
     const CullMode = enum {
         none,
         front,
@@ -135,10 +144,11 @@ pub const PipelineDesc = struct {
     /// 
     binding_groups: []const Handle = &.{},
 
-    // TODO: add this
     renderpass: Handle,
 
     cull_mode: CullMode = .back,
 
     wireframe: bool = false,
+
+    inputs: []const InputType = &.{},
 };
