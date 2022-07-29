@@ -110,6 +110,7 @@ fn link(b: *Builder, step: *std.build.LibExeObjStep) void {
 fn compileBuiltinShaders(b: *Builder, step: *std.build.LibExeObjStep) void {
     const shader_path = [_][]const u8{
         "testbed/assets/default",
+        "testbed/assets/skybox",
     };
 
     inline for (shader_path) |path| {
