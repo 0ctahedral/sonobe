@@ -16,6 +16,7 @@ const Mat4 = mmath.Mat4;
 const Transform = mmath.Transform;
 
 const Skybox = @import("skybox.zig");
+const Camera = @import("camera.zig");
 
 // since this file is implicitly a struct we can store state in here
 // and use methods that we expect to be defined in the engine itself.
@@ -39,47 +40,9 @@ const texcoords = [_]Vec2{
 };
 const quad_inds = [_]u32{ 0, 1, 2, 0, 3, 1 };
 
-// camera settings
-const move_speed = 2.0;
-const drag_scale = (-1 / 400.0);
-const CameraData = struct {
-    projection: Mat4,
-    view: Mat4,
-};
-
 const MaterialData = struct {
     albedo: Vec4 = Vec4.new(1, 1, 1, 1),
     tile: Vec2 = Vec2.new(10, 10),
-};
-
-const Camera = struct {
-    pos: Vec3,
-    rot: Quat = Quat.fromAxisAngle(Vec3.UP, 0),
-    projection: Mat4 = Mat4.perspective(mmath.util.rad(70), 800.0 / 600.0, 0.1, 1000),
-
-    const Self = @This();
-
-    /// compute the view matrix for the camera
-    pub fn view(self: Self) Mat4 {
-        var ret = self.rot.toMat4();
-        return ret.mul(Mat4.translate(self.pos)).inv();
-    }
-
-    /// change the camera rotation based on a pitch and yaw vector
-    pub fn updateRot(self: *Self, amt: Vec2) void {
-        // const target = Vec3{};
-        // const dir = self.pos.sub(target);
-        // var rotated_dir = Quat.fromAxisAngle(Vec3.UP, amt.x).rotate(dir);
-        // self.pos = self.pos.add(rotated_dir.sub(dir));
-        // self.rot = self.rot.mul(Quat.lookAt(target, self.rot.rotate(Vec3.FORWARD), self.pos, Vec3.UP));
-        // std.log.debug("{}", .{self.rot});
-
-        const yaw = Quat.fromAxisAngle(Vec3.UP, amt.x);
-        const pitch = Quat.fromAxisAngle(Vec3.RIGHT, amt.y);
-        var new_rot = self.rot.mul(pitch);
-        new_rot = yaw.mul(new_rot);
-        self.rot = new_rot;
-    }
 };
 
 // internal state of the app
@@ -91,11 +54,7 @@ quad_inds: Renderer.Handle = .{},
 
 world_pass: Renderer.Handle = .{},
 
-camera: Camera = .{
-    .pos = .{ .z = 5 },
-},
-camera_group: Renderer.Handle = .{},
-camera_buffer: Renderer.Handle = .{},
+camera: Camera = .{},
 
 material_group: Renderer.Handle = .{},
 material_buffer: Renderer.Handle = .{},
@@ -143,11 +102,6 @@ pub fn init(app: *App) !void {
         _ = try Renderer.updateBuffer(app.cube_inds, 0, u32, &cube.indices);
     }
 
-    std.log.info("{s}: initialized", .{App.name});
-
-    app.t.pos = .{ .x = 0, .y = 1, .z = 0 };
-    app.t.scale = .{ .x = 1, .y = 1, .z = 1 };
-
     // setup the quad
 
     app.quad_verts = try Resources.createBuffer(
@@ -167,18 +121,11 @@ pub fn init(app: *App) !void {
     );
     _ = try Renderer.updateBuffer(app.quad_inds, 0, u32, quad_inds[0..]);
 
-    app.camera_group = try Resources.createBindingGroup(&.{
-        .{ .binding_type = .Buffer },
-    });
-    app.camera_buffer = try Resources.createBuffer(
-        .{
-            .size = @sizeOf(CameraData),
-            .usage = .Uniform,
-        },
-    );
-    try Resources.updateBindings(app.camera_group, &[_]Resources.BindingUpdate{
-        .{ .binding = 0, .handle = app.camera_buffer },
-    });
+    // setup ther camera
+
+    app.camera = try Camera.init();
+    app.t.pos = .{ .x = 0, .y = 1, .z = 0 };
+    app.t.scale = .{ .x = 1, .y = 1, .z = 1 };
 
     // setup the material
     app.material_group = try Resources.createBindingGroup(&.{
@@ -243,9 +190,9 @@ pub fn init(app: *App) !void {
                 .path = "testbed/assets/default.frag.spv",
             },
         },
-        .binding_groups = &.{ app.camera_group, app.material_group },
+        .binding_groups = &.{ app.camera.group, app.material_group },
         .renderpass = app.world_pass,
-        .cull_mode = .none,
+        .cull_mode = .back,
         .vertex_inputs = &.{ .Vec3, .Vec2 },
         .push_const_size = @sizeOf(Mat4),
     });
@@ -254,7 +201,7 @@ pub fn init(app: *App) !void {
 }
 
 pub fn update(app: *App, dt: f64) !void {
-    _ = dt;
+    // camera stuff
     var input = Vec3{};
     if (Input.keyIs(.right, .down) or Input.keyIs(.d, .down)) {
         input = input.add(app.camera.rot.rotate(Vec3.RIGHT));
@@ -277,41 +224,33 @@ pub fn update(app: *App, dt: f64) !void {
 
     const mag = input.len();
     if (mag > 0.0) {
-        app.camera.pos = app.camera.pos.add(input.scale(move_speed * @floatCast(f32, dt) / mag));
+        app.camera.pos = app.camera.pos.add(input.scale(app.camera.move_speed * @floatCast(f32, dt) / mag));
     }
 
     const left = Input.getMouse().getButton(.left);
     if (left.action == .drag) {
-        const amt = left.drag.sub(app.last_pos).scale(drag_scale);
-        app.camera.updateRot(amt);
+        const ddrag = left.drag.sub(app.last_pos);
+        app.camera.fpsRot(ddrag);
         app.last_pos = left.drag;
     } else {
         app.last_pos = .{};
     }
+    try app.camera.update();
 
+    // make that lil cube spin
     app.t.rot = app.t.rot
         .mul(Quat.fromAxisAngle(Vec3.FORWARD, mmath.util.rad(30) * @floatCast(f32, dt)))
         .mul(Quat.fromAxisAngle(Vec3.UP, mmath.util.rad(30) * @floatCast(f32, dt)));
     app.t.pos = Vec3.new(0, 1 + @sin(@intToFloat(f32, Renderer.frame) * 0.03), 0);
 
-    // app.t.rot = Quat.lookAt(app.camera.pos, app.t.rot.rotate(Vec3.FORWARD), Vec3{}, app.t.rot.rotate(Vec3.UP));
-    // update a constant value from struct rather than entire thing?
-    // this would have to be something in a struct
-    // where we could update by offset
-    // try Resources.updateConst(app.camera_buffer, CameraData, .const_name, 35)
-    _ = try Renderer.updateBuffer(app.camera_buffer, 0, CameraData, &[_]CameraData{.{
-        .view = app.camera.view(),
-        .projection = app.camera.projection,
-    }});
-
     try app.skybox.update(.{
-        .proj = app.camera.projection,
+        .proj = app.camera.proj(800.0 / 600.0),
         .view = app.camera.view(),
         .albedo = Vec4.new(1, 1, 1, 0.5 + (@sin(@intToFloat(f32, Renderer.frame) * 0.03) / 2.0)),
     });
 }
 
-const floor_mat = Mat4.rotate(.x, std.math.pi / 2.0)
+const floor_mat = Mat4.rotate(.x, -std.math.pi / 2.0)
     .mul(Mat4.scale(.{ .x = 100, .y = 100, .z = 100 }))
     .mul(Mat4.translate(.{ .y = -1 }));
 

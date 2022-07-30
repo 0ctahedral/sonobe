@@ -18,7 +18,7 @@ texture: Handle = .{},
 sampler: Handle = .{},
 ind_buf: Handle = .{},
 
-const SkyboxData = struct {
+pub const Data = struct {
     proj: Mat4,
     view: Mat4,
     albedo: Vec4 = Vec4.new(1, 1, 1, 1),
@@ -97,7 +97,7 @@ pub fn init() !Self {
 
     self.uniform_buffer = try Resources.createBuffer(
         .{
-            .size = @sizeOf(SkyboxData),
+            .size = @sizeOf(Data),
             .usage = .Uniform,
         },
     );
@@ -132,8 +132,8 @@ pub fn init() !Self {
     return self;
 }
 
-pub fn update(self: Self, data: SkyboxData) !void {
-    _ = try Renderer.updateBuffer(self.uniform_buffer, 0, SkyboxData, &[_]SkyboxData{data});
+pub fn update(self: Self, data: Data) !void {
+    _ = try Renderer.updateBuffer(self.uniform_buffer, 0, Data, &[_]Data{data});
 }
 
 pub fn draw(self: Self, cmd: *CmdBuf) !void {
