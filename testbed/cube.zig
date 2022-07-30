@@ -1,9 +1,19 @@
 const std = @import("std");
-const octal = @import("octal");
-const mmath = octal.mmath;
+const mmath = @import("octal").mmath;
 
 const Vec3 = mmath.Vec3;
 const Vec2 = mmath.Vec2;
+
+pub const positions = [_]Vec3{
+    Vec3.new(-1.00, -1.00, -1.00),
+    Vec3.new(1.00, -1.00, -1.00),
+    Vec3.new(-1.00, 1.00, -1.00),
+    Vec3.new(1.00, 1.00, -1.00),
+    Vec3.new(-1.00, -1.00, 1.00),
+    Vec3.new(1.00, -1.00, 1.00),
+    Vec3.new(-1.00, 1.00, 1.00),
+    Vec3.new(1.00, 1.00, 1.00),
+};
 
 pub const indices = [_]u32{
     // back face
@@ -31,7 +41,7 @@ pub const indices = [_]u32{
     1, 5, 4,
 };
 
-pub const uv = [_]Vec2{
+pub const uvs = [_]Vec2{
     Vec2.new(0.0, 0.0),
     Vec2.new(1.0, 0.0),
     Vec2.new(0.0, 1.0),

@@ -1,6 +1,7 @@
 const std = @import("std");
 const octal = @import("octal");
 const cube = @import("cube.zig");
+const quad = @import("quad.zig");
 
 const Renderer = octal.Renderer;
 const Resources = octal.Renderer.Resources;
@@ -25,20 +26,6 @@ const App = @This();
 
 /// The name of this app (required)
 pub const name = "testbed";
-
-const positions = [_]Vec3{
-    Vec3.new(-0.5, -0.5, 0),
-    Vec3.new(0.5, 0.5, 0),
-    Vec3.new(-0.5, 0.5, 0),
-    Vec3.new(0.5, -0.5, 0),
-};
-const texcoords = [_]Vec2{
-    Vec2.new(0.0, 0.0),
-    Vec2.new(1.0, 1.0),
-    Vec2.new(0.0, 1.0),
-    Vec2.new(1.0, 0.0),
-};
-const quad_inds = [_]u32{ 0, 1, 2, 0, 3, 1 };
 
 const MaterialData = struct {
     albedo: Vec4 = Vec4.new(1, 1, 1, 1),
@@ -76,34 +63,24 @@ skybox: Skybox = .{},
 camera_move_speed: f32 = 5.0,
 pub fn init(app: *App) !void {
 
-    // vertex and uv for cube
-    {
-        var cube_pos: [8]Vec3 = undefined;
-        for (cube_pos) |*v, i| {
-            v.* = Vec3.new(
-                @intToFloat(f32, (i << 1) & 2) - 1,
-                @intToFloat(f32, i & 2) - 1,
-                @intToFloat(f32, (i >> 1) & 2) - 1,
-            );
-        }
+    // index and vertex buffer for cube
+    app.cube_verts = try Resources.createBuffer(
+        .{
+            .size = @sizeOf(@TypeOf(cube.positions)) + @sizeOf(@TypeOf(cube.uvs)),
+            .usage = .Vertex,
+        },
+    );
+    var offset = try Renderer.updateBuffer(app.cube_verts, 0, Vec3, &cube.positions);
+    offset = try Renderer.updateBuffer(app.cube_verts, offset, Vec2, &cube.uvs);
 
-        app.cube_verts = try Resources.createBuffer(
-            .{
-                .size = @sizeOf(@TypeOf(cube_pos)) + @sizeOf(@TypeOf(cube.uv)),
-                .usage = .Vertex,
-            },
-        );
-        var offset = try Renderer.updateBuffer(app.cube_verts, 0, Vec3, &cube_pos);
-        offset = try Renderer.updateBuffer(app.cube_verts, offset, Vec2, &cube.uv);
+    app.cube_inds = try Resources.createBuffer(
+        .{
+            .size = @sizeOf(@TypeOf(cube.indices)),
+            .usage = .Index,
+        },
+    );
+    _ = try Renderer.updateBuffer(app.cube_inds, 0, u32, &cube.indices);
 
-        app.cube_inds = try Resources.createBuffer(
-            .{
-                .size = @sizeOf(@TypeOf(cube.indices)),
-                .usage = .Index,
-            },
-        );
-        _ = try Renderer.updateBuffer(app.cube_inds, 0, u32, &cube.indices);
-    }
     app.t.pos = .{ .x = 0, .y = 1, .z = 0 };
     app.t.scale = .{ .x = 1, .y = 1, .z = 1 };
 
@@ -111,20 +88,20 @@ pub fn init(app: *App) !void {
 
     app.quad_verts = try Resources.createBuffer(
         .{
-            .size = @sizeOf(@TypeOf(texcoords)) + @sizeOf(@TypeOf(positions)),
+            .size = @sizeOf(@TypeOf(quad.uvs)) + @sizeOf(@TypeOf(quad.positions)),
             .usage = .Vertex,
         },
     );
-    var offset = try Renderer.updateBuffer(app.quad_verts, 0, Vec3, positions[0..]);
-    offset = try Renderer.updateBuffer(app.quad_verts, offset, Vec2, texcoords[0..]);
+    offset = try Renderer.updateBuffer(app.quad_verts, 0, Vec3, &quad.positions);
+    offset = try Renderer.updateBuffer(app.quad_verts, offset, Vec2, &quad.uvs);
 
     app.quad_inds = try Resources.createBuffer(
         .{
-            .size = @sizeOf(@TypeOf(quad_inds)),
+            .size = @sizeOf(@TypeOf(quad.indices)),
             .usage = .Index,
         },
     );
-    _ = try Renderer.updateBuffer(app.quad_inds, 0, u32, quad_inds[0..]);
+    _ = try Renderer.updateBuffer(app.quad_inds, 0, u32, &quad.indices);
 
     // setup the camera
     try app.camera.init();
@@ -280,7 +257,7 @@ pub fn render(app: *App) !void {
     try cmd.pushConst(app.simple_pipeline, floor_mat);
 
     try cmd.drawIndexed(.{
-        .count = quad_inds.len,
+        .count = quad.indices.len,
         .vertex_handle = app.quad_verts,
         .index_handle = app.quad_inds,
         .offsets = &.{ 0, 4 * @sizeOf(Vec3) },
