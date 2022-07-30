@@ -42,7 +42,6 @@ const drag_scale = (-1 / 400.0);
 const CameraData = struct {
     projection: Mat4,
     view: Mat4,
-    model: Mat4 = Mat4.identity(),
 };
 
 const MaterialData = struct {
@@ -261,6 +260,7 @@ pub fn init(app: *App) !void {
         .renderpass = app.world_pass,
         .cull_mode = .none,
         .vertex_inputs = &.{ .Vec3, .Vec2 },
+        .push_const_size = @sizeOf(Mat4),
     });
     // skybox stuff
     // setup the texture
@@ -399,7 +399,6 @@ pub fn update(app: *App, dt: f64) !void {
     _ = try Renderer.updateBuffer(app.camera_buffer, 0, CameraData, &[_]CameraData{.{
         .view = app.camera.view(),
         .projection = app.camera.projection,
-        .model = app.t.mat(),
     }});
 
     _ = try Renderer.updateBuffer(app.skybox_buffer, 0, Mat4, &[_]Mat4{
@@ -455,6 +454,8 @@ pub fn render(app: *App) !void {
     try cmd.beginRenderPass(app.world_pass);
 
     try cmd.bindPipeline(app.simple_pipeline);
+
+    try cmd.pushConst(app.simple_pipeline, app.t.mat());
 
     try cmd.drawIndexed(.{
         .count = cube_inds.len,

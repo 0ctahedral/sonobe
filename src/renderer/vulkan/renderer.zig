@@ -271,6 +271,7 @@ pub fn submit(cmdbuf: CmdBuf) !void {
     var i: usize = 0;
     while (i < cmdbuf.idx) : (i += 1) {
         switch (cmdbuf.commands[i]) {
+            .PushConst => |desc| applyPushConst(cb, desc),
             .DrawIndexed => |desc| applyDrawIndexed(cb, desc),
             .BeginRenderPass => |handle| applyBeginRenderPass(cb, handle),
             .EndRenderPass => |handle| applyEndRenderPass(cb, handle),
@@ -279,6 +280,18 @@ pub fn submit(cmdbuf: CmdBuf) !void {
     }
 
     try cb.end(device);
+}
+
+fn applyPushConst(cb: *CommandBuffer, desc: types.PushConstDesc) void {
+    const pl = Resources.getPipeline(desc.pipeline);
+    device.vkd.cmdPushConstants(
+        cb.handle,
+        pl.layout,
+        .{ .vertex_bit = true, .fragment_bit = true },
+        0,
+        @intCast(u32, desc.size),
+        &desc.data,
+    );
 }
 
 fn applyBindPipeline(cb: *CommandBuffer, handle: types.Handle) !void {

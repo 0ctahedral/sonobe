@@ -1,4 +1,5 @@
 //! these buffers are used for sumitting instructions for rendering a scene
+const std = @import("std");
 const types = @import("rendertypes.zig");
 
 const CmdBuf = @This();
@@ -8,6 +9,7 @@ const Command = enum {
     BeginRenderPass,
     EndRenderPass,
     BindPipeline,
+    PushConst,
 };
 
 /// Desc that stores all the data related to the command
@@ -16,6 +18,7 @@ const CommandDecl = union(Command) {
     BeginRenderPass: types.Handle,
     EndRenderPass: types.Handle,
     BindPipeline: types.Handle,
+    PushConst: types.PushConstDesc,
 };
 
 /// maximum number of commands that can be held by a buffer
@@ -38,10 +41,25 @@ inline fn getNextIdx(self: *CmdBuf) !usize {
     return ret;
 }
 
-/// draw geometry specified with some kind of indirection
-pub fn drawIndexed(self: *CmdBuf, descinfo: types.DrawIndexedDesc) !void {
+pub fn pushConst(self: *CmdBuf, pipeline: types.Handle, pc: anytype) !void {
+    // make sure that this will actually fit
+    const size = @sizeOf(@TypeOf(pc));
+    if (size > 128) return error.ConstTooLarge;
+
+    var desc = types.PushConstDesc{
+        .pipeline = pipeline,
+        .size = size,
+    };
+    std.mem.copy(u8, desc.data[0..], std.mem.asBytes(&pc));
+
     const idx = try self.getNextIdx();
-    self.commands[idx] = .{ .DrawIndexed = descinfo };
+    self.commands[idx] = .{ .PushConst = desc };
+}
+
+/// draw geometry specified with some kind of indirection
+pub fn drawIndexed(self: *CmdBuf, desc: types.DrawIndexedDesc) !void {
+    const idx = try self.getNextIdx();
+    self.commands[idx] = .{ .DrawIndexed = desc };
 }
 
 /// begin a renderpass by description

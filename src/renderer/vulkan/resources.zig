@@ -284,12 +284,18 @@ pub fn createPipeline(desc: types.PipelineDesc) !Handle {
         };
     }
 
+    const pcr = if (desc.push_const_size == 0) &[_]vk.PushConstantRange{} else &[_]vk.PushConstantRange{.{
+        .stage_flags = .{ .vertex_bit = true, .fragment_bit = true },
+        .offset = 0,
+        .size = @as(u32, desc.push_const_size),
+    }};
+
     pipelines.set(pl_idx, try Pipeline.init(
         device,
         desc,
         getRenderPass(desc.renderpass).handle,
         dsl[0..desc.binding_groups.len],
-        &[_]vk.PushConstantRange{},
+        pcr,
         desc.wireframe,
         input_bindings[0..desc.vertex_inputs.len],
         input_attrs[0..desc.vertex_inputs.len],

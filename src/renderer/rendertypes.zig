@@ -144,14 +144,28 @@ pub const PipelineDesc = struct {
     // render_pass: Handle,
     stages: []const StageDesc = undefined,
 
-    /// 
+    /// groups of bindings we want to access from the shader
     binding_groups: []const Handle = &.{},
 
+    /// the renderpass that we will use this shader in
     renderpass: Handle,
 
+    /// which faces should we cull?
     cull_mode: CullMode = .back,
 
+    /// is this pipeline going to render a wireframe?
     wireframe: bool = false,
 
+    /// inputs for each vertex in the vertex stage
     vertex_inputs: []const InputType = &.{},
+
+    /// space to reserve in shader for push constants
+    /// maximum is 128 bytes
+    push_const_size: u8 = 0,
+};
+
+pub const PushConstDesc = struct {
+    pipeline: Handle,
+    size: u8,
+    data: [128]u8 = [_]u8{0} ** 128,
 };
