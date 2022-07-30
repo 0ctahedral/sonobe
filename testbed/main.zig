@@ -1,5 +1,6 @@
 const std = @import("std");
 const octal = @import("octal");
+const cube = @import("cube.zig");
 
 const Renderer = octal.Renderer;
 const Resources = octal.Renderer.Resources;
@@ -13,6 +14,8 @@ const Vec2 = mmath.Vec2;
 const Quat = mmath.Quat;
 const Mat4 = mmath.Mat4;
 const Transform = mmath.Transform;
+
+const Skybox = @import("skybox.zig");
 
 // since this file is implicitly a struct we can store state in here
 // and use methods that we expect to be defined in the engine itself.
@@ -100,34 +103,20 @@ material_data: MaterialData = .{},
 default_texture: Renderer.Handle = .{},
 default_sampler: Renderer.Handle = .{},
 
-skybox_pass: Renderer.Handle = .{},
-skybox_pipeline: Renderer.Handle = .{},
 cube_verts: Renderer.Handle = .{},
 cube_inds: Renderer.Handle = .{},
-skybox_buffer: Renderer.Handle = .{},
-cubemap_texture: Renderer.Handle = .{},
-cubemap_sampler: Renderer.Handle = .{},
 
 simple_pipeline: Renderer.Handle = .{},
 
 last_pos: Vec2 = .{},
 
+skybox: Skybox = .{},
+
 pub fn init(app: *App) !void {
 
-    // lets try to make a cube
+    // vertex and uv for cube
     {
         var cube_pos: [8]Vec3 = undefined;
-        // TODO get rid of when we configure pipeline input types
-        const cube_uv = [_]Vec2{
-            Vec2.new(0.0, 0.0),
-            Vec2.new(1.0, 0.0),
-            Vec2.new(0.0, 1.0),
-            Vec2.new(1.0, 1.0),
-            Vec2.new(0.0, 0.0),
-            Vec2.new(1.0, 0.0),
-            Vec2.new(0.0, 1.0),
-            Vec2.new(1.0, 1.0),
-        };
         for (cube_pos) |*v, i| {
             v.* = Vec3.new(
                 @intToFloat(f32, (i << 1) & 2) - 1,
@@ -138,22 +127,20 @@ pub fn init(app: *App) !void {
 
         app.cube_verts = try Resources.createBuffer(
             .{
-                .size = @sizeOf(@TypeOf(cube_pos)) + @sizeOf(@TypeOf(cube_uv)),
+                .size = @sizeOf(@TypeOf(cube_pos)) + @sizeOf(@TypeOf(cube.uv)),
                 .usage = .Vertex,
             },
         );
-        var offset = try Renderer.updateBuffer(app.cube_verts, 0, Vec3, cube_pos[0..]);
-        offset = try Renderer.updateBuffer(app.cube_verts, offset, Vec2, cube_uv[0..]);
+        var offset = try Renderer.updateBuffer(app.cube_verts, 0, Vec3, &cube_pos);
+        offset = try Renderer.updateBuffer(app.cube_verts, offset, Vec2, &cube.uv);
 
         app.cube_inds = try Resources.createBuffer(
             .{
-                .size = @sizeOf(@TypeOf(cube_inds)),
+                .size = @sizeOf(@TypeOf(cube.indices)),
                 .usage = .Index,
             },
         );
-        _ = try Renderer.updateBuffer(app.cube_inds, 0, u32, cube_inds[0..]);
-
-        // std.log.debug("vec {d} x: {d:.2}, y: {d:.2}, z: {d:.2}", .{ i, vec.x, vec.y, vec.z });
+        _ = try Renderer.updateBuffer(app.cube_inds, 0, u32, &cube.indices);
     }
 
     std.log.info("{s}: initialized", .{App.name});
@@ -262,97 +249,8 @@ pub fn init(app: *App) !void {
         .vertex_inputs = &.{ .Vec3, .Vec2 },
         .push_const_size = @sizeOf(Mat4),
     });
-    // skybox stuff
-    // setup the texture
-    app.skybox_pass = try Resources.createRenderPass(.{
-        .clear_color = .{ 0.75, 0.49, 0.89, 1.0 },
-        .clear_depth = 1.0,
-        .clear_stencil = 1.0,
-        .clear_flags = .{ .color = true, .depth = true },
-    });
 
-    var cube_pixels: [tex_dimension * tex_dimension * 6 * channels]u8 = .{
-        // skybox order: +x, -x, +y, -y, +z, -z
-        // red
-        255, 0, 0, 255, // 0, 0
-        255, 0, 0, 255, // 0, 1
-        255, 0, 0, 255, // 1, 0
-        255, 0, 0, 255, // 1, 1
-        // cyan
-        0, 255, 255, 255, // 0, 0
-        0, 255, 255, 255, // 0, 1
-        0, 255, 255, 255, // 1, 0
-        0, 255, 255, 255, // 1, 1
-        // green
-        0, 255, 0, 255, // 0, 0
-        0, 255, 0, 255, // 0, 1
-        0, 255, 0, 255, // 1, 0
-        0, 255, 0, 255, // 1, 1
-        // magenta
-        255, 0, 255, 255, // 0, 0
-        255, 0, 255, 255, // 0, 1
-        255, 0, 255, 255, // 1, 0
-        255, 0, 255, 255, // 1, 1
-        // blue
-        0, 0, 255, 255, // 0, 0
-        0, 0, 255, 255, // 0, 1
-        0, 0, 255, 255, // 1, 0
-        0, 0, 255, 255, // 1, 1
-        // yellow
-        255, 255, 0, 255, // 0, 0
-        255, 255, 0, 255, // 0, 1
-        255, 255, 0, 255, // 1, 0
-        255, 255, 0, 255, // 1, 1
-    };
-
-    app.cubemap_texture = try Resources.createTexture(.{
-        .width = tex_dimension,
-        .height = tex_dimension,
-        .channels = channels,
-        .flags = .{},
-        .texture_type = .cubemap,
-    }, &cube_pixels);
-
-    app.cubemap_sampler = try Resources.createSampler(.{
-        // .filter = .bilinear,
-        .filter = .nearest,
-        .repeat = .wrap,
-        .compare = .greater,
-    });
-
-    app.skybox_buffer = try Resources.createBuffer(
-        .{
-            .size = 2 * @sizeOf(Mat4),
-            .usage = .Uniform,
-        },
-    );
-    const skybox_group = try Resources.createBindingGroup(&.{
-        .{ .binding_type = .Buffer },
-        .{ .binding_type = .Texture },
-        .{ .binding_type = .Sampler },
-    });
-    try Resources.updateBindings(skybox_group, &[_]Resources.BindingUpdate{
-        .{ .binding = 0, .handle = app.skybox_buffer },
-        .{ .binding = 1, .handle = app.cubemap_texture },
-        .{ .binding = 2, .handle = app.cubemap_sampler },
-    });
-
-    // // create our shader pipeline
-    app.skybox_pipeline = try Resources.createPipeline(.{
-        .stages = &.{
-            .{
-                .bindpoint = .Vertex,
-                .path = "testbed/assets/skybox.vert.spv",
-            },
-            .{
-                .bindpoint = .Fragment,
-                .path = "testbed/assets/skybox.frag.spv",
-            },
-        },
-        .binding_groups = &.{skybox_group},
-        .renderpass = app.skybox_pass,
-        .cull_mode = .front,
-    });
+    app.skybox = try Skybox.init();
 }
 
 pub fn update(app: *App, dt: f64) !void {
@@ -394,7 +292,7 @@ pub fn update(app: *App, dt: f64) !void {
     app.t.rot = app.t.rot
         .mul(Quat.fromAxisAngle(Vec3.FORWARD, mmath.util.rad(30) * @floatCast(f32, dt)))
         .mul(Quat.fromAxisAngle(Vec3.UP, mmath.util.rad(30) * @floatCast(f32, dt)));
-    app.t.pos = Vec3.new(0, 1 + 1 * @sin(@intToFloat(f32, Renderer.frame) * 0.03), 0);
+    app.t.pos = Vec3.new(0, 1 + @sin(@intToFloat(f32, Renderer.frame) * 0.03), 0);
 
     // app.t.rot = Quat.lookAt(app.camera.pos, app.t.rot.rotate(Vec3.FORWARD), Vec3{}, app.t.rot.rotate(Vec3.UP));
     // update a constant value from struct rather than entire thing?
@@ -406,37 +304,12 @@ pub fn update(app: *App, dt: f64) !void {
         .projection = app.camera.projection,
     }});
 
-    _ = try Renderer.updateBuffer(app.skybox_buffer, 0, Mat4, &[_]Mat4{
-        app.camera.projection,
-        app.camera.rot.toMat4(),
+    try app.skybox.update(.{
+        .proj = app.camera.projection,
+        .view = app.camera.view(),
+        .albedo = Vec4.new(1, 1, 1, 0.5 + (@sin(@intToFloat(f32, Renderer.frame) * 0.03) / 2.0)),
     });
 }
-
-const cube_inds = [_]u32{
-    // back face
-    1, 0, 3, //
-    3, 0, 2, //
-
-    // front face
-    4, 5, 6, //
-    5, 7, 6, //
-
-    // left face
-    2, 0, 4, //
-    4, 6, 2, //
-
-    // right face
-    5, 1, 7, //
-    7, 1, 3, //
-
-    // top face
-    2, 6, 7,
-    7, 3, 2,
-
-    // bottom face
-    4, 0, 1,
-    1, 5, 4,
-};
 
 const floor_mat = Mat4.rotate(.x, std.math.pi / 2.0)
     .mul(Mat4.scale(.{ .x = 100, .y = 100, .z = 100 }))
@@ -446,18 +319,7 @@ pub fn render(app: *App) !void {
     var cmd = Renderer.getCmdBuf();
 
     // render skybox
-    try cmd.beginRenderPass(app.skybox_pass);
-
-    try cmd.bindPipeline(app.skybox_pipeline);
-
-    try cmd.drawIndexed(.{
-        .count = cube_inds.len,
-        .vertex_handle = .{},
-        .index_handle = app.cube_inds,
-    });
-
-    try cmd.endRenderPass(app.skybox_pass);
-
+    try app.skybox.draw(&cmd);
     // then render the geometry
 
     try cmd.beginRenderPass(app.world_pass);
@@ -478,7 +340,7 @@ pub fn render(app: *App) !void {
     try cmd.pushConst(app.simple_pipeline, app.t.mat());
 
     try cmd.drawIndexed(.{
-        .count = cube_inds.len,
+        .count = cube.indices.len,
         .vertex_handle = app.cube_verts,
         .index_handle = app.cube_inds,
         .offsets = &.{ 0, 8 * @sizeOf(Vec3) },

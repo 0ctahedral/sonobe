@@ -8,8 +8,14 @@ layout(location = 0) in struct {
   vec3 uvw;
 } dto;
 
+layout (set = 0, binding = 0) uniform readonly camera_data {
+  mat4 projection;
+  mat4 view;
+  vec4 albedo;
+};
+
 layout(location = 0) out vec4 o_color;
 
 void main() {
-  o_color = texture(samplerCube(tex, samp), dto.uvw);
+  o_color = texture(samplerCube(tex, samp), dto.uvw) * albedo;
 }
