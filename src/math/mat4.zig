@@ -169,9 +169,10 @@ pub const Mat4 = struct {
         return mat;
     }
 
+    pub const Axis = enum { x, y, z };
     /// create a rotation matrix from an axis we are rotating
     /// around and the angle in radians
-    pub inline fn rotate(axis: enum { x, y, z }, angle: f32) Self {
+    pub inline fn rotate(axis: Axis, angle: f32) Self {
         // TODO: make this in degrees
         var mat = Self.identity();
 

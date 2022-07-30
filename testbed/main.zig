@@ -158,7 +158,7 @@ pub fn init(app: *App) !void {
 
     std.log.info("{s}: initialized", .{App.name});
 
-    app.t.pos = .{ .x = 0, .y = 0, .z = 0 };
+    app.t.pos = .{ .x = 0, .y = 1, .z = 0 };
     app.t.scale = .{ .x = 1, .y = 1, .z = 1 };
 
     // setup the quad
@@ -391,6 +391,11 @@ pub fn update(app: *App, dt: f64) !void {
         app.last_pos = .{};
     }
 
+    app.t.rot = app.t.rot
+        .mul(Quat.fromAxisAngle(Vec3.FORWARD, mmath.util.rad(30) * @floatCast(f32, dt)))
+        .mul(Quat.fromAxisAngle(Vec3.UP, mmath.util.rad(30) * @floatCast(f32, dt)));
+    app.t.pos = Vec3.new(0, 1 + 1 * @sin(@intToFloat(f32, Renderer.frame) * 0.03), 0);
+
     // app.t.rot = Quat.lookAt(app.camera.pos, app.t.rot.rotate(Vec3.FORWARD), Vec3{}, app.t.rot.rotate(Vec3.UP));
     // update a constant value from struct rather than entire thing?
     // this would have to be something in a struct
@@ -433,6 +438,10 @@ const cube_inds = [_]u32{
     1, 5, 4,
 };
 
+const floor_mat = Mat4.rotate(.x, std.math.pi / 2.0)
+    .mul(Mat4.scale(.{ .x = 100, .y = 100, .z = 100 }))
+    .mul(Mat4.translate(.{ .y = -1 }));
+
 pub fn render(app: *App) !void {
     var cmd = Renderer.getCmdBuf();
 
@@ -455,6 +464,17 @@ pub fn render(app: *App) !void {
 
     try cmd.bindPipeline(app.simple_pipeline);
 
+    // draw the floor
+    try cmd.pushConst(app.simple_pipeline, floor_mat);
+
+    try cmd.drawIndexed(.{
+        .count = quad_inds.len,
+        .vertex_handle = app.quad_verts,
+        .index_handle = app.quad_inds,
+        .offsets = &.{ 0, 4 * @sizeOf(Vec3) },
+    });
+
+    // draw the magic cube
     try cmd.pushConst(app.simple_pipeline, app.t.mat());
 
     try cmd.drawIndexed(.{

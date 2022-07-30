@@ -35,6 +35,8 @@ pub fn submit(cmdbuf: CmdBuf) !void {
     try submitted_cmds.push(cmdbuf);
 }
 
+/// the current frame
+pub var frame: usize = 0;
 pub fn drawFrame() !void {
     // regardless of control flow we need to reset the command buffer
     // at the end of this function
@@ -57,6 +59,7 @@ pub fn drawFrame() !void {
             try backend.submit(cmdbuf);
         }
         try backend.endFrame();
+        frame += 1;
     }
 }
 
