@@ -1,11 +1,9 @@
 const std = @import("std");
 const octal = @import("octal");
-const cube = @import("cube.zig");
-const Renderer = octal.Renderer;
-const Resources = Renderer.Resources;
+const renderer = octal.renderer;
+const resources = renderer.resources;
 
-const Handle = Renderer.Handle;
-const CmdBuf = Renderer.CmdBuf;
+const Handle = renderer.Handle;
 const mmath = octal.mmath;
 const Mat4 = mmath.Mat4;
 const Vec3 = mmath.Vec3;
@@ -35,21 +33,21 @@ group: Handle = .{},
 buffer: Handle = .{},
 
 pub fn init(self: *Self) !void {
-    self.group = try Resources.createBindingGroup(&.{
+    self.group = try resources.createBindingGroup(&.{
         .{ .binding_type = .Buffer },
     });
-    self.buffer = try Resources.createBuffer(.{
+    self.buffer = try resources.createBuffer(.{
         .size = @sizeOf(Data),
         .usage = .Uniform,
     });
-    try Resources.updateBindings(self.group, &[_]Resources.BindingUpdate{
+    try resources.updateBindings(self.group, &[_]resources.BindingUpdate{
         .{ .binding = 0, .handle = self.buffer },
     });
 }
 
 /// updates the gpu buffer of camera info
 pub fn update(self: Self) !void {
-    _ = try Renderer.updateBuffer(self.buffer, 0, Data, &[_]Data{.{
+    _ = try renderer.updateBuffer(self.buffer, 0, Data, &[_]Data{.{
         .view = self.view(),
         .proj = self.proj(),
     }});

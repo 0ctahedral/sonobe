@@ -1,11 +1,11 @@
 const std = @import("std");
 const octal = @import("octal");
-const cube = @import("cube.zig");
-const Renderer = octal.Renderer;
-const Resources = Renderer.Resources;
+const cube = octal.mesh.cube;
+const renderer = octal.renderer;
+const resources = renderer.resources;
 
-const Handle = Renderer.Handle;
-const CmdBuf = Renderer.CmdBuf;
+const Handle = renderer.Handle;
+const CmdBuf = renderer.CmdBuf;
 const Mat4 = octal.mmath.Mat4;
 const Vec4 = octal.mmath.Vec4;
 
@@ -29,7 +29,7 @@ pub fn init() !Self {
 
     // skybox stuff
     // setup the texture
-    self.pass = try Resources.createRenderPass(.{
+    self.pass = try resources.createRenderPass(.{
         .clear_color = .{ 0.75, 0.49, 0.89, 1.0 },
         .clear_depth = 1.0,
         .clear_stencil = 1.0,
@@ -72,7 +72,7 @@ pub fn init() !Self {
         255, 255, 0, 255, // 1, 1
     };
 
-    self.texture = try Resources.createTexture(.{
+    self.texture = try resources.createTexture(.{
         .width = tex_dimension,
         .height = tex_dimension,
         .channels = channels,
@@ -80,40 +80,40 @@ pub fn init() !Self {
         .texture_type = .cubemap,
     }, &pixels);
 
-    self.sampler = try Resources.createSampler(.{
+    self.sampler = try resources.createSampler(.{
         // .filter = .bilinear,
         .filter = .nearest,
         .repeat = .wrap,
         .compare = .greater,
     });
 
-    self.ind_buf = try Resources.createBuffer(
+    self.ind_buf = try resources.createBuffer(
         .{
-            .size = @sizeOf(@TypeOf(cube.indices)),
+            .size = cube.indices.len * @sizeOf(u32),
             .usage = .Index,
         },
     );
-    _ = try Renderer.updateBuffer(self.ind_buf, 0, u32, cube.indices[0..]);
+    _ = try renderer.updateBuffer(self.ind_buf, 0, u32, cube.indices);
 
-    self.uniform_buffer = try Resources.createBuffer(
+    self.uniform_buffer = try resources.createBuffer(
         .{
             .size = @sizeOf(Data),
             .usage = .Uniform,
         },
     );
-    const group = try Resources.createBindingGroup(&.{
+    const group = try resources.createBindingGroup(&.{
         .{ .binding_type = .Buffer },
         .{ .binding_type = .Texture },
         .{ .binding_type = .Sampler },
     });
-    try Resources.updateBindings(group, &[_]Resources.BindingUpdate{
+    try resources.updateBindings(group, &[_]resources.BindingUpdate{
         .{ .binding = 0, .handle = self.uniform_buffer },
         .{ .binding = 1, .handle = self.texture },
         .{ .binding = 2, .handle = self.sampler },
     });
 
     // // create our shader pipeline
-    self.pipeline = try Resources.createPipeline(.{
+    self.pipeline = try resources.createPipeline(.{
         .stages = &.{
             .{
                 .bindpoint = .Vertex,
@@ -133,7 +133,7 @@ pub fn init() !Self {
 }
 
 pub fn update(self: Self, data: Data) !void {
-    _ = try Renderer.updateBuffer(self.uniform_buffer, 0, Data, &[_]Data{data});
+    _ = try renderer.updateBuffer(self.uniform_buffer, 0, Data, &[_]Data{data});
 }
 
 pub fn draw(self: Self, cmd: *CmdBuf) !void {

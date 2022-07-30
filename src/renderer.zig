@@ -89,10 +89,10 @@ pub const BufferDesc = types.BufferDesc;
 pub const RenderPassDesc = types.RenderPassDesc;
 pub const PipelineDesc = types.PipelineDesc;
 
-pub const Resources = backend.Resources;
+pub const resources = backend.resources;
 
 /// uploades data to a buffer and returns the resulting offest in bytes
-// TODO: make this just in the Resources
+// TODO: make this just in the resources
 pub fn updateBuffer(
     handle: types.Handle,
     offset: usize,
@@ -100,7 +100,7 @@ pub fn updateBuffer(
     data: []const T,
 ) !usize {
     const size = @sizeOf(T) * data.len;
-    try backend.Resources.updateBuffer(
+    try backend.resources.updateBuffer(
         handle,
         offset,
         @ptrCast([*]const u8, data),

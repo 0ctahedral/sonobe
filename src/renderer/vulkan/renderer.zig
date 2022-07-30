@@ -23,7 +23,7 @@ const Semaphore = @import("semaphore.zig").Semaphore;
 const Mesh = @import("mesh.zig").Mesh;
 const Texture = @import("texture.zig").Texture;
 const RenderTarget = @import("render_target.zig").RenderTarget;
-pub const Resources = @import("resources.zig");
+pub const resources = @import("resources.zig");
 const mmath = @import("../../math.zig");
 const Mat4 = mmath.Mat4;
 const Vec3 = mmath.Vec3;
@@ -156,7 +156,7 @@ pub fn init(provided_allocator: Allocator, app_name: [*:0]const u8, window: Plat
     }, instance, vki, surface, allocator);
     errdefer device.deinit();
 
-    try Resources.init(device, allocator);
+    try resources.init(device, allocator);
 
     swapchain = try Swapchain.init(vki, device, surface, fb_width, fb_height, allocator);
     errdefer swapchain.deinit(device, allocator);
@@ -164,7 +164,7 @@ pub fn init(provided_allocator: Allocator, app_name: [*:0]const u8, window: Plat
     // subscribe to resize events
 
     // create a default_renderpass
-    default_renderpass = try Resources.createRenderPass(
+    default_renderpass = try resources.createRenderPass(
         .{
             .clear_flags = .{
                 .color = true,
@@ -198,7 +198,7 @@ pub fn deinit() void {
         unreachable;
     };
 
-    Resources.deinit();
+    resources.deinit();
 
     for (frames) |*f| {
         f.deinit(device);
@@ -283,7 +283,7 @@ pub fn submit(cmdbuf: CmdBuf) !void {
 }
 
 fn applyPushConst(cb: *CommandBuffer, desc: types.PushConstDesc) void {
-    const pl = Resources.getPipeline(desc.pipeline);
+    const pl = resources.getPipeline(desc.pipeline);
     device.vkd.cmdPushConstants(
         cb.handle,
         pl.layout,
@@ -295,14 +295,14 @@ fn applyPushConst(cb: *CommandBuffer, desc: types.PushConstDesc) void {
 }
 
 fn applyBindPipeline(cb: *CommandBuffer, handle: types.Handle) !void {
-    const pl = Resources.getPipeline(handle);
+    const pl = resources.getPipeline(handle);
     device.vkd.cmdBindPipeline(cb.handle, .graphics, pl.handle);
 
     var descriptor_sets: [8]vk.DescriptorSet = undefined;
-    const res = Resources.resources.get(handle.resource).Pipeline;
+    const res = resources.resources.get(handle.resource).Pipeline;
     var i: usize = 0;
     while (i < res.n_bind_groups) : (i += 1) {
-        const bg = Resources.getBindGroup(res.bind_groups[i]);
+        const bg = resources.getBindGroup(res.bind_groups[i]);
         descriptor_sets[i] = bg.sets[getCurrentFrame().index];
     }
 
@@ -341,7 +341,7 @@ fn applyBeginRenderPass(cb: *CommandBuffer, handle: types.Handle) void {
 
     device.vkd.cmdSetScissor(cb.handle, 0, 1, @ptrCast([*]const vk.Rect2D, &scissor));
 
-    Resources.getRenderPass(handle).begin(device, cb, swapchain_render_targets[image_index].framebuffer, .{ .offset = .{ .x = 0, .y = 0 }, .extent = .{
+    resources.getRenderPass(handle).begin(device, cb, swapchain_render_targets[image_index].framebuffer, .{ .offset = .{ .x = 0, .y = 0 }, .extent = .{
         .width = fb_width,
         .height = fb_height,
     } });
@@ -349,7 +349,7 @@ fn applyBeginRenderPass(cb: *CommandBuffer, handle: types.Handle) void {
 
 fn applyEndRenderPass(cb: *CommandBuffer, handle: types.Handle) void {
     _ = handle;
-    Resources.getRenderPass(handle).end(device, cb);
+    resources.getRenderPass(handle).end(device, cb);
 }
 
 fn applyDrawIndexed(cb: *CommandBuffer, desc: types.DrawIndexedDesc) void {
@@ -361,7 +361,7 @@ fn applyDrawIndexed(cb: *CommandBuffer, desc: types.DrawIndexedDesc) void {
             var i: usize = 0;
             while (i < n_attr) : (i += 1) {
                 offsets[i] = desc.offsets[i];
-                buffers[i] = Resources.getBuffer(desc.vertex_handle).handle;
+                buffers[i] = resources.getBuffer(desc.vertex_handle).handle;
             }
         }
         device.vkd.cmdBindVertexBuffers(
@@ -374,7 +374,7 @@ fn applyDrawIndexed(cb: *CommandBuffer, desc: types.DrawIndexedDesc) void {
     }
     device.vkd.cmdBindIndexBuffer(
         cb.handle,
-        Resources.getBuffer(desc.index_handle).handle,
+        resources.getBuffer(desc.index_handle).handle,
         0,
         .uint32,
     );
@@ -443,7 +443,7 @@ pub fn recreateRenderTargets() !void {
 
         try swapchain_render_targets[i].init(
             device,
-            Resources.getRenderPass(default_renderpass).handle,
+            resources.getRenderPass(default_renderpass).handle,
             attachments[0..],
             fb_width,
             fb_height,
