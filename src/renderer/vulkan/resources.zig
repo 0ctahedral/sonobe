@@ -240,15 +240,49 @@ pub fn createPipeline(desc: types.PipelineDesc) !Handle {
     const handle_idx = try resources.allocIndex();
     const pl_idx = try pipelines.allocIndex();
 
-    // TODO: bounds check
     var dsl: [16]vk.DescriptorSetLayout = undefined;
+    if (desc.binding_groups.len > dsl.len) {
+        return error.TooManyBindGroups;
+    }
     for (desc.binding_groups) |bgh, i| {
         dsl[i] = getBindGroup(bgh).layout;
     }
 
-    // create the bindings and attrs
-    const bindings = if (desc.inputs.len > 0) &Mesh.info.bindings else &[_]vk.VertexInputBindingDescription{};
-    const attrs = if (desc.inputs.len > 0) &Mesh.info.attrs else &[_]vk.VertexInputAttributeDescription{};
+    var input_bindings: [16]vk.VertexInputBindingDescription = undefined;
+    var input_attrs: [16]vk.VertexInputAttributeDescription = undefined;
+    if (desc.vertex_inputs.len > input_bindings.len) {
+        return error.TooManyVertexInputs;
+    }
+
+    for (desc.vertex_inputs) |it, i| {
+        input_bindings[i] = .{
+            .binding = @intCast(u32, i),
+            .stride = switch (it) {
+                .Vec3 => @sizeOf(f32) * 3,
+                .Vec2 => @sizeOf(f32) * 2,
+                .f32 => @sizeOf(f32),
+                .u8 => @sizeOf(u8),
+                .u16 => @sizeOf(u16),
+                .u32 => @sizeOf(u32),
+                .u64 => @sizeOf(u64),
+            },
+            .input_rate = .vertex,
+        };
+        input_attrs[i] = .{
+            .binding = @intCast(u32, i),
+            .location = @intCast(u32, i),
+            .format = switch (it) {
+                .Vec3 => .r32g32b32_sfloat,
+                .Vec2 => .r32g32_sfloat,
+                .f32 => .r32_sfloat,
+                .u8 => .r8_uint,
+                .u16 => .r16_uint,
+                .u32 => .r32_uint,
+                .u64 => .r64_uint,
+            },
+            .offset = 0,
+        };
+    }
 
     pipelines.set(pl_idx, try Pipeline.init(
         device,
@@ -257,8 +291,8 @@ pub fn createPipeline(desc: types.PipelineDesc) !Handle {
         dsl[0..desc.binding_groups.len],
         &[_]vk.PushConstantRange{},
         desc.wireframe,
-        bindings,
-        attrs,
+        input_bindings[0..desc.vertex_inputs.len],
+        input_attrs[0..desc.vertex_inputs.len],
         allocator,
     ));
 
@@ -301,7 +335,7 @@ pub fn createRenderPass(desc: types.RenderPassDesc) !Handle {
 /// creates a binding group for a pipeline
 pub fn createBindingGroup(binds: []const types.BindingDesc) !Handle {
     // create layout bindings in place
-    var bindings: [32]vk.DescriptorSetLayoutBinding = undefined;
+    var bindings: [16]vk.DescriptorSetLayoutBinding = undefined;
     if (binds.len > bindings.len) return error.TooManyBindings;
 
     const handle_idx = try resources.allocIndex();

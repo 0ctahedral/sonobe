@@ -271,7 +271,7 @@ pub fn submit(cmdbuf: CmdBuf) !void {
     var i: usize = 0;
     while (i < cmdbuf.idx) : (i += 1) {
         switch (cmdbuf.commands[i]) {
-            .Draw => |desc| applyDraw(cb, desc),
+            .DrawIndexed => |desc| applyDrawIndexed(cb, desc),
             .BeginRenderPass => |handle| applyBeginRenderPass(cb, handle),
             .EndRenderPass => |handle| applyEndRenderPass(cb, handle),
             .BindPipeline => |handle| try applyBindPipeline(cb, handle),
@@ -339,19 +339,26 @@ fn applyEndRenderPass(cb: *CommandBuffer, handle: types.Handle) void {
     Resources.getRenderPass(handle).end(device, cb);
 }
 
-fn applyDraw(cb: *CommandBuffer, desc: types.DrawDesc) void {
-    const offsets = [_]vk.DeviceSize{ 0, 4 * @sizeOf(Vec3) };
-    const buffers = [_]vk.Buffer{
-        Resources.getBuffer(desc.vertex_handle).handle,
-        Resources.getBuffer(desc.vertex_handle).handle,
-    };
-    device.vkd.cmdBindVertexBuffers(
-        cb.handle,
-        0,
-        2,
-        @ptrCast([*]const vk.Buffer, buffers[0..]),
-        offsets[0..],
-    );
+fn applyDrawIndexed(cb: *CommandBuffer, desc: types.DrawIndexedDesc) void {
+    const n_attr = @intCast(u32, @minimum(16, desc.offsets.len));
+    var offsets = [_]vk.DeviceSize{0} ** 16;
+    var buffers = [_]vk.Buffer{.null_handle} ** 16;
+    if (n_attr > 0) {
+        {
+            var i: usize = 0;
+            while (i < n_attr) : (i += 1) {
+                offsets[i] = desc.offsets[i];
+                buffers[i] = Resources.getBuffer(desc.vertex_handle).handle;
+            }
+        }
+        device.vkd.cmdBindVertexBuffers(
+            cb.handle,
+            0,
+            n_attr,
+            @ptrCast([*]const vk.Buffer, buffers[0..]),
+            offsets[0..],
+        );
+    }
     device.vkd.cmdBindIndexBuffer(
         cb.handle,
         Resources.getBuffer(desc.index_handle).handle,

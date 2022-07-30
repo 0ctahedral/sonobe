@@ -260,7 +260,7 @@ pub fn init(app: *App) !void {
         .binding_groups = &.{ app.camera_group, app.material_group },
         .renderpass = app.world_pass,
         .cull_mode = .none,
-        .inputs = &.{ .Vec3, .Vec2 },
+        .vertex_inputs = &.{ .Vec3, .Vec2 },
     });
     // skybox stuff
     // setup the texture
@@ -444,7 +444,7 @@ pub fn render(app: *App) !void {
 
     try cmd.drawIndexed(.{
         .count = cube_inds.len,
-        .vertex_handle = app.cube_verts,
+        .vertex_handle = .{},
         .index_handle = app.cube_inds,
     });
 
@@ -457,12 +457,10 @@ pub fn render(app: *App) !void {
     try cmd.bindPipeline(app.simple_pipeline);
 
     try cmd.drawIndexed(.{
-        // .count = 6,
-        // .vertex_handle = app.quad_verts,
-        // .index_handle = app.quad_inds,
         .count = cube_inds.len,
         .vertex_handle = app.cube_verts,
         .index_handle = app.cube_inds,
+        .offsets = &.{ 0, 8 * @sizeOf(Vec3) },
     });
 
     try cmd.endRenderPass(app.world_pass);

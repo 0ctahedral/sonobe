@@ -4,7 +4,7 @@ const types = @import("rendertypes.zig");
 const CmdBuf = @This();
 /// Commands that are submitted with a command buffer
 const Command = enum {
-    Draw,
+    DrawIndexed,
     BeginRenderPass,
     EndRenderPass,
     BindPipeline,
@@ -12,7 +12,7 @@ const Command = enum {
 
 /// Desc that stores all the data related to the command
 const CommandDecl = union(Command) {
-    Draw: types.DrawDesc,
+    DrawIndexed: types.DrawIndexedDesc,
     BeginRenderPass: types.Handle,
     EndRenderPass: types.Handle,
     BindPipeline: types.Handle,
@@ -39,9 +39,9 @@ inline fn getNextIdx(self: *CmdBuf) !usize {
 }
 
 /// draw geometry specified with some kind of indirection
-pub fn drawIndexed(self: *CmdBuf, descinfo: types.DrawDesc) !void {
+pub fn drawIndexed(self: *CmdBuf, descinfo: types.DrawIndexedDesc) !void {
     const idx = try self.getNextIdx();
-    self.commands[idx] = .{ .Draw = descinfo };
+    self.commands[idx] = .{ .DrawIndexed = descinfo };
 }
 
 /// begin a renderpass by description

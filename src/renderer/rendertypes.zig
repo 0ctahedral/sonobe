@@ -7,11 +7,14 @@ pub const Handle = struct {
 
 /// data for a draw call
 /// right now it can only be indexed
-pub const DrawDesc = struct {
+pub const DrawIndexedDesc = struct {
     /// number of indices to draw
     count: u32,
     /// handle for the buffer we are drawing from
-    vertex_handle: Handle,
+    vertex_handle: Handle = .{},
+    /// offsets into the vertex buffer for different attributes
+    offsets: []const u64 = &.{},
+    /// handle for the index buffer we are drawing from
     index_handle: Handle,
 };
 
@@ -150,5 +153,5 @@ pub const PipelineDesc = struct {
 
     wireframe: bool = false,
 
-    inputs: []const InputType = &.{},
+    vertex_inputs: []const InputType = &.{},
 };
