@@ -7,34 +7,17 @@ const Renderer = @import("renderer.zig");
 const Events = @import("events.zig");
 const Input = @import("input.zig");
 
-// TODO: comptime assert that app has everything we need
+var app: App = .{};
+var window: Platform.Window = .{};
+fn onResize(ev: Events.Event) bool {
+    const rs = ev.WindowResize;
+    app.onResize(rs.w, rs.h);
+    return true;
+}
 
-pub fn main() !void {
-    // initialize the event system
-    Events.init();
-    defer Events.deinit();
-
-    try Input.init();
-    defer Input.deinit();
-
-    // open the window
-    try Platform.init();
-    defer Platform.deinit();
-    errdefer Platform.deinit();
-
-    const window = try Platform.createWindow(App.name, 800, 600);
-    var buf: [80]u8 = undefined;
-
+fn loop() !void {
     var last_fps_time: u64 = 0;
-
-    //// setup renderer
-    const allocator = std.testing.allocator;
-    try Renderer.init(allocator, App.name, window);
-    defer Renderer.deinit();
-
-    var app: App = .{};
-    try app.init();
-    defer app.deinit();
+    var buf: [80]u8 = undefined;
 
     while (Platform.is_running) {
         Platform.startFrame();
@@ -65,4 +48,35 @@ pub fn main() !void {
         // end frame
         Platform.endFrame();
     }
+}
+
+pub fn main() !void {
+    // initialize the event system
+    Events.init();
+    defer Events.deinit();
+
+    try Input.init();
+    defer Input.deinit();
+
+    // open the window
+    try Platform.init();
+    defer Platform.deinit();
+    errdefer Platform.deinit();
+
+    window = try Platform.createWindow(App.name, 800, 600);
+
+    //// setup renderer
+    const allocator = std.testing.allocator;
+    try Renderer.init(allocator, App.name, window);
+    defer Renderer.deinit();
+
+    try app.init();
+    defer app.deinit();
+
+    if (@hasDecl(App, "onResize")) {
+        std.log.info("app has resize", .{});
+        try Events.register(Events.EventType.WindowResize, onResize);
+    }
+
+    try loop();
 }

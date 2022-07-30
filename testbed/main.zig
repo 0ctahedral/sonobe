@@ -54,7 +54,9 @@ quad_inds: Renderer.Handle = .{},
 
 world_pass: Renderer.Handle = .{},
 
-camera: Camera = .{},
+camera: Camera = .{
+    .pos = .{ .y = 2, .z = 5 },
+},
 
 material_group: Renderer.Handle = .{},
 material_buffer: Renderer.Handle = .{},
@@ -71,6 +73,7 @@ last_pos: Vec2 = .{},
 
 skybox: Skybox = .{},
 
+camera_move_speed: f32 = 5.0,
 pub fn init(app: *App) !void {
 
     // vertex and uv for cube
@@ -101,6 +104,8 @@ pub fn init(app: *App) !void {
         );
         _ = try Renderer.updateBuffer(app.cube_inds, 0, u32, &cube.indices);
     }
+    app.t.pos = .{ .x = 0, .y = 1, .z = 0 };
+    app.t.scale = .{ .x = 1, .y = 1, .z = 1 };
 
     // setup the quad
 
@@ -121,11 +126,8 @@ pub fn init(app: *App) !void {
     );
     _ = try Renderer.updateBuffer(app.quad_inds, 0, u32, quad_inds[0..]);
 
-    // setup ther camera
-
-    app.camera = try Camera.init();
-    app.t.pos = .{ .x = 0, .y = 1, .z = 0 };
-    app.t.scale = .{ .x = 1, .y = 1, .z = 1 };
+    // setup the camera
+    try app.camera.init();
 
     // setup the material
     app.material_group = try Resources.createBindingGroup(&.{
@@ -222,9 +224,18 @@ pub fn update(app: *App, dt: f64) !void {
         input = input.add(Vec3.DOWN);
     }
 
+    if (Input.keyIs(.v, .press)) {
+        app.camera.fov += 10;
+        std.log.debug("fov changed to: {d:.2}", .{app.camera.fov});
+    }
+    if (Input.keyIs(.c, .press)) {
+        app.camera.fov -= 10;
+        std.log.debug("fov changed to: {d:.2}", .{app.camera.fov});
+    }
+
     const mag = input.len();
     if (mag > 0.0) {
-        app.camera.pos = app.camera.pos.add(input.scale(app.camera.move_speed * @floatCast(f32, dt) / mag));
+        app.camera.pos = app.camera.pos.add(input.scale(app.camera_move_speed * @floatCast(f32, dt) / mag));
     }
 
     const left = Input.getMouse().getButton(.left);
@@ -244,7 +255,7 @@ pub fn update(app: *App, dt: f64) !void {
     app.t.pos = Vec3.new(0, 1 + @sin(@intToFloat(f32, Renderer.frame) * 0.03), 0);
 
     try app.skybox.update(.{
-        .proj = app.camera.proj(800.0 / 600.0),
+        .proj = app.camera.proj(),
         .view = app.camera.view(),
         .albedo = Vec4.new(1, 1, 1, 0.5 + (@sin(@intToFloat(f32, Renderer.frame) * 0.03) / 2.0)),
     });
@@ -293,4 +304,8 @@ pub fn render(app: *App) !void {
 pub fn deinit(app: *App) void {
     _ = app;
     std.log.info("{s}: deinitialized", .{App.name});
+}
+
+pub fn onResize(app: *App, w: u16, h: u16) void {
+    app.camera.aspect = @intToFloat(f32, w) / @intToFloat(f32, h);
 }

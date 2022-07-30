@@ -15,46 +15,43 @@ const Quat = mmath.Quat;
 const Self = @This();
 // camera settings
 pub const Data = struct {
-    projection: Mat4,
+    proj: Mat4,
     view: Mat4,
 };
 
-pos: Vec3 = .{ .y = 2, .z = 5 },
-rot: Quat = Quat.fromAxisAngle(Vec3.UP, 0),
+pos: Vec3 = .{},
+rot: Quat = .{},
 near: f32 = 0.1,
 far: f32 = 1000,
-fov: f32 = mmath.util.rad(70),
 
-move_speed: f32 = 5.0,
+// horizontal fov in degrees
+fov: f32 = 85,
+aspect: f32 = 800.0 / 600.0,
+
 drag_scale: f32 = (-1 / 400.0),
 
-group: Renderer.Handle = .{},
+group: Handle = .{},
 /// the buffer with data about this camera
-buffer: Renderer.Handle = .{},
+buffer: Handle = .{},
 
-pub fn init() !Self {
-    var self = Self{};
-
+pub fn init(self: *Self) !void {
     self.group = try Resources.createBindingGroup(&.{
         .{ .binding_type = .Buffer },
     });
-    self.buffer = try Resources.createBuffer(
-        .{
-            .size = @sizeOf(Data),
-            .usage = .Uniform,
-        },
-    );
+    self.buffer = try Resources.createBuffer(.{
+        .size = @sizeOf(Data),
+        .usage = .Uniform,
+    });
     try Resources.updateBindings(self.group, &[_]Resources.BindingUpdate{
         .{ .binding = 0, .handle = self.buffer },
     });
-    return self;
 }
 
 /// updates the gpu buffer of camera info
 pub fn update(self: Self) !void {
     _ = try Renderer.updateBuffer(self.buffer, 0, Data, &[_]Data{.{
         .view = self.view(),
-        .projection = self.proj(800.0 / 600.0),
+        .proj = self.proj(),
     }});
 }
 /// compute the view matrix for the camera
@@ -64,8 +61,10 @@ pub fn view(self: Self) Mat4 {
 }
 
 /// projection matrix for this camera
-pub fn proj(self: Self, aspect: f32) Mat4 {
-    return Mat4.perspective(self.fov, aspect, self.near, self.far);
+pub fn proj(self: Self) Mat4 {
+    const half_hor_fov = std.math.tan(mmath.util.rad(self.fov) * 0.5);
+    const y_fov = std.math.atan(half_hor_fov / self.aspect) * 2.0;
+    return Mat4.perspective(y_fov, self.aspect, self.near, self.far);
 }
 
 /// change the camera rotation based on a pitch and yaw vector
