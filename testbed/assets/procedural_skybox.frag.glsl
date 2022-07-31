@@ -17,6 +17,20 @@ layout (set = 0, binding = 0) uniform readonly camera_data {
 
 layout(location = 0) out vec4 o_color;
 
+#define pi 3.14159265359
+#define tau 6.28318530718
+
 void main() {
-  o_color = texture(samplerCube(cube, samp), dto.pos);
+
+  vec3 pos = normalize(dto.pos);
+  vec2 new_uv = vec2(atan(pos.x, pos.y)/tau, asin(pos.z)/(pi/2));
+
+  // cube map sampling
+  //o_color = texture(samplerCube(cube, samp), dto.pos);
+  // square uv sampling
+  //o_color = texture(sampler2D(tex, samp), new_uv);
+
+
+  o_color = mix(horizon_color, sky_color, new_uv.y + 0.5);
+  // o_color = vec4(new_uv, 0, 1.0);
 }

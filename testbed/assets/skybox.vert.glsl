@@ -16,6 +16,7 @@ layout(location = 0) out struct {
 void main() {
   int i = gl_VertexIndex;
   vec3 pos = vec3(((i << 1) & 2), (i & 2), ((i >> 1) & 2)) - vec3(1);
+
   out_dto.pos = pos;
   gl_Position = projection * mat4(mat3(view)) * vec4(pos, 1.0);
 }

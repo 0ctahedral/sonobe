@@ -213,11 +213,11 @@ pub fn update(app: *App, dt: f64) !void {
     const mag = ivec.len();
     if (mag > 0.0) {
         app.camera.pos = app.camera.pos.add(ivec.scale(app.camera_move_speed * @floatCast(f32, dt) / mag));
-        std.log.debug("x: {d:.2} y: {d:.2} z: {d:.2}", .{
-            app.camera.pos.x,
-            app.camera.pos.y,
-            app.camera.pos.z,
-        });
+        //std.log.debug("x: {d:.2} y: {d:.2} z: {d:.2}", .{
+        //    app.camera.pos.x,
+        //    app.camera.pos.y,
+        //    app.camera.pos.z
+        //});
     }
 
     const left = input.getMouse().getButton(.left);

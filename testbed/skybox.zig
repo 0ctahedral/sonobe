@@ -21,7 +21,13 @@ ind_buf: Handle = .{},
 pub const Data = struct {
     proj: Mat4,
     view: Mat4,
-    albedo: Vec4 = Vec4.new(1, 1, 1, 1),
+    sky_color: Vec4 = Vec4.new(0.75, 0.49, 0.89, 1),
+    horizon_color: Vec4 = Vec4.new(
+        141.0 / 255.0,
+        194.0 / 255.0,
+        247.0 / 255.0,
+        1,
+    ),
 };
 
 pub fn init() !Self {
@@ -121,7 +127,8 @@ pub fn init() !Self {
             },
             .{
                 .bindpoint = .Fragment,
-                .path = "testbed/assets/skybox.frag.spv",
+                //.path = "testbed/assets/skybox.frag.spv",
+                .path = "testbed/assets/procedural_skybox.frag.spv",
             },
         },
         .binding_groups = &.{group},
