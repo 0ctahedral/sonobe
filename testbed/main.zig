@@ -176,7 +176,7 @@ pub fn init(app: *App) !void {
         .push_const_size = @sizeOf(Mat4),
     });
 
-    app.skybox = try Skybox.init();
+    app.skybox = try Skybox.init(app.camera);
 }
 
 pub fn update(app: *App, dt: f64) !void {
@@ -235,12 +235,6 @@ pub fn update(app: *App, dt: f64) !void {
         .mul(Quat.fromAxisAngle(Vec3.FORWARD, mmath.util.rad(30) * @floatCast(f32, dt)))
         .mul(Quat.fromAxisAngle(Vec3.UP, mmath.util.rad(30) * @floatCast(f32, dt)));
     app.t.pos = Vec3.UP.scale(1 + @sin(@intToFloat(f32, renderer.frame) * 0.03));
-
-    try app.skybox.update(.{
-        .proj = app.camera.proj(),
-        .view = app.camera.view(),
-        // .albedo = Vec4.new(1, 1, 1, 0.5 + (@sin(@intToFloat(f32, renderer.frame) * 0.03) / 2.0)),
-    });
 }
 
 const floor_mat = Mat4.scale(.{ .x = 100, .y = 100, .z = 100 })

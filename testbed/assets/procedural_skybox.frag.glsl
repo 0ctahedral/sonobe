@@ -9,8 +9,6 @@ layout(location = 0) in struct {
 } dto;
 
 layout (set = 0, binding = 0) uniform readonly camera_data {
-  mat4 projection;
-  mat4 view;
   vec4 sky_color;
   vec4 horizon_color;
 };

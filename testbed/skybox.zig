@@ -8,24 +8,24 @@ const Handle = renderer.Handle;
 const CmdBuf = renderer.CmdBuf;
 const Mat4 = octal.mmath.Mat4;
 const Vec4 = octal.mmath.Vec4;
+const Camera = @import("camera.zig");
 
 const Self = @This();
 
 pass: Handle = .{},
 pipeline: Handle = .{},
 uniform_buffer: Handle = .{},
+data: Data = .{},
 texture: Handle = .{},
 sampler: Handle = .{},
 ind_buf: Handle = .{},
 
 pub const Data = struct {
-    proj: Mat4,
-    view: Mat4,
     sky_color: Vec4 = octal.color.hexToVec4(0xbe7ce2ff),
     horizon_color: Vec4 = octal.color.hexToVec4(0x8dc2f7ff),
 };
 
-pub fn init() !Self {
+pub fn init(camera: Camera) !Self {
     var self = Self{};
 
     // skybox stuff
@@ -82,7 +82,6 @@ pub fn init() !Self {
     }, &pixels);
 
     self.sampler = try resources.createSampler(.{
-        // .filter = .bilinear,
         .filter = .nearest,
         .repeat = .wrap,
         .compare = .greater,
@@ -102,6 +101,8 @@ pub fn init() !Self {
             .usage = .Uniform,
         },
     );
+    _ = try renderer.updateBuffer(self.uniform_buffer, 0, Data, &[_]Data{self.data});
+
     const group = try resources.createBindingGroup(&.{
         .{ .binding_type = .Buffer },
         .{ .binding_type = .Texture },
@@ -122,11 +123,12 @@ pub fn init() !Self {
             },
             .{
                 .bindpoint = .Fragment,
-                //.path = "testbed/assets/skybox.frag.spv",
-                .path = "testbed/assets/procedural_skybox.frag.spv",
+                .path = "testbed/assets/skybox.frag.spv",
+                // .path = "testbed/assets/procedural_skybox.frag.spv",
             },
         },
-        .binding_groups = &.{group},
+        // todo: add camera?
+        .binding_groups = &.{ group, camera.group },
         .renderpass = self.pass,
         .cull_mode = .front,
     });
@@ -134,8 +136,8 @@ pub fn init() !Self {
     return self;
 }
 
-pub fn update(self: Self, data: Data) !void {
-    _ = try renderer.updateBuffer(self.uniform_buffer, 0, Data, &[_]Data{data});
+pub fn update(self: Self) !void {
+    _ = try renderer.updateBuffer(self.uniform_buffer, 0, Data, &[_]Data{self.data});
 }
 
 pub fn draw(self: Self, cmd: *CmdBuf) !void {
