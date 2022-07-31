@@ -42,7 +42,7 @@ quad_inds: renderer.Handle = .{},
 world_pass: renderer.Handle = .{},
 
 camera: Camera = .{
-    .pos = .{ .y = 2, .z = 5 },
+    .pos = .{ .y = -10, .z = 5 },
 },
 
 material_group: renderer.Handle = .{},
@@ -212,6 +212,11 @@ pub fn update(app: *App, dt: f64) !void {
     const mag = ivec.len();
     if (mag > 0.0) {
         app.camera.pos = app.camera.pos.add(ivec.scale(app.camera_move_speed * @floatCast(f32, dt) / mag));
+        std.log.debug("x: {d:.2} y: {d:.2} z: {d:.2}", .{
+            app.camera.pos.x,
+            app.camera.pos.y,
+            app.camera.pos.z,
+        });
     }
 
     const left = input.getMouse().getButton(.left);
@@ -228,7 +233,7 @@ pub fn update(app: *App, dt: f64) !void {
     app.t.rot = app.t.rot
         .mul(Quat.fromAxisAngle(Vec3.FORWARD, mmath.util.rad(30) * @floatCast(f32, dt)))
         .mul(Quat.fromAxisAngle(Vec3.UP, mmath.util.rad(30) * @floatCast(f32, dt)));
-    app.t.pos = Vec3.new(0, 1 + @sin(@intToFloat(f32, renderer.frame) * 0.03), 0);
+    app.t.pos = Vec3.UP.scale(1 + @sin(@intToFloat(f32, renderer.frame) * 0.03));
 
     try app.skybox.update(.{
         .proj = app.camera.proj(),
@@ -237,8 +242,7 @@ pub fn update(app: *App, dt: f64) !void {
     });
 }
 
-const floor_mat = Mat4.rotate(.x, -std.math.pi / 2.0)
-    .mul(Mat4.scale(.{ .x = 100, .y = 100, .z = 100 }))
+const floor_mat = Mat4.scale(.{ .x = 100, .y = 100, .z = 100 })
     .mul(Mat4.translate(.{ .y = -1 }));
 
 pub fn render(app: *App) !void {

@@ -322,9 +322,9 @@ fn applyBeginRenderPass(cb: *CommandBuffer, handle: types.Handle) void {
     // set the viewport
     const viewport = vk.Viewport{
         .x = 0,
-        .y = @intToFloat(f32, fb_height),
+        .y = 0,
         .width = @intToFloat(f32, fb_width),
-        .height = -@intToFloat(f32, fb_height),
+        .height = @intToFloat(f32, fb_height),
         .min_depth = 0,
         .max_depth = 1,
     };

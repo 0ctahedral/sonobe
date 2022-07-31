@@ -17,6 +17,6 @@ layout (set = 0, binding = 0) uniform readonly camera_data {
 layout(location = 0) out vec4 o_color;
 
 void main() {
-  float a = smoothstep(-0.1, 0, dto.pos.y);
+  float a = smoothstep(-0.1, 0, dto.pos.z);
   o_color = texture(samplerCube(tex, samp), dto.pos) * vec4(albedo.rgb, a);
 }

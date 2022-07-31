@@ -55,7 +55,19 @@ pub fn update(self: Self) !void {
 /// compute the view matrix for the camera
 pub fn view(self: Self) Mat4 {
     var ret = self.rot.toMat4();
-    return ret.mul(Mat4.translate(self.pos)).inv();
+    const x = Mat4{
+        .m = .{
+            // ix, iy, iz, iw
+            .{ 1, 0, 0, 0 },
+            // jx, iy, iz, iw
+            .{ 0, 0, -1, 0 },
+            // kx, ky, kz, kw
+            .{ 0, -1, 0, 0 },
+            // tx, ty, tz, tw
+            .{ 0, 0, 0, 1 },
+        },
+    };
+    return ret.mul(Mat4.translate(self.pos)).inv().mul(x);
 }
 
 /// projection matrix for this camera
