@@ -92,8 +92,10 @@ pub fn init(provided_allocator: Allocator, app_name: [*:0]const u8, window: Plat
     // load the base dispatch functions
     vkb = try BaseDispatch.load(vk_proc);
 
-    fb_width = 800;
-    fb_height = 600;
+    const size = try Platform.getWindowSize(window);
+
+    fb_width = @as(usize, size.w);
+    fb_height = @as(usize, size.h);
 
     const app_info = vk.ApplicationInfo{
         .p_application_name = app_name,

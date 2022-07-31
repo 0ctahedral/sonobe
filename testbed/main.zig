@@ -104,6 +104,7 @@ pub fn init(app: *App) !void {
 
     // setup the camera
     try app.camera.init();
+    app.camera.aspect = @intToFloat(f32, renderer.w) / @intToFloat(f32, renderer.h);
 
     // setup the material
     app.material_group = try resources.createBindingGroup(&.{

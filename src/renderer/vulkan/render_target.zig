@@ -15,6 +15,9 @@ pub const RenderTarget = struct {
     // frambuffer?
     framebuffer: vk.Framebuffer,
 
+    width: u32,
+    height: u32,
+
     const Self = @This();
 
     pub fn init(
@@ -37,6 +40,9 @@ pub const RenderTarget = struct {
             self.attachments[i] = a;
             attachments_views[i] = a.image.view;
         }
+
+        self.width = width;
+        self.height = height;
 
         // create the framebuffer
         self.framebuffer = try device.vkd.createFramebuffer(device.logical, &.{

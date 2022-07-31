@@ -114,6 +114,10 @@ pub fn setWindowTitle(win: Window, title: []const u8) !void {
     return backend.setWindowTitle(win, title);
 }
 
+pub fn getWindowSize(win: Window) !Window.Size {
+    return backend.getWindowSize(win);
+}
+
 /// starts a frame: used for tracking delta time and stuff
 pub fn startFrame() void {
     curr_time = timer.read();

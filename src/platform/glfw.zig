@@ -46,6 +46,12 @@ pub fn setWindowTitle(win: Window, title: []const u8) !void {
     try window.setTitle(@ptrCast([*:0]const u8, title.ptr));
 }
 
+pub fn getWindowSize(win: Window) !Window.Size {
+    const window = window_store[@enumToInt(win.handle)];
+    const size = try window.getSize();
+    return Window.Size{ .w = size.width, .h = size.height };
+}
+
 fn getWindowIndex(window: glfw.Window) ?u32 {
     var iter = windows.iter();
     while (iter.next()) |wd| {

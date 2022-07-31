@@ -17,6 +17,9 @@ pub const CmdBuf = @import("renderer/cmdbuf.zig");
 pub fn init(_allocator: Allocator, app_name: [*:0]const u8, window: Platform.Window) !void {
     try backend.init(_allocator, app_name, window);
 
+    const size = try Platform.getWindowSize(window);
+    w = size.w;
+    h = size.h;
     // register for resize event
     try Events.register(Events.EventType.WindowResize, onResize);
 
@@ -69,14 +72,14 @@ pub fn deinit() void {
 
 // State for resizing
 var frames_since_resize: usize = 0;
-var w: u16 = 800;
-var h: u16 = 600;
+pub var w: u32 = 800;
+pub var h: u32 = 600;
 var resizing = false;
 
 pub fn onResize(ev: Events.Event) bool {
     frames_since_resize = 0;
-    w = ev.WindowResize.w;
-    h = ev.WindowResize.h;
+    w = @as(u32, ev.WindowResize.w);
+    h = @as(u32, ev.WindowResize.h);
     resizing = true;
 
     // other systems might need this event

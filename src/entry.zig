@@ -63,7 +63,7 @@ pub fn main() !void {
     defer Platform.deinit();
     errdefer Platform.deinit();
 
-    window = try Platform.createWindow(App.name, 800, 600);
+    window = try Platform.createWindow(App.name, 1920, 1080);
 
     //// setup renderer
     const allocator = std.testing.allocator;
