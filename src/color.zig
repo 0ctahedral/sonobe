@@ -1,5 +1,7 @@
 const std = @import("std");
-const Vec4 = @import("./math.zig").Vec4;
+const math = @import("./math.zig");
+const Vec4 = math.Vec4;
+const Vec3 = math.Vec3;
 
 pub fn hexToVec4(hex: u32) Vec4 {
     const r: u8 = @truncate(u8, hex >> 24);
@@ -12,6 +14,18 @@ pub fn hexToVec4(hex: u32) Vec4 {
         @intToFloat(f32, g) / 255.0,
         @intToFloat(f32, b) / 255.0,
         @intToFloat(f32, a) / 255.0,
+    );
+}
+
+pub fn hexToVec3(hex: u24) Vec3 {
+    const r: u8 = @truncate(u8, hex >> 16);
+    const g: u8 = @truncate(u8, hex >> 8);
+    const b: u8 = @truncate(u8, hex);
+
+    return Vec3.new(
+        @intToFloat(f32, r) / 255.0,
+        @intToFloat(f32, g) / 255.0,
+        @intToFloat(f32, b) / 255.0,
     );
 }
 

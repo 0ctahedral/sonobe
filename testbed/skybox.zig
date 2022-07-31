@@ -7,7 +7,7 @@ const resources = renderer.resources;
 const Handle = renderer.Handle;
 const CmdBuf = renderer.CmdBuf;
 const Mat4 = octal.mmath.Mat4;
-const Vec4 = octal.mmath.Vec4;
+const Vec3 = octal.mmath.Vec3;
 const Camera = @import("camera.zig");
 
 const Self = @This();
@@ -21,17 +21,22 @@ sampler: Handle = .{},
 ind_buf: Handle = .{},
 
 pub const Data = struct {
-    sky_color: Vec4 = octal.color.hexToVec4(0xbe7ce2ff),
-    horizon_color: Vec4 = octal.color.hexToVec4(0x8dc2f7ff),
+    // sky_color: Vec3 = octal.color.hexToVec3(0xbe7ce2),
+    sky_color: Vec3 = octal.color.hexToVec3(0x2c0d7a),
+    star_density: f32 = 10.0,
+    horizon_color: Vec3 = octal.color.hexToVec3(0x8dc2f7),
+    star_radius: f32 = 0.05,
+    sun_dir: Vec3 = .{ .y = 1 },
 };
 
-pub fn init(camera: Camera) !Self {
+pub fn init(camera: Camera, procedural: bool) !Self {
     var self = Self{};
 
     // skybox stuff
     // setup the texture
     self.pass = try resources.createRenderPass(.{
-        .clear_color = .{ 0.75, 0.49, 0.89, 1.0 },
+        // .clear_color = .{ 0.75, 0.49, 0.89, 1.0 },
+        .clear_color = .{ 0.0, 0.0, 0.0, 1.0 },
         .clear_depth = 1.0,
         .clear_stencil = 1.0,
         .clear_flags = .{ .color = true, .depth = true },
@@ -114,19 +119,30 @@ pub fn init(camera: Camera) !Self {
         .{ .binding = 2, .handle = self.sampler },
     });
 
-    // // create our shader pipeline
-    self.pipeline = try resources.createPipeline(.{
-        .stages = &.{
-            .{
-                .bindpoint = .Vertex,
-                .path = "testbed/assets/skybox.vert.spv",
-            },
-            .{
-                .bindpoint = .Fragment,
-                .path = "testbed/assets/skybox.frag.spv",
-                // .path = "testbed/assets/procedural_skybox.frag.spv",
-            },
+    // create our shader pipeline
+
+    // TODO: make this a specialization constant later
+    // or two separate pipelines
+    const frag_stage: renderer.types.StageDesc =
+        if (procedural)
+    .{
+        .bindpoint = .Fragment,
+        .path = "testbed/assets/procedural_skybox.frag.spv",
+    } else .{
+        .bindpoint = .Fragment,
+        .path = "testbed/assets/skybox.frag.spv",
+    };
+
+    const stages = .{
+        .{
+            .bindpoint = .Vertex,
+            .path = "testbed/assets/skybox.vert.spv",
         },
+        frag_stage,
+    };
+
+    self.pipeline = try resources.createPipeline(.{
+        .stages = &stages,
         // todo: add camera?
         .binding_groups = &.{ group, camera.group },
         .renderpass = self.pass,

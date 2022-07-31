@@ -176,7 +176,7 @@ pub fn init(app: *App) !void {
         .push_const_size = @sizeOf(Mat4),
     });
 
-    app.skybox = try Skybox.init(app.camera);
+    app.skybox = try Skybox.init(app.camera, true);
 }
 
 pub fn update(app: *App, dt: f64) !void {
