@@ -233,7 +233,7 @@ pub fn update(app: *App, dt: f64) !void {
     try app.skybox.update(.{
         .proj = app.camera.proj(),
         .view = app.camera.view(),
-        .albedo = Vec4.new(1, 1, 1, 0.5 + (@sin(@intToFloat(f32, renderer.frame) * 0.03) / 2.0)),
+        // .albedo = Vec4.new(1, 1, 1, 0.5 + (@sin(@intToFloat(f32, renderer.frame) * 0.03) / 2.0)),
     });
 }
 

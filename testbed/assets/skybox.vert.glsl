@@ -10,15 +10,12 @@ layout (set = 0, binding = 0) uniform readonly camera_data {
 
 // data transfer object
 layout(location = 0) out struct {
-  vec3 uvw;
+  vec3 pos;
 } out_dto;
 
 void main() {
   int i = gl_VertexIndex;
   vec3 pos = vec3(((i << 1) & 2), (i & 2), ((i >> 1) & 2)) - vec3(1);
-
-  mat4 nview = mat4(mat3(view));
-
-  out_dto.uvw = pos;
-  gl_Position = projection * nview * vec4(pos, 1.0);
+  out_dto.pos = pos;
+  gl_Position = projection * mat4(mat3(view)) * vec4(pos, 1.0);
 }
