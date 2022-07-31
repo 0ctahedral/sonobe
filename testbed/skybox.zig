@@ -21,13 +21,8 @@ ind_buf: Handle = .{},
 pub const Data = struct {
     proj: Mat4,
     view: Mat4,
-    sky_color: Vec4 = Vec4.new(0.75, 0.49, 0.89, 1),
-    horizon_color: Vec4 = Vec4.new(
-        141.0 / 255.0,
-        194.0 / 255.0,
-        247.0 / 255.0,
-        1,
-    ),
+    sky_color: Vec4 = octal.color.hexToVec4(0xbe7ce2ff),
+    horizon_color: Vec4 = octal.color.hexToVec4(0x8dc2f7ff),
 };
 
 pub fn init() !Self {
