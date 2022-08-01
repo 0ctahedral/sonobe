@@ -332,10 +332,9 @@ pub fn statCheck(file: *std.fs.File) void {
         if (new_mod > old_mod) {
             return;
         }
-        sleep(std.time.ns_per_s / 2);
+        sleep(std.time.ns_per_s);
     }
 }
-
 /// waits for a counter to read the file
 fn readOut(file: std.fs.File, c: *Counter, allocator: std.mem.Allocator) void {
     // wait for c to equal zero
@@ -396,24 +395,38 @@ test "wait for file change" {
     }
 }
 
-// test "real time" {
-//     const allocator = std.testing.allocator;
-//     try init(allocator);
-//     defer deinit();
-//
-//     var file = try std.fs.cwd().openFile("test.txt", .{});
-//     defer file.close();
-//
-//     var file_c = Counter{};
-//     var n: u8 = 0;
-//     while (true) {
-//         if (file_c.val() == 0) {
-//             std.debug.print("\nfile changed\n", .{});
-//             if (n == 3) {
-//                 break;
-//             }
-//             n += 1;
-//             try run(statCheck, .{&file}, &file_c);
-//         }
-//     }
-// }
+pub fn statCheckOpen(path: []const u8, file: *std.fs.File) void {
+    file.* = std.fs.cwd().openFile(path, .{}) catch unreachable;
+    const old_mod = (file.stat() catch unreachable).mtime;
+    while (true) {
+        const new_mod = (file.stat() catch unreachable).mtime;
+        if (new_mod > old_mod) {
+            return;
+        }
+        file.close();
+        sleep(std.time.ns_per_s);
+        file.* = std.fs.cwd().openFile(path, .{}) catch unreachable;
+    }
+}
+
+test "real time" {
+    const allocator = std.testing.allocator;
+    try init(allocator);
+    defer deinit();
+
+    var file: std.fs.File = undefined;
+    defer file.close();
+
+    var file_c = Counter{};
+    var n: u8 = 0;
+    while (true) {
+        if (file_c.val() == 0) {
+            std.debug.print("\nfile changed\n", .{});
+            if (n == 3) {
+                break;
+            }
+            n += 1;
+            try run(statCheckOpen, .{ "test.txt", &file }, &file_c);
+        }
+    }
+}

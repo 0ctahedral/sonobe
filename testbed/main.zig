@@ -6,6 +6,7 @@ const quad = octal.mesh.quad;
 const renderer = octal.renderer;
 const resources = octal.renderer.resources;
 const input = octal.input;
+const jobs = octal.jobs;
 const CmdBuf = renderer.CmdBuf;
 
 const mmath = octal.mmath;
@@ -60,6 +61,8 @@ simple_pipeline: renderer.Handle = .{},
 last_pos: Vec2 = .{},
 
 skybox: Skybox = .{},
+file_c: jobs.Counter = .{},
+file: std.fs.File = undefined,
 
 camera_move_speed: f32 = 5.0,
 pub fn init(app: *App) !void {
@@ -178,9 +181,17 @@ pub fn init(app: *App) !void {
     });
 
     app.skybox = try Skybox.init(app.camera, true);
+
+    // hot reload this bitch
+    try jobs.run(jobs.statCheckOpen, .{ "test/file.txt", &app.file }, &app.file_c);
 }
 
 pub fn update(app: *App, dt: f64) !void {
+    if (app.file_c.val() == 0) {
+        try app.skybox.onFileChange(&app.file);
+        try jobs.run(jobs.statCheckOpen, .{ "test/file.txt", &app.file }, &app.file_c);
+    }
+
     // camera stuff
     var ivec = Vec3{};
     if (input.keyIs(.right, .down) or input.keyIs(.d, .down)) {

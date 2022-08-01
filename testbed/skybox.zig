@@ -157,6 +157,15 @@ pub fn update(self: Self) !void {
     _ = try renderer.updateBuffer(self.uniform_buffer, 0, Data, &[_]Data{self.data});
 }
 
+pub fn onFileChange(self: *Self, file: *std.fs.File) !void {
+    const allocator = std.testing.allocator;
+
+    const slice = try file.readToEndAlloc(allocator, 1024);
+    var stream = std.json.TokenStream.init(slice);
+    self.data = try std.json.parse(Self.Data, &stream, .{});
+    try self.update();
+}
+
 pub fn draw(self: Self, cmd: *CmdBuf) !void {
     try cmd.beginRenderPass(self.pass);
 

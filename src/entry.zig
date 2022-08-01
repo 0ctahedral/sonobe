@@ -23,14 +23,7 @@ fn loop() !void {
     var file = try std.fs.cwd().openFile("test.txt", .{});
     defer file.close();
 
-    var file_c = jobs.Counter{};
-    try jobs.run(jobs.statCheck, .{&file}, &file_c);
-
     while (platform.is_running) {
-        if (file_c.val() == 0) {
-            std.log.debug("\nfile changed", .{});
-            try jobs.run(jobs.statCheck, .{&file}, &file_c);
-        }
         platform.startFrame();
 
         // get events
