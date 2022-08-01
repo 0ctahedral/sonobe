@@ -64,7 +64,7 @@ const Callback = struct {
 var callbacks: [EVENTS_LEN][MAX_CALLBACKS]?Callback = undefined;
 
 /// Queue of pending events
-var event_queue: [EVENTS_LEN]RingBuffer(Event, 32) = undefined;
+var event_queue: [EVENTS_LEN]RingBuffer(Event, 512) = undefined;
 
 /// initialize the event subsystem
 pub fn init() void {
@@ -75,7 +75,7 @@ pub fn init() void {
         }
     }
     for (event_queue) |*eq| {
-        eq.* = RingBuffer(Event, 32).init();
+        eq.* = RingBuffer(Event, 512).init();
     }
 }
 
@@ -89,7 +89,12 @@ pub fn deinit() void {
 
 /// add an event to the appropriate queue
 pub fn enqueue(event: Event) void {
-    event_queue[@enumToInt(event)].push(event) catch unreachable;
+    event_queue[@enumToInt(event)].push(event) catch |err| {
+        switch (err) {
+            error.BufferFull => std.log.warn("unable to add event: {}", .{event}),
+            else => unreachable,
+        }
+    };
 }
 
 pub fn clearQueue() void {
