@@ -26,6 +26,8 @@ alloc: std.mem.Allocator,
 
 stacks: FreeList([stack_size]u8),
 
+timer: std.time.Timer,
+
 /// Basically a semaphore, indicates when a job dependency is done
 const Counter = struct {
     /// value stored in this counter
@@ -46,12 +48,28 @@ const Counter = struct {
     }
 };
 
+/// a condition for resuming a waiting from
+const ResumeCondition = union(enum) {
+    /// waiting on a counter
+    Counter: struct {
+        /// counter  we must wait on
+        counter: *Counter,
+        /// value the counter should be at to continue execution
+        value: usize = 0,
+    },
+
+    /// waiting for a timer
+    Sleep: struct {
+        /// time this timer was started
+        start: u64,
+        /// amount of time to wait
+        duration: u64,
+    },
+};
+
 /// A job that is waiting on a counter
 const WaitingFrame = struct {
-    /// counter who's condition we must wait on
-    counter: *Counter,
-    /// value the counter should be at to continue execution
-    condition: usize = 0,
+    condition: ResumeCondition,
     /// function to resume from
     frame: anyframe,
 };
@@ -64,6 +82,7 @@ pub fn init(allocator: std.mem.Allocator) !void {
         .wait_queue = RingBuffer(WaitingFrame, num_jobs).init(),
         .alloc = allocator,
         .stacks = try FreeList([stack_size]u8).init(allocator, num_jobs),
+        .timer = try std.time.Timer.start(),
     };
 
     for (global.worker_threads) |*t, i| {
@@ -91,10 +110,24 @@ pub fn wait(counter: *Counter, value: usize) void {
     suspend {
         instance.?.wait_queue.push(.{
             .frame = @frame(),
-            .counter = counter,
-            .condition = value,
+            .condition = .{ .Counter = .{
+                .counter = counter,
+                .value = value,
+            } },
         }) catch unreachable;
-        std.debug.print("frame rescheduled\n", .{});
+    }
+}
+
+/// sleep for a number of nanoseconds
+pub fn sleep(ns: u64) void {
+    suspend {
+        instance.?.wait_queue.push(.{
+            .frame = @frame(),
+            .condition = .{ .Sleep = .{
+                .start = instance.?.timer.read(),
+                .duration = ns,
+            } },
+        }) catch unreachable;
     }
 }
 
@@ -125,25 +158,36 @@ pub fn run(comptime func: anytype, args: anytype, counter: ?*Counter) !void {
     run_frame.* = async Wrapper.run(args, counter);
 }
 
-fn loop(self: *Jobs, tn: u32) void {
+fn loop(self: *Jobs, thread_number: u32) void {
+    _ = thread_number;
     while (!self.done) {
-        var tmp_queue = RingBuffer(WaitingFrame, 10).init();
+        var tmp_queue = RingBuffer(WaitingFrame, 32).init();
 
         while (self.wait_queue.pop()) |w| {
             // pop and check if the condition is met
             // if it is then we can run it
             // otherwise add to back of queue
-            // for now there are no conditions
-            if (w.counter.val() == w.condition) {
-                std.debug.print("resuming frame in {d}\n", .{tn});
-                // TODO: push front
-                self.frame_queue.push(w.frame) catch unreachable;
-            } else {
-                tmp_queue.push(w) catch {
-                    instance.?.wait_queue.push(w) catch unreachable;
-                    break;
-                };
+
+            switch (w.condition) {
+                .Counter => |c| {
+                    if (c.counter.val() == c.value) {
+                        self.frame_queue.push(w.frame) catch unreachable;
+                        continue;
+                    }
+                },
+                .Sleep => |s| {
+                    if (self.timer.read() >= s.start + s.duration) {
+                        self.frame_queue.push(w.frame) catch unreachable;
+                        continue;
+                    }
+                },
             }
+
+            // condition not met, push to the temporary queue
+            tmp_queue.push(w) catch {
+                instance.?.wait_queue.push(w) catch unreachable;
+                break;
+            };
         }
 
         // put them back
@@ -168,10 +212,10 @@ test "no funcs called" {
 // TESTS AND STUFF
 fn onesuspend(a: *u32, c: *Counter) void {
     a.* += 1;
-    std.debug.print("added 1\n", .{});
+    // std.debug.print("added 1\n", .{});
     wait(c, 0);
     a.* += 1;
-    std.debug.print("added 1 again\n", .{});
+    // std.debug.print("added 1 again\n", .{});
 }
 
 test "function with single suspend" {
@@ -188,8 +232,6 @@ test "function with single suspend" {
     try expect(a == 0);
     try expect(job_c.value == 1);
 
-    std.debug.print("job enqueued\n", .{});
-
     std.time.sleep(std.time.ns_per_s / 10);
 
     try expect(a == 1);
@@ -205,17 +247,17 @@ test "function with single suspend" {
 
 fn spawner(i: *u32) void {
     var c = Counter{};
-    std.debug.print("spanwing other job\n", .{});
+    // std.debug.print("spanwing other job\n", .{});
     i.* += 1;
     run(other, .{i}, &c) catch unreachable;
-    std.debug.print("waiting for other job\n", .{});
+    // std.debug.print("waiting for other job\n", .{});
     wait(&c, 0);
-    std.debug.print("spawn done\n", .{});
+    // std.debug.print("spawn done\n", .{});
 }
 
 fn other(i: *u32) void {
     i.* += 1;
-    std.debug.print("hello from other job\n", .{});
+    // std.debug.print("hello from other job\n", .{});
 }
 
 test "job spawns job" {
@@ -259,4 +301,23 @@ test "add a bunch of jobs" {
     try std.testing.expect(x == 100);
     try std.testing.expect(y == 120);
     try std.testing.expect(z == 10);
+}
+
+fn sleeps(x: *u32) void {
+    sleep(std.time.ns_per_s);
+    x.* = 5;
+}
+
+test "sleep" {
+    try init(std.testing.allocator);
+    defer deinit();
+
+    var x: u32 = 0;
+
+    var job_c = Counter{};
+    try run(sleeps, .{&x}, &job_c);
+
+    try std.testing.expect(x == 0);
+    std.time.sleep(std.time.ns_per_s);
+    try std.testing.expect(x == 5);
 }
