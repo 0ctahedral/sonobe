@@ -7,8 +7,8 @@
 const std = @import("std");
 const Window = @import("platform/window.zig");
 const RingBuffer = @import("containers.zig").RingBuffer;
-const Input = @import("input.zig");
-const Key = Input.Key;
+const input = @import("input.zig");
+const Key = input.Key;
 const Vec2 = @import("math.zig").Vec2;
 
 var initialized = false;
@@ -32,8 +32,8 @@ pub const WindowResizeEvent = struct {
 };
 
 pub const MouseButtonEvent = struct {
-    button: Input.Mouse.Button,
-    action: Input.Mouse.Action,
+    button: input.Mouse.Button,
+    action: input.Mouse.Action,
     pos: Vec2,
 };
 

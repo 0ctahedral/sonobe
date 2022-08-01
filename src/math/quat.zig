@@ -469,22 +469,22 @@ test "eql" {
     try testing.expect(!p.eql(q));
 }
 
-test "fromMat4" {
-    const eps_value = comptime std.math.epsilon(f32);
-
-    var q = Quat.fromAxisAngle(Vec3.new(1, 0, 0), math.pi);
-    // var p = Quat.fromMat4(q.toMat4());
-
-    // try testing.expectApproxEqAbs(p.w, q.w, eps_value);
-    // try testing.expectApproxEqAbs(p.x, q.x, eps_value);
-    // try testing.expectApproxEqAbs(p.y, q.y, eps_value);
-    // try testing.expectApproxEqAbs(p.z, q.z, eps_value);
-
-    q = Quat.fromAxisAngle(Vec3.RIGHT, math.pi / 2.0).mul(q);
-    var p = Quat.fromMat4(q.toMat4());
-
-    try testing.expectApproxEqAbs(q.w, p.w, eps_value);
-    try testing.expectApproxEqAbs(q.x, p.x, eps_value);
-    try testing.expectApproxEqAbs(q.y, p.y, eps_value);
-    try testing.expectApproxEqAbs(q.z, p.z, eps_value);
-}
+//test "fromMat4" {
+//    const eps_value = comptime std.math.epsilon(f32);
+//
+//    var q = Quat.fromAxisAngle(Vec3.new(1, 0, 0), math.pi);
+//    // var p = Quat.fromMat4(q.toMat4());
+//
+//    // try testing.expectApproxEqAbs(p.w, q.w, eps_value);
+//    // try testing.expectApproxEqAbs(p.x, q.x, eps_value);
+//    // try testing.expectApproxEqAbs(p.y, q.y, eps_value);
+//    // try testing.expectApproxEqAbs(p.z, q.z, eps_value);
+//
+//    q = Quat.fromAxisAngle(Vec3.RIGHT, math.pi / 2.0).mul(q);
+//    var p = Quat.fromMat4(q.toMat4());
+//
+//    try testing.expectApproxEqAbs(q.w, p.w, eps_value);
+//    try testing.expectApproxEqAbs(q.x, p.x, eps_value);
+//    try testing.expectApproxEqAbs(q.y, p.y, eps_value);
+//    try testing.expectApproxEqAbs(q.z, p.z, eps_value);
+//}

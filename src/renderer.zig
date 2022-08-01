@@ -2,9 +2,8 @@
 
 const std = @import("std");
 const Allocator = std.mem.Allocator;
-const Platform = @import("platform.zig");
-const Events = @import("events.zig");
-const App = @import("app");
+const platform = @import("platform.zig");
+const events = @import("events.zig");
 const RingBuffer = @import("containers.zig").RingBuffer;
 
 const Transform = @import("math.zig").Transform;
@@ -14,14 +13,14 @@ pub const backend = @import("renderer/vulkan/renderer.zig");
 
 pub const CmdBuf = @import("renderer/cmdbuf.zig");
 
-pub fn init(_allocator: Allocator, app_name: [*:0]const u8, window: Platform.Window) !void {
+pub fn init(_allocator: Allocator, app_name: [*:0]const u8, window: platform.Window) !void {
     try backend.init(_allocator, app_name, window);
 
-    const size = try Platform.getWindowSize(window);
+    const size = try platform.getWindowSize(window);
     w = size.w;
     h = size.h;
     // register for resize event
-    try Events.register(Events.EventType.WindowResize, onResize);
+    try events.register(events.EventType.WindowResize, onResize);
 
     submitted_cmds = RingBuffer(CmdBuf, 32).init();
 }
@@ -76,7 +75,7 @@ pub var w: u32 = 800;
 pub var h: u32 = 600;
 var resizing = false;
 
-pub fn onResize(ev: Events.Event) bool {
+pub fn onResize(ev: events.Event) bool {
     frames_since_resize = 0;
     w = @as(u32, ev.WindowResize.w);
     h = @as(u32, ev.WindowResize.h);

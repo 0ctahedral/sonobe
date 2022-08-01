@@ -1,6 +1,5 @@
 //! Window interface
 const vk = @import("vulkan");
-const Platform = @import("../platform.zig");
 
 const Window = @This();
 

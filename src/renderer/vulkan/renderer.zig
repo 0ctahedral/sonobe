@@ -2,7 +2,7 @@ const std = @import("std");
 const vk = @import("vulkan");
 
 // TODO: get rid of this dependency if possible
-const Platform = @import("../../platform.zig");
+const platform = @import("../../platform.zig");
 
 const types = @import("../rendertypes.zig");
 const Handle = types.Handle;
@@ -82,17 +82,17 @@ var last_size_gen: usize = 0;
 
 // initialize the renderer
 // TODO: should this take in a surface instead of a window?
-pub fn init(provided_allocator: Allocator, app_name: [*:0]const u8, window: Platform.Window) !void {
+pub fn init(provided_allocator: Allocator, app_name: [*:0]const u8, window: platform.Window) !void {
     allocator = provided_allocator;
     // open vulkan dynlib
     // TODO: make local or whatever
-    var vk_proc = Platform.getInstanceProcAddress();
+    var vk_proc = platform.getInstanceProcAddress();
 
     // get proc address from glfw window
     // load the base dispatch functions
     vkb = try BaseDispatch.load(vk_proc);
 
-    const size = try Platform.getWindowSize(window);
+    const size = try platform.getWindowSize(window);
 
     fb_width = @as(usize, size.w);
     fb_height = @as(usize, size.h);
@@ -112,8 +112,8 @@ pub fn init(provided_allocator: Allocator, app_name: [*:0]const u8, window: Plat
         .enabled_layer_count = required_layers.len,
         //.enabled_layer_count = 0,
         .pp_enabled_layer_names = &required_layers,
-        .enabled_extension_count = @intCast(u32, Platform.required_exts.len),
-        .pp_enabled_extension_names = @ptrCast([*]const [*:0]const u8, &Platform.required_exts),
+        .enabled_extension_count = @intCast(u32, platform.required_exts.len),
+        .pp_enabled_extension_names = @ptrCast([*]const [*:0]const u8, &platform.required_exts),
     }, null);
 
     // load dispatch functions which require instance
@@ -144,7 +144,7 @@ pub fn init(provided_allocator: Allocator, app_name: [*:0]const u8, window: Plat
     errdefer vki.destroyDebugUtilsMessengerEXT(instance, messenger, null);
 
     // TODO: move this to system
-    surface = try Platform.createWindowSurface(vki, instance, window);
+    surface = try platform.createWindowSurface(vki, instance, window);
     errdefer vki.destroySurfaceKHR(instance, surface, null);
 
     // create a device

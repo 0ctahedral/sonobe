@@ -2,8 +2,7 @@ const std = @import("std");
 const builtin = @import("builtin");
 const vk = @import("vulkan");
 const InstanceDispatch = @import("renderer/vulkan/dispatch_types.zig").InstanceDispatch;
-const Renderer = @import("renderer.zig");
-const Events = @import("events.zig");
+const events = @import("events.zig");
 
 pub const Window = @import("platform/window.zig");
 
@@ -62,9 +61,9 @@ pub fn init() !void {
     timer = try std.time.Timer.start();
 
     // initialize the events
-    try Events.register(.Quit, handle_event);
-    try Events.register(.WindowClose, handle_event);
-    try Events.register(.WindowResize, handle_event);
+    try events.register(.Quit, handle_event);
+    try events.register(.WindowClose, handle_event);
+    try events.register(.WindowResize, handle_event);
 
     try backend.init();
 }
@@ -74,7 +73,7 @@ pub fn deinit() void {
     backend.deinit();
 }
 
-pub fn handle_event(ev: Events.Event) bool {
+pub fn handle_event(ev: events.Event) bool {
     switch (ev) {
         .Quit => {
             is_running = false;
