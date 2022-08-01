@@ -24,26 +24,27 @@ wait_queue: RingBuffer(WaitingFrame, num_jobs),
 
 alloc: std.mem.Allocator,
 
+// TODO: make this thread safe
 stacks: FreeList([stack_size]u8),
 
 timer: std.time.Timer,
 
 /// Basically a semaphore, indicates when a job dependency is done
-const Counter = struct {
+pub const Counter = struct {
     /// value stored in this counter
     value: usize = 0,
 
     const Self = @This();
 
-    fn inc(self: *Self) void {
+    pub fn inc(self: *Self) void {
         _ = @atomicRmw(usize, &self.value, .Add, 1, .SeqCst);
     }
 
-    fn dec(self: *Self) void {
+    pub fn dec(self: *Self) void {
         _ = @atomicRmw(usize, &self.value, .Sub, 1, .SeqCst);
     }
 
-    fn val(self: *Self) usize {
+    pub fn val(self: *Self) usize {
         return @atomicLoad(usize, &self.value, .SeqCst);
     }
 };
@@ -105,6 +106,7 @@ pub fn deinit() void {
     instance = null;
 }
 
+// TODO: more complex conditions? (c < 5)
 /// wait for a counter to reach a value
 pub fn wait(counter: *Counter, value: usize) void {
     suspend {
@@ -154,7 +156,7 @@ pub fn run(comptime func: anytype, args: anytype, counter: ?*Counter) !void {
         }
     };
 
-    var run_frame = @ptrCast(*@Frame(Wrapper.run), @alignCast(8, try instance.?.stacks.alloc()));
+    var run_frame = @ptrCast(*@Frame(Wrapper.run), @alignCast(16, try instance.?.stacks.alloc()));
     run_frame.* = async Wrapper.run(args, counter);
 }
 
@@ -321,3 +323,97 @@ test "sleep" {
     std.time.sleep(std.time.ns_per_s);
     try std.testing.expect(x == 5);
 }
+
+/// waits until a file has changed
+pub fn statCheck(file: *std.fs.File) void {
+    const old_mod = (file.stat() catch unreachable).mtime;
+    while (true) {
+        const new_mod = (file.stat() catch unreachable).mtime;
+        if (new_mod > old_mod) {
+            return;
+        }
+        sleep(std.time.ns_per_s / 2);
+    }
+}
+
+/// waits for a counter to read the file
+fn readOut(file: std.fs.File, c: *Counter, allocator: std.mem.Allocator) void {
+    // wait for c to equal zero
+    wait(c, 0);
+
+    // read contents of file and print them
+    const reader = file.reader();
+    var buf = reader.readAllAlloc(allocator, 1024) catch {
+        std.debug.print("could not read\n", .{});
+        return;
+    };
+    defer allocator.free(buf);
+    std.debug.print("contents: {s}\n", .{buf});
+}
+
+const test_tmp_dir = "tmp_test";
+test "wait for file change" {
+    const allocator = std.testing.allocator;
+    try init(allocator);
+    defer deinit();
+
+    // create directory and open file
+    try std.fs.cwd().makePath(test_tmp_dir);
+    defer std.fs.cwd().deleteTree(test_tmp_dir) catch {};
+
+    const file_path = try std.fs.path.join(allocator, &[_][]const u8{ test_tmp_dir, "file.txt" });
+    defer allocator.free(file_path);
+
+    const contents =
+        \\line 1
+        \\line 2
+    ;
+    const contents2 =
+        \\lorem
+        \\ipsum
+    ;
+    try std.fs.cwd().writeFile(file_path, contents);
+    // open the file
+    var file = try std.fs.cwd().openFile(file_path, .{});
+    defer file.close();
+
+    var i: u8 = 0;
+    while (i < 3) : (i += 1) {
+        var done = Counter{};
+        var file_c = Counter{};
+        try file.seekTo(0);
+
+        try run(statCheck, .{&file}, &file_c);
+        try run(readOut, .{ file, &file_c, allocator }, &done);
+
+        try std.testing.expect(file_c.val() == 1);
+        try std.fs.cwd().writeFile(file_path, contents2);
+
+        std.time.sleep(std.time.ns_per_s);
+
+        try std.testing.expect(file_c.val() == 0);
+        try std.testing.expect(done.val() == 0);
+    }
+}
+
+// test "real time" {
+//     const allocator = std.testing.allocator;
+//     try init(allocator);
+//     defer deinit();
+//
+//     var file = try std.fs.cwd().openFile("test.txt", .{});
+//     defer file.close();
+//
+//     var file_c = Counter{};
+//     var n: u8 = 0;
+//     while (true) {
+//         if (file_c.val() == 0) {
+//             std.debug.print("\nfile changed\n", .{});
+//             if (n == 3) {
+//                 break;
+//             }
+//             n += 1;
+//             try run(statCheck, .{&file}, &file_c);
+//         }
+//     }
+// }

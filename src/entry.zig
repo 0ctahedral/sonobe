@@ -2,14 +2,15 @@
 
 const std = @import("std");
 const App = @import("app");
-const Platform = @import("platform.zig");
-const Renderer = @import("renderer.zig");
-const Events = @import("events.zig");
-const Input = @import("input.zig");
+const platform = @import("platform.zig");
+const renderer = @import("renderer.zig");
+const events = @import("events.zig");
+const input = @import("input.zig");
+const jobs = @import("jobs.zig");
 
 var app: App = .{};
-var window: Platform.Window = .{};
-fn onResize(ev: Events.Event) bool {
+var window: platform.Window = .{};
+fn onResize(ev: events.Event) bool {
     const rs = ev.WindowResize;
     app.onResize(rs.w, rs.h);
     return true;
@@ -19,64 +20,78 @@ fn loop() !void {
     var last_fps_time: u64 = 0;
     var buf: [80]u8 = undefined;
 
-    while (Platform.is_running) {
-        Platform.startFrame();
+    var file = try std.fs.cwd().openFile("test.txt", .{});
+    defer file.close();
+
+    var file_c = jobs.Counter{};
+    try jobs.run(jobs.statCheck, .{&file}, &file_c);
+
+    while (platform.is_running) {
+        if (file_c.val() == 0) {
+            std.log.debug("\nfile changed", .{});
+            try jobs.run(jobs.statCheck, .{&file}, &file_c);
+        }
+        platform.startFrame();
 
         // get events
-        Platform.flush();
+        platform.flush();
         // want to make sure only the last window resize is used
-        Events.sendLastType(.WindowResize);
-        Events.sendAll();
+        events.sendLastType(.WindowResize);
+        events.sendAll();
 
         {
             // update state
-            try app.update(Platform.dt());
+            try app.update(platform.dt());
             try app.render();
 
             // render frame
-            try Renderer.drawFrame();
+            try renderer.drawFrame();
         }
 
         // reset the mouse
-        Input.resetMouse();
-        Input.resetKeyboard();
+        input.resetMouse();
+        input.resetKeyboard();
 
-        if ((Platform.curr_time - last_fps_time) > std.time.ns_per_s) {
-            last_fps_time = Platform.curr_time;
-            try Platform.setWindowTitle(window, try std.fmt.bufPrint(buf[0..], "testbed fps: {d:.2}\x00", .{Platform.fps()}));
+        if ((platform.curr_time - last_fps_time) > std.time.ns_per_s) {
+            last_fps_time = platform.curr_time;
+            try platform.setWindowTitle(window, try std.fmt.bufPrint(buf[0..], "testbed fps: {d:.2}\x00", .{platform.fps()}));
         }
         // end frame
-        Platform.endFrame();
+        platform.endFrame();
     }
 }
 
 pub fn main() !void {
+    const allocator = std.testing.allocator;
     // initialize the event system
-    Events.init();
-    defer Events.deinit();
+    events.init();
+    defer events.deinit();
 
-    try Input.init();
-    defer Input.deinit();
+    try input.init();
+    defer input.deinit();
 
     // open the window
-    try Platform.init();
-    defer Platform.deinit();
-    errdefer Platform.deinit();
+    try platform.init();
+    defer platform.deinit();
+    errdefer platform.deinit();
 
-    // window = try Platform.createWindow(App.name, 1920, 1080);
-    window = try Platform.createWindow(App.name, 800, 600);
+    // setup the job system
+    try jobs.init(allocator);
+    defer jobs.deinit();
+
+    // window = try platform.createWindow(App.name, 1920, 1080);
+    window = try platform.createWindow(App.name, 800, 600);
 
     //// setup renderer
-    const allocator = std.testing.allocator;
-    try Renderer.init(allocator, App.name, window);
-    defer Renderer.deinit();
+    try renderer.init(allocator, App.name, window);
+    defer renderer.deinit();
 
     try app.init();
     defer app.deinit();
 
     if (@hasDecl(App, "onResize")) {
         std.log.info("app has resize", .{});
-        try Events.register(Events.EventType.WindowResize, onResize);
+        try events.register(events.EventType.WindowResize, onResize);
     }
 
     try loop();
