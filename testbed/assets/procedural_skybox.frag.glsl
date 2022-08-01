@@ -20,32 +20,29 @@ layout (set = 0, binding = 0) uniform readonly skybox_data {
   vec3 horizon_color;
   float star_radius;
   vec3 sun_dir;
+  float sun_size;
 };
 
 layout(location = 0) out vec4 o_color;
 
 void main() {
+  // normalize the vertex position
   vec3 pos = normalize(dto.pos);
-  // remap positions to a sphere
+  // remap positions to uv on sphere
   vec2 uv = vec2(atan(pos.x, pos.y)/tau, asin(pos.z)/(pi/2));
-  // base color
-  vec3 color = mix(horizon_color, sky_color, uv.y);
+
+  // base color gradient
+  vec3 color = mix(horizon_color, sky_color, map(uv.y, 0, 1, 0.5, 1));
 
   float m_dist;
-  float c;
   vec2 m_point = vec2(0);
-  // which one is better?
-  // Unity_Voronoi_float(uv * vec2(8, 2), 50, star_density, m_dist, c);
   vec2 tile_uv = uv * vec2(8, 2);
   voronoi(tile_uv, star_density, m_dist, m_point);
   color += vec3(pow(1-clamp(m_dist, 0, 1), 100));
 
-  // normalize sun dir
-  vec3 view_dir = vec3(mat4(mat3(view)) * vec4(0, 1, 0, 1));
-  dot(sun_dir, normalize(view_dir));
-
-  // draw_uv(tile_uv, vec3(0, 0.3, 0), color);
-
+  float sun_size2 = sun_size * sun_size;
+  float d = dot(sun_dir, pos);
+  color += vec3(1-smoothstep(sun_size2 - 0.01, sun_size2, acos(d)));
 
   o_color = vec4(color, 1.0);
 }

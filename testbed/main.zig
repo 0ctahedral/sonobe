@@ -43,6 +43,7 @@ world_pass: renderer.Handle = .{},
 
 camera: Camera = .{
     .pos = .{ .y = -10, .z = 5 },
+    .fov = 60,
 },
 
 material_group: renderer.Handle = .{},

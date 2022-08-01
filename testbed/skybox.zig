@@ -25,8 +25,9 @@ pub const Data = struct {
     sky_color: Vec3 = octal.color.hexToVec3(0x2c0d7a),
     star_density: f32 = 10.0,
     horizon_color: Vec3 = octal.color.hexToVec3(0x8dc2f7),
-    star_radius: f32 = 0.05,
-    sun_dir: Vec3 = .{ .y = 1 },
+    star_size: f32 = 0.05,
+    sun_dir: Vec3 = Vec3.new(0.0, 0.5, 0.5).norm(),
+    sun_size: f32 = 0.3,
 };
 
 pub fn init(camera: Camera, procedural: bool) !Self {

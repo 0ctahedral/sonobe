@@ -72,9 +72,12 @@ pub fn view(self: Self) Mat4 {
 
 /// projection matrix for this camera
 pub fn proj(self: Self) Mat4 {
-    const half_hor_fov = std.math.tan(mmath.util.rad(self.fov) * 0.5);
-    const y_fov = std.math.atan(half_hor_fov / self.aspect) * 2.0;
-    return Mat4.perspective(y_fov, self.aspect, self.near, self.far);
+    // calculations with horizontal fov
+    // const half_hor_fov = std.math.tan(mmath.util.rad(self.fov) * 0.5);
+    // const y_fov = std.math.atan(half_hor_fov / self.aspect) * 2.0;
+    // return Mat4.perspective(y_fov, self.aspect, self.near, self.far);
+
+    return Mat4.perspective(mmath.util.rad(self.fov), self.aspect, self.near, self.far);
 }
 
 /// change the camera rotation based on a pitch and yaw vector
