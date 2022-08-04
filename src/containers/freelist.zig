@@ -115,6 +115,11 @@ pub fn FreeList(
             return &self.mem[@intCast(usize, idx)].item;
         }
 
+        pub inline fn getIndex(self: Self, ptr: *T) Index {
+            const index = (@ptrToInt(ptr) - @ptrToInt(self.mem.ptr)) / @sizeOf(Item);
+            return @intCast(u32, index);
+        }
+
         pub fn deinit(self: *Self) void {
             if (self.allocator) |a| {
                 a.free(self.mem);
