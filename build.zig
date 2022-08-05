@@ -23,7 +23,11 @@ pub fn build(b: *Builder) !void {
     const exe = try makeApp(b, "testbed");
     exe.install();
 
+    const font = try makeApp(b, "font_example");
+    font.install();
+
     try compileShadersInDir(b, "testbed/assets", exe);
+    try compileShadersInDir(b, "font_example/assets", font);
 }
 
 pub fn makeApp(b: *Builder, name: []const u8) !*std.build.LibExeObjStep {
