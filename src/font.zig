@@ -202,23 +202,24 @@ test "scientifica" {
         r.* = 0;
     }
 
-    var srow: usize = @intCast(usize, bdf.bb.y - dollar.bb.y_off - dollar.bb.y);
+    // var srow: usize = @intCast(usize, bdf.bb.y - dollar.bb.y_off - dollar.bb.y);
     var row: usize = 0;
     while (row < dollar.bb.y) : (row += 1) {
         var i: usize = 0;
         while (i < 8) : (i += 1) {
-            if ((dollar.bitmap[row] >> @intCast(u3, 7 - i)) & 0xf != 0) {
-                bitmap[(srow + row) * 16 + (i + @intCast(usize, dollar.bb.x_off))] = 255;
+            if ((dollar.bitmap[row] >> @intCast(u3, 7 - i)) & 0x1 != 0) {
+                // bitmap[(srow + row) * 16 + (i + @intCast(usize, dollar.bb.x_off))] = 255;
+                bitmap[(row * 16) + i] = 255;
             }
         }
     }
 
-    // for (bitmap) |b, i| {
-    //     std.debug.print("{d:0<3}, ", .{b});
-    //     if (i > 0 and i % 16 == 0) {
-    //         std.debug.print("\n", .{});
-    //     }
-    // }
+    for (bitmap) |b, i| {
+        std.debug.print("{d}, ", .{b});
+        if ((i + 1) % 16 == 0) {
+            std.debug.print("//\n", .{});
+        }
+    }
 
     defer allocator.free(bdf.glyphs);
     defer allocator.free(bdf.codepoints);

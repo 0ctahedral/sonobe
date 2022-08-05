@@ -44,6 +44,8 @@ font_sampler: renderer.Handle = .{},
 /// pipeline for rendering fonts
 font_pipeline: renderer.Handle = .{},
 
+screen_dim: Vec2 = .{ .x = 800, .y = 600 },
+
 pub fn init(app: *App) !void {
     // setup the quad
     app.quad_verts = try resources.createBuffer(
@@ -52,7 +54,12 @@ pub fn init(app: *App) !void {
             .usage = .Vertex,
         },
     );
-    var offset = try renderer.updateBuffer(app.quad_verts, 0, Vec3, quad.positions);
+    var offset = try renderer.updateBuffer(app.quad_verts, 0, Vec3, &[_]Vec3{
+        Vec3.new(0.0, 0.0, 0),
+        Vec3.new(1.0, 1.0, 0),
+        Vec3.new(0.0, 1.0, 0),
+        Vec3.new(1.0, 0.0, 0),
+    });
     offset = try renderer.updateBuffer(app.quad_verts, offset, Vec2, quad.uvs);
 
     app.quad_inds = try resources.createBuffer(
@@ -76,12 +83,32 @@ pub fn init(app: *App) !void {
             .usage = .Uniform,
         },
     );
-    // _ = try renderer.updateBuffer(app.material_buffer, 0, MaterialData, &[_]MaterialData{app.material_data});
+    // _ = try renderer.updateBuffer(app.font_buffer, 0, Mat4, &[_]Mat4{
+    //     Mat4.identity().inv(),
+    // });
 
     const tex_dimension: u32 = 16;
     const channels: u32 = 1;
-    var pixels: [tex_dimension * tex_dimension * channels]u8 = .{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 255, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 255, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 255, 255, 255, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 255, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 255, 255, 255, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 255, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 255, 255, 255, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 255, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 255, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 
+    // texture with no offset
+    var pixels: [tex_dimension * tex_dimension * channels]u8 = .{
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, //
+        0, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, //
+        0, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, //
+        255, 255, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, //
+        255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, //
+        255, 255, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, //
+        0, 0, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, //
+        255, 255, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, //
+        0, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, //
+        0, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, //
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, //
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, //
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, //
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, //
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, //
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, //
+    };
     app.font_texture = try resources.createTexture(.{
         .width = tex_dimension,
         .height = tex_dimension,
@@ -140,8 +167,11 @@ pub fn render(app: *App) !void {
 
     // draw the floor
     try cmd.pushConst(app.font_pipeline, [_]Mat4{
-        Mat4.ortho(0, 800, 0, 600, 0.1, 10),
-        Mat4.scale(Vec3.new(100, 100, 1)).mul(Mat4.translate(Vec3.new(-1, 0.0, 0.5))),
+        // camera
+        Mat4.ortho(0, app.screen_dim.x, 0, app.screen_dim.y, -100, 100),
+        // our quad
+        Mat4.scale(Vec3.new(3 * 10, 9 * 10, 0))
+            .mul(Mat4.translate(Vec3.new(0, 0, 0))),
     });
 
     try cmd.drawIndexed(.{
@@ -162,8 +192,6 @@ pub fn deinit(app: *App) void {
 }
 
 pub fn onResize(app: *App, w: u16, h: u16) void {
-    _ = app;
-    _ = h;
-    _ = w;
-    // app.camera.aspect = @intToFloat(f32, w) / @intToFloat(f32, h);
+    app.screen_dim.x = @intToFloat(f32, w);
+    app.screen_dim.y = @intToFloat(f32, h);
 }

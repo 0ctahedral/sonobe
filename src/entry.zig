@@ -20,9 +20,6 @@ fn loop() !void {
     var last_fps_time: u64 = 0;
     var buf: [80]u8 = undefined;
 
-    var file = try std.fs.cwd().openFile("test.txt", .{});
-    defer file.close();
-
     while (platform.is_running) {
         platform.startFrame();
 
