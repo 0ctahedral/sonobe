@@ -157,6 +157,19 @@ pub const Texture = struct {
         offset: u32,
         data: []const u8,
     ) !void {
+        return self.writeRegion(device, offset, data, 0, 0, self.image.width, self.image.height);
+    }
+
+    pub fn writeRegion(
+        self: *Self,
+        device: Device,
+        offset: u32,
+        data: []const u8,
+        offset_x: u32,
+        offset_y: u32,
+        extent_x: u32,
+        extent_y: u32,
+    ) !void {
         var staging = try Buffer.init(device, data.len, .{ .transfer_src_bit = true }, .{
             .host_visible_bit = true,
             .host_coherent_bit = true,
@@ -168,7 +181,16 @@ pub const Texture = struct {
         var cmdbuf = try CommandBuffer.beginSingleUse(device, device.command_pool);
 
         try self.image.transitionLayout(device, .@"undefined", .transfer_dst_optimal, cmdbuf, self.desc.texture_type);
-        try self.image.copyFromBuffer(device, staging, cmdbuf, self.desc.texture_type);
+        try self.image.copyFromBuffer(
+            device,
+            staging,
+            cmdbuf,
+            self.desc.texture_type,
+            offset_x,
+            offset_y,
+            extent_x,
+            extent_y,
+        );
         try self.image.transitionLayout(device, .transfer_dst_optimal, .shader_read_only_optimal, cmdbuf, self.desc.texture_type);
 
         try cmdbuf.endSingleUse(device, device.command_pool, device.graphics.?.handle);

@@ -1,5 +1,7 @@
 /// Identifier for a device resource
 /// the default values in the struct indicate a null handle
+/// TODO: use enums/types to make this typesafe
+/// also make the resource an enum so we can have null handles
 pub const Handle = struct {
     /// index of this resource
     resource: u32 = 0,

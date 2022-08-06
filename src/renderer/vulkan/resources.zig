@@ -511,25 +511,25 @@ pub fn updateBuffer(handle: Handle, offset: usize, data: [*]const u8, size: usiz
     );
 }
 
-// TODO: need to be able to update textures
-pub fn createTexture(desc: types.TextureDesc, data: []u8, flip_y: bool) !Handle {
-    const handle_idx = try resources.allocIndex();
-    const tex_idx = try textures.allocIndex();
-
-    // TODO: should this be allowed?
-    if (flip_y) {
-        var i: usize = 0;
-        while (i < desc.height / 2) : (i += 1) {
-            var j: usize = 0;
-            while (j < desc.width) : (j += 1) {
-                const p1 = (i * desc.width) + j;
-                const p2 = (((desc.height - 1) - i) * desc.width) + j;
-                const a = data[p2];
-                data[p2] = data[p1];
-                data[p1] = a;
-            }
+// TODO: put this somewhere
+pub fn flipData(width: usize, height: usize, data: []u8) void {
+    var i: usize = 0;
+    while (i < height / 2) : (i += 1) {
+        var j: usize = 0;
+        while (j < width) : (j += 1) {
+            const p1 = (i * width) + j;
+            const p2 = (((height - 1) - i) * width) + j;
+            const a = data[p2];
+            data[p2] = data[p1];
+            data[p1] = a;
         }
     }
+}
+
+// TODO: need to be able to update textures
+pub fn createTexture(desc: types.TextureDesc, data: []u8) !Handle {
+    const handle_idx = try resources.allocIndex();
+    const tex_idx = try textures.allocIndex();
 
     textures.set(tex_idx, try Texture.init(device, desc, data[0..]));
 
@@ -539,6 +539,22 @@ pub fn createTexture(desc: types.TextureDesc, data: []u8, flip_y: bool) !Handle 
     );
 
     return Handle{ .resource = handle_idx };
+}
+
+/// update data in a texture at an offset
+pub fn updateTexture(
+    handle: Handle,
+    // offset into the buffer
+    offset: u32,
+    data: []u8,
+    offset_x: u32,
+    offset_y: u32,
+    extent_x: u32,
+    extent_y: u32,
+) !void {
+    const res = resources.get(handle.resource).Texture;
+    var tex = textures.get(res.index);
+    try tex.writeRegion(device, offset, data, offset_x, offset_y, extent_x, extent_y);
 }
 
 pub fn createSampler(desc: types.SamplerDesc) !Handle {

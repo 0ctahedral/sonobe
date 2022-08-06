@@ -184,6 +184,10 @@ pub const Image = struct {
         buffer: Buffer,
         cmdbuf: CommandBuffer,
         texture_type: types.TextureDesc.Type,
+        offset_x: u32,
+        offset_y: u32,
+        extent_x: u32,
+        extent_y: u32,
     ) !void {
         const bic = vk.BufferImageCopy{
             .buffer_offset = 0,
@@ -195,10 +199,10 @@ pub const Image = struct {
                 .layer_count = if (texture_type == .cubemap) 6 else 1,
                 .base_array_layer = 0,
             },
-            .image_offset = .{ .x = 0, .y = 0, .z = 0 },
+            .image_offset = .{ .x = @intCast(i32, offset_x), .y = @intCast(i32, offset_y), .z = 0 },
             .image_extent = .{
-                .width = self.width,
-                .height = self.height,
+                .width = extent_x,
+                .height = extent_y,
                 .depth = 1,
             },
         };
