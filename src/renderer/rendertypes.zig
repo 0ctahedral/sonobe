@@ -114,7 +114,8 @@ pub const StageDesc = struct {
 /// A reference to a resource to be used in a pipeline
 pub const BindingDesc = struct {
     const Type = enum {
-        Buffer,
+        UniformBuffer,
+        StorageBuffer,
         Texture,
         Sampler,
     };

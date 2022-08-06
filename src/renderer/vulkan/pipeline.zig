@@ -203,7 +203,10 @@ pub const Pipeline = struct {
     fn loadShader(path: []const u8, alloctor: std.mem.Allocator) ![]u8 {
         std.log.info("finding file: {s}", .{path});
 
-        const f = try std.fs.cwd().openFile(path, .{ .read = true });
+        const f = std.fs.cwd().openFile(path, .{ .read = true }) catch {
+            std.log.info("could not find file: {s}", .{path});
+            return error.CouldNotOpenFile;
+        };
         defer f.close();
 
         const ret = try alloctor.alloc(u8, (try f.stat()).size);

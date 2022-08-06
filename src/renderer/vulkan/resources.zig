@@ -354,7 +354,8 @@ pub fn createBindingGroup(binds: []const types.BindingDesc) !Handle {
             .binding = @intCast(u32, i),
             .descriptor_type = switch (bind.binding_type) {
                 // TODO: use different buffer types?
-                .Buffer => .uniform_buffer,
+                .UniformBuffer => .uniform_buffer,
+                .StorageBuffer => .storage_buffer,
                 .Texture => .sampled_image,
                 .Sampler => .sampler,
             },
@@ -418,7 +419,7 @@ pub fn updateBindings(group: Handle, updates: []const BindingUpdate) !void {
         var new_write: vk.WriteDescriptorSet = undefined;
 
         switch (b.binding_type) {
-            .Buffer => {
+            .UniformBuffer, .StorageBuffer => {
                 const res = resources.get(u.handle.resource).Buffer;
                 const buffer = buffers[@enumToInt(res.desc.usage)].get(res.index);
                 const buf_infos = [_]vk.DescriptorBufferInfo{
@@ -429,12 +430,18 @@ pub fn updateBindings(group: Handle, updates: []const BindingUpdate) !void {
                     },
                 };
 
+                const buffer_type: vk.DescriptorType = switch (res.desc.usage) {
+                    .Uniform => .uniform_buffer,
+                    .Storage => .storage_buffer,
+                    else => return error.InvalidBufferType,
+                };
+
                 new_write = .{
                     .dst_set = bg.sets[0],
                     .dst_binding = u.binding,
                     .dst_array_element = 0,
                     .descriptor_count = 1,
-                    .descriptor_type = .uniform_buffer,
+                    .descriptor_type = buffer_type,
                     .p_image_info = undefined,
                     .p_buffer_info = buf_infos[0..],
                     .p_texel_buffer_view = undefined,
@@ -505,9 +512,24 @@ pub fn updateBuffer(handle: Handle, offset: usize, data: [*]const u8, size: usiz
 }
 
 // TODO: need to be able to update textures
-pub fn createTexture(desc: types.TextureDesc, data: []const u8) !Handle {
+pub fn createTexture(desc: types.TextureDesc, data: []u8, flip_y: bool) !Handle {
     const handle_idx = try resources.allocIndex();
     const tex_idx = try textures.allocIndex();
+
+    // TODO: should this be allowed?
+    if (flip_y) {
+        var i: usize = 0;
+        while (i < desc.height / 2) : (i += 1) {
+            var j: usize = 0;
+            while (j < desc.width) : (j += 1) {
+                const p1 = (i * desc.width) + j;
+                const p2 = (((desc.height - 1) - i) * desc.width) + j;
+                const a = data[p2];
+                data[p2] = data[p1];
+                data[p1] = a;
+            }
+        }
+    }
 
     textures.set(tex_idx, try Texture.init(device, desc, data[0..]));
 
