@@ -23,7 +23,11 @@ void main() {
   // texture resolution
   vec2 res = vec2(textureSize(sampler2D(tex, samp), 0));
 
-  vec2 uv = (dto.uv + vec2(0, res.y - 1)) * (dto.bb.xy / res) + dto.bb.zw / res;
+  vec4 bb = dto.bb;
+
+  vec2 uv = (dto.uv * bb.xy) / res;
+  uv.y += res.y - (bb.y + bb.w)/ res.y;
+  uv.x += (bb.z) / res.x;
 
   float a = texture(sampler2D(tex, samp), uv).r;
 
@@ -36,10 +40,12 @@ void main() {
     case 2:
       a = 1;
       break;
+    case 3:
+      color = vec3(uv, 0.0);
+      a = 1;
+      break;
     default: break;
   }
 
   o_color = vec4(color, a);
-  // o_color = vec4(vec3(texture(sampler2D(tex, samp), dto.uv)), 1.0);
-
 }

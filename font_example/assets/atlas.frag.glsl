@@ -11,11 +11,13 @@ layout(location = 0) out vec4 o_color;
 
 void main() {
   // sample the texture like normal
-  vec3 color = vec3(texture(sampler2D(tex, samp), dto.uv).r);
+  vec3 color = vec3(dto.uv, 0);
+  color += vec3(texture(sampler2D(tex, samp), dto.uv).r);
 
   // draw a grid of cells
   vec2 res = vec2(textureSize(sampler2D(tex, samp), 0));
   vec2 f = fract(dto.uv * vec2(20, 10));
+
   color.g += step(0.9,f.x) + step(0.95,1-f.y);
 
   o_color = vec4(color, 1.0);
