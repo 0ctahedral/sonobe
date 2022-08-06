@@ -6,44 +6,77 @@ const Allocator = std.mem.Allocator;
 
 /// bounding box for glyphs
 const BoundingBox = struct {
-    x: i32 = 0,
-    y: i32 = 0,
-    x_off: i32 = 0,
-    y_off: i32 = 0,
+    x: f32 = 0,
+    y: f32 = 0,
+    x_off: f32 = 0,
+    y_off: f32 = 0,
 };
 const DevWidth = struct {
     x: u32 = 0,
     y: u32 = 0,
 };
-const Glyph = struct {
+pub const Glyph = struct {
     dwidth: DevWidth = .{},
     // TODO: make this configurable
     bitmap: [16]u8 = [_]u8{0} ** 16,
     bb: BoundingBox = .{},
 
-    //pub fn toTex(self: @This()) [256]u8 {
-    //    [256]u8
-    //}
+    pub fn writeToTex(
+        self: @This(),
+        tex: []u8,
+        x_off: usize,
+        y_off: usize,
+        width: usize,
+    ) !void {
+        if (self.bb.x * self.bb.y > tex.len) return error.TextureSliceTooSmall;
+        // for each row we loop over the bits and set them to 255 if the bit is set
+        var row: usize = 0;
+        while (row < self.bb.y) : (row += 1) {
+            var i: usize = 0;
+            while (i < 8) : (i += 1) {
+                if ((self.bitmap[row] >> @intCast(u3, 7 - i)) & 0x1 != 0) {
+                    tex[(y_off + row) * width + (x_off + i)] = 255;
+                }
+            }
+        }
+    }
 };
-const BDF = struct {
-    name: []const u8 = "",
+
+const BDFHeader = struct {
+
     /// point
-    size_p: u32 = 0,
+    size_p: f32 = 0,
     /// dpi x
     size_x: u8 = 0,
     /// dpi y
     size_y: u8 = 0,
 
     bb: BoundingBox = .{},
+};
+
+pub const BDF = struct {
 
     // TODO: for now we skip properties
+    header: BDFHeader,
 
     /// codepoints for each glpyph
     codepoints: []u32 = &[_]u32{},
     glyphs: []Glyph = &[_]Glyph{},
+
+    /// returns a glyph for a codepoint
+    pub fn getGlyph(self: @This(), codepoint: u32) !Glyph {
+        // TODO: faster way of searching
+        for (self.codepoints) |cp, i| {
+            if (cp == codepoint) {
+                return self.glyphs[i];
+            }
+        }
+
+        return error.CouldNotFind;
+    }
 };
 
-fn parseHeader(bdf: *BDF, buf: []u8, allocator: Allocator) !usize {
+fn parseHeader(header: *BDFHeader, n_glyphs: *usize, buf: []u8) !usize {
     var fsoff: usize = 0;
     var line: []u8 = undefined;
     var lnum: usize = 0;
@@ -51,37 +84,35 @@ fn parseHeader(bdf: *BDF, buf: []u8, allocator: Allocator) !usize {
         line = buf[fsoff .. fsoff + feoff];
         // HEADER STUFF
         if (std.mem.startsWith(u8, line, "STARTFONT")) {
-            std.debug.print("font version and stuff: {s}\n", .{line});
+            //
         } else if (std.mem.startsWith(u8, line, "SIZE")) {
             var off: usize = 5;
             var eoff: usize = std.mem.indexOf(u8, line[off..], " ") orelse return error.Malformed;
-            bdf.size_p = try std.fmt.parseInt(u8, line[off .. off + eoff], 0);
+            header.size_p = try std.fmt.parseFloat(f32, line[off .. off + eoff]);
             off = off + eoff + 1;
 
             eoff = std.mem.indexOf(u8, line[off..], " ") orelse return error.Malformed;
-            bdf.size_x = try std.fmt.parseInt(u8, line[off .. off + eoff], 0);
+            header.size_x = try std.fmt.parseInt(u8, line[off .. off + eoff], 0);
             off = off + eoff + 1;
 
-            bdf.size_y = try std.fmt.parseInt(u8, line[off..], 0);
+            header.size_y = try std.fmt.parseInt(u8, line[off..], 0);
         } else if (std.mem.startsWith(u8, line, "FONTBOUNDINGBOX")) {
             var off: usize = 16;
             var eoff: usize = std.mem.indexOf(u8, line[off..], " ") orelse return error.Malformed;
-            bdf.bb.x = try std.fmt.parseInt(i32, line[off .. off + eoff], 0);
+            header.bb.x = try std.fmt.parseFloat(f32, line[off .. off + eoff]);
             off = off + eoff + 1;
 
             eoff = std.mem.indexOf(u8, line[off..], " ") orelse return error.Malformed;
-            bdf.bb.y = try std.fmt.parseInt(i32, line[off .. off + eoff], 0);
+            header.bb.y = try std.fmt.parseFloat(f32, line[off .. off + eoff]);
             off = off + eoff + 1;
 
             eoff = std.mem.indexOf(u8, line[off..], " ") orelse return error.Malformed;
-            bdf.bb.x_off = try std.fmt.parseInt(i32, line[off .. off + eoff], 0);
+            header.bb.x_off = try std.fmt.parseFloat(f32, line[off .. off + eoff]);
             off = off + eoff + 1;
 
-            bdf.bb.y_off = try std.fmt.parseInt(i32, line[off..], 0);
+            header.bb.y_off = try std.fmt.parseFloat(f32, line[off..]);
         } else if (std.mem.startsWith(u8, line, "CHARS ")) {
-            const n_glyphs = try std.fmt.parseInt(u32, line[6..], 0);
-            bdf.glyphs = try allocator.alloc(Glyph, n_glyphs);
-            bdf.codepoints = try allocator.alloc(u32, n_glyphs);
+            n_glyphs.* = try std.fmt.parseInt(u32, line[6..], 0);
             return fsoff + feoff + 1;
         }
 
@@ -112,18 +143,18 @@ fn parseGlyph(bdf: *BDF, idx: usize, buf: []u8) !usize {
         } else if (std.mem.startsWith(u8, line, "BBX")) {
             var off: usize = 4;
             var eoff: usize = std.mem.indexOf(u8, line[off..], " ") orelse return error.Malformed;
-            glyph.bb.x = try std.fmt.parseInt(i32, line[off .. off + eoff], 0);
+            glyph.bb.x = try std.fmt.parseFloat(f32, line[off .. off + eoff]);
             off = off + eoff + 1;
 
             eoff = std.mem.indexOf(u8, line[off..], " ") orelse return error.Malformed;
-            glyph.bb.y = try std.fmt.parseInt(i32, line[off .. off + eoff], 0);
+            glyph.bb.y = try std.fmt.parseFloat(f32, line[off .. off + eoff]);
             off = off + eoff + 1;
 
             eoff = std.mem.indexOf(u8, line[off..], " ") orelse return error.Malformed;
-            glyph.bb.x_off = try std.fmt.parseInt(i32, line[off .. off + eoff], 0);
+            glyph.bb.x_off = try std.fmt.parseFloat(f32, line[off .. off + eoff]);
             off = off + eoff + 1;
 
-            glyph.bb.y_off = try std.fmt.parseInt(i32, line[off..], 0);
+            glyph.bb.y_off = try std.fmt.parseFloat(f32, line[off..]);
         } else if (std.mem.startsWith(u8, line, "BITMAP")) {
             var row: usize = 0;
             // now we are in the bitmap section
@@ -131,7 +162,7 @@ fn parseGlyph(bdf: *BDF, idx: usize, buf: []u8) !usize {
             var eol: usize = 0;
 
             // get next line
-            while (row < glyph.bb.y) : (row += 1) {
+            while (row < @floatToInt(usize, glyph.bb.y)) : (row += 1) {
                 eol = start + std.mem.indexOf(u8, buf[start..], "\n").?;
                 glyph.bitmap[row] = std.fmt.parseInt(u8, buf[start..eol], 16) catch {
                     std.debug.print("invalid row: {s}\n", .{buf[start..eol]});
@@ -160,17 +191,20 @@ pub fn loadBDF(path: []const u8, allocator: Allocator) !BDF {
     // open file
     var f = try std.fs.cwd().openFile(path, .{ .read = true });
     defer f.close();
-    // var reader = f.reader();
-    // allocate buffer for whole font
-    // this buffer should be enough for a line
-    //var buf: [256]u8 = undefined;
     var buf = try allocator.alloc(u8, (try f.stat()).size);
     defer allocator.free(buf);
     _ = try f.readAll(buf);
 
-    var bdf = BDF{};
+    var header = BDFHeader{};
+    var n_glyphs: usize = 0;
 
-    const off = try parseHeader(&bdf, buf, allocator);
+    const off = try parseHeader(&header, &n_glyphs, buf);
+
+    var bdf = BDF{
+        .header = header,
+    };
+    bdf.glyphs = try allocator.alloc(Glyph, n_glyphs);
+    bdf.codepoints = try allocator.alloc(u32, n_glyphs);
 
     var fsoff: usize = off;
     var line: []u8 = undefined;
@@ -193,33 +227,40 @@ pub fn loadBDF(path: []const u8, allocator: Allocator) !BDF {
     return bdf;
 }
 
-test "scientifica" {
+test "load scientifica" {
     const allocator = std.testing.allocator;
     const bdf = try loadBDF("./assets/scientifica-11.bdf", allocator);
-    const dollar = bdf.glyphs[4];
-    var bitmap: [16 * 16]u8 = undefined;
-    for (bitmap) |*r| {
-        r.* = 0;
-    }
+    //    const dim = 16;
+    //    var bitmap: [dim * dim]u8 = undefined;
+    //    for (bitmap) |*r| {
+    //        r.* = 0;
+    //    }
+    //
+    //    // write dollar to the texture
+    //    try bdf.glyphs[4].writeToTex(&bitmap, 0, 0, dim);
+    //    try bdf.glyphs[77].writeToTex(&bitmap, 3, 0, dim);
+    //
+    //    for (bitmap) |b, i| {
+    //        std.debug.print("{d}, ", .{b});
+    //        if ((i + 1) % dim == 0) {
+    //            std.debug.print("//\n", .{});
+    //        }
+    //    }
 
-    // var srow: usize = @intCast(usize, bdf.bb.y - dollar.bb.y_off - dollar.bb.y);
-    var row: usize = 0;
-    while (row < dollar.bb.y) : (row += 1) {
-        var i: usize = 0;
-        while (i < 8) : (i += 1) {
-            if ((dollar.bitmap[row] >> @intCast(u3, 7 - i)) & 0x1 != 0) {
-                // bitmap[(srow + row) * 16 + (i + @intCast(usize, dollar.bb.x_off))] = 255;
-                bitmap[(row * 16) + i] = 255;
-            }
-        }
-    }
+    defer allocator.free(bdf.glyphs);
+    defer allocator.free(bdf.codepoints);
+}
 
-    for (bitmap) |b, i| {
-        std.debug.print("{d}, ", .{b});
-        if ((i + 1) % 16 == 0) {
-            std.debug.print("//\n", .{});
-        }
-    }
+test "test glyph" {
+    const allocator = std.testing.allocator;
+    const bdf = try loadBDF("./assets/scientifica-11.bdf", allocator);
+
+    try std.testing.expectEqual(bdf.getGlyph(@as(u32, 'm')), Glyph{
+        .dwidth = .{ .x = 5 },
+        // TODO: make this configurable
+        .bitmap = [_]u8{ 0x90, 0xF0, 0x90, 0x90, 0x90 } ++ [_]u8{0} ** 11,
+        .bb = .{ .x = 4.0, .y = 5.0 },
+    });
 
     defer allocator.free(bdf.glyphs);
     defer allocator.free(bdf.codepoints);
