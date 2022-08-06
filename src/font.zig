@@ -28,10 +28,10 @@ pub const Glyph = struct {
         y_off: usize,
         width: usize,
     ) !void {
-        if (self.bb.x * self.bb.y > tex.len) return error.TextureSliceTooSmall;
+        if (@floatToInt(usize, self.bb.x * self.bb.y) > tex.len) return error.TextureSliceTooSmall;
         // for each row we loop over the bits and set them to 255 if the bit is set
         var row: usize = 0;
-        while (row < self.bb.y) : (row += 1) {
+        while (row < @floatToInt(usize, self.bb.y)) : (row += 1) {
             var i: usize = 0;
             while (i < 8) : (i += 1) {
                 if ((self.bitmap[row] >> @intCast(u3, 7 - i)) & 0x1 != 0) {
@@ -230,22 +230,23 @@ pub fn loadBDF(path: []const u8, allocator: Allocator) !BDF {
 test "load scientifica" {
     const allocator = std.testing.allocator;
     const bdf = try loadBDF("./assets/scientifica-11.bdf", allocator);
-    //    const dim = 16;
-    //    var bitmap: [dim * dim]u8 = undefined;
-    //    for (bitmap) |*r| {
-    //        r.* = 0;
-    //    }
-    //
-    //    // write dollar to the texture
-    //    try bdf.glyphs[4].writeToTex(&bitmap, 0, 0, dim);
-    //    try bdf.glyphs[77].writeToTex(&bitmap, 3, 0, dim);
-    //
-    //    for (bitmap) |b, i| {
-    //        std.debug.print("{d}, ", .{b});
-    //        if ((i + 1) % dim == 0) {
-    //            std.debug.print("//\n", .{});
-    //        }
-    //    }
+    const dim = 4;
+    var bitmap: [4 * 7]u8 = undefined;
+    for (bitmap) |*r| {
+        r.* = 0;
+    }
+
+    // write dollar to the texture
+    const three = (try bdf.getGlyph(@as(u32, '3')));
+    std.debug.print("{}\n", .{three});
+    try three.writeToTex(&bitmap, 0, 0, dim);
+
+    for (bitmap) |b, i| {
+        std.debug.print("{d}, ", .{b});
+        if ((i + 1) % dim == 0) {
+            std.debug.print("//\n", .{});
+        }
+    }
 
     defer allocator.free(bdf.glyphs);
     defer allocator.free(bdf.codepoints);

@@ -28,9 +28,8 @@ layout(location = 0) out struct {
 void main() {
   uint corner = (gl_VertexIndex >> 24) & 0xf;
   uint idx = gl_VertexIndex & 0x00ffffff;
-
-
   vec4 rect = glyphs[idx].rect;
+
   vec2 pos[4] = vec2[](
     rect.xy,
     rect.xy + vec2(rect.z, 0),
@@ -38,23 +37,8 @@ void main() {
     rect.xy + vec2(0, -rect.w)
   );
 
-  //switch (corner % 4) {
-  //  case 1:
-  //    pos.x += rect.z;
-  //    break;
-  //  case 2:
-  //    pos.x += rect.z;
-  //    pos.y += rect.w;
-  //    break;
-  //  case 3:
-  //    pos.y += rect.w;
-  //    break;
-  //  default: break;
-  // }
-
   out_dto.uv = uvs[corner];
   out_dto.bb = glyphs[idx].bb;
   out_dto.rect = rect;
   gl_Position = projection  * vec4(pos[corner], 0.0, 1.0 );
-  
 }

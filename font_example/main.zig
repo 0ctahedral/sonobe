@@ -51,7 +51,7 @@ pub fn init(app: *App) !void {
     app.font_ren.clear();
     try app.font_ren.addGlyph(@as(u32, '$'), Vec2.new(200, 200), 200);
     try app.font_ren.addGlyph(@as(u32, 'm'), Vec2.new(200, 400), 200);
-    // try app.font_ren.addGlyph(@as(u32, 'z'), Vec2.new(400, 400), 200);
+    try app.font_ren.addGlyph(@as(u32, '3'), Vec2.new(400, 400), 200);
 }
 
 pub fn update(_: *App, _: f64) !void {}

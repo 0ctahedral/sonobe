@@ -65,11 +65,13 @@ pub fn init(path: []const u8, renderpass: renderer.Handle, allocator: Allocator)
         },
     );
 
+    // what if we just make the texture one talllll texture?
+    // this would make it super easy to just add the next glyph at an offset
+
     const tex_dimension: u32 = 16;
-    const channels: u32 = 1;
 
     // texture with no offset
-    var pixels: [tex_dimension * tex_dimension * channels]u8 = .{
+    var pixels: [tex_dimension * tex_dimension]u8 = .{
         0, 255, 0, 255, 0, 0, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, //
         0, 255, 0, 255, 255, 255, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, //
         255, 255, 255, 255, 0, 0, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, //
@@ -88,20 +90,35 @@ pub fn init(path: []const u8, renderpass: renderer.Handle, allocator: Allocator)
         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, //
     };
 
+    resources.flipData(tex_dimension, tex_dimension, &pixels);
     self.texture = try resources.createTexture(.{
         .width = tex_dimension,
         .height = tex_dimension,
-        .channels = channels,
+        .channels = 1,
         .flags = .{},
         .texture_type = .@"2d",
-    }, &pixels, true);
+    }, &pixels);
+
+    // okay lets add a 3
+    var three: [4 * 7]u8 = .{
+        255, 255, 255, 255, //
+        0, 0, 0, 255, //
+        0, 0, 255, 0, //
+        0, 255, 0, 255, //
+        0, 0, 0, 255, //
+        255, 0, 0, 255, //
+        0, 255, 255, 0, //
+    };
+
+    resources.flipData(4, 7, &three);
+
+    try resources.updateTexture(self.texture, 0, &three, 7, tex_dimension - 7, 4, 7);
 
     self.sampler = try resources.createSampler(.{
         .filter = .nearest,
         .repeat = .wrap,
         .compare = .greater,
     });
-    _ = renderpass;
 
     try resources.updateBindings(self.group, &[_]resources.BindingUpdate{
         .{ .binding = 0, .handle = self.buffer },
@@ -139,7 +156,6 @@ pub fn addGlyph(
 ) !void {
     // TODO: look up the codepoint
     // TODO: add to the texture if not there
-    // add the indices and vertices
 
     // convert from points to pixels
     // assumes a ppi of 96
@@ -147,7 +163,6 @@ pub fn addGlyph(
 
     const glyph = try self.bdf.getGlyph(codepoint);
     const size = .{
-        // TODO: magic nubmer 1.33 is points to pixels
         .x = glyph.bb.x * (height / cell_height),
         .y = glyph.bb.y * (height / cell_height),
     };
@@ -206,6 +221,7 @@ fn getGlyphLoc(codepoint: u32) Vec4 {
     return switch (codepoint) {
         109 => Vec4.new(4, 5, 3, 0),
         36 => Vec4.new(3, 9, 0, 0),
+        51 => Vec4.new(4, 7, 7, 0),
         else => Vec4{},
     };
 }

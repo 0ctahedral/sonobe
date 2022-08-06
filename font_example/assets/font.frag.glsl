@@ -28,4 +28,6 @@ void main() {
   a += step(f.x, 1) + step(f.y, 1) + step(dto.rect.z - 1, f.x) + step(dto.rect.w - 1, f.y);
 
   o_color = vec4(color, a);
+  // o_color = vec4(vec3(texture(sampler2D(tex, samp), dto.uv)), 1.0);
+
 }
