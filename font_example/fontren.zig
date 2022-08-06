@@ -42,14 +42,24 @@ pipeline: renderer.Handle = .{},
 /// pipeline for rendering fonts
 atlas_pipeline: renderer.Handle = .{},
 
-// offset into the index buffer
+/// offset into the index buffer
 index_offset: u32 = 0,
+
+/// a really shitty cache for offsets into the texture
+bb_cache: std.AutoHashMap(u32, Vec4),
+next_index: u32 = 0,
+
+/// dimension of the texture atlas
+atlas_dimension: u32 = 120,
 
 pub fn init(path: []const u8, renderpass: renderer.Handle, allocator: Allocator) !Self {
     var self = Self{
         .allocator = allocator,
         .bdf = try font.loadBDF(path, allocator),
+        .bb_cache = std.AutoHashMap(u32, Vec4).init(allocator),
     };
+
+    self.atlas_dimension = self.bdf.header.bb.y * 10;
 
     self.inds = try resources.createBuffer(
         .{
@@ -71,54 +81,13 @@ pub fn init(path: []const u8, renderpass: renderer.Handle, allocator: Allocator)
         },
     );
 
-    // what if we just make the texture one talllll texture?
-    // this would make it super easy to just add the next glyph at an offset
-
-    const tex_dimension: u32 = 16;
-
-    // texture with no offset
-    var pixels: [tex_dimension * tex_dimension]u8 = .{
-        0, 255, 0, 255, 0, 0, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, //
-        0, 255, 0, 255, 255, 255, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, //
-        255, 255, 255, 255, 0, 0, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, //
-        255, 0, 0, 255, 0, 0, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, //
-        255, 255, 255, 255, 0, 0, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, //
-        0, 0, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, //
-        255, 255, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, //
-        0, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, //
-        0, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, //
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, //
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, //
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, //
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, //
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, //
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, //
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, //
-    };
-
-    resources.flipData(tex_dimension, tex_dimension, &pixels);
-    self.texture = try resources.createTexture(.{
-        .width = tex_dimension,
-        .height = tex_dimension,
+    self.texture = try resources.createTextureEmpty(.{
+        .width = self.atlas_dimension,
+        .height = self.atlas_dimension,
         .channels = 1,
         .flags = .{},
         .texture_type = .@"2d",
-    }, &pixels);
-
-    // okay lets add a 3
-    var three: [4 * 7]u8 = .{
-        255, 255, 255, 255, //
-        0, 0, 0, 255, //
-        0, 0, 255, 0, //
-        0, 255, 0, 255, //
-        0, 0, 0, 255, //
-        255, 0, 0, 255, //
-        0, 255, 255, 0, //
-    };
-
-    resources.flipData(4, 7, &three);
-
-    try resources.updateTexture(self.texture, 0, &three, 7, tex_dimension - 7, 4, 7);
+    });
 
     self.sampler = try resources.createSampler(.{
         .filter = .nearest,
@@ -146,6 +115,7 @@ pub fn init(path: []const u8, renderpass: renderer.Handle, allocator: Allocator)
         .binding_groups = &.{self.group},
         .renderpass = renderpass,
         .cull_mode = .back,
+        .push_const_size = @sizeOf(u32),
     });
     self.atlas_pipeline = try resources.createPipeline(.{
         .stages = &.{
@@ -168,15 +138,52 @@ pub fn init(path: []const u8, renderpass: renderer.Handle, allocator: Allocator)
     return self;
 }
 
-/// look up the glyph location in the texture
-/// TOOD: will add glyphs not in the texture
-fn getGlyphLoc(codepoint: u32) Vec4 {
-    return switch (codepoint) {
-        109 => Vec4.new(4, 5, 3, 0),
-        36 => Vec4.new(3, 9, 0, 0),
-        51 => Vec4.new(4, 7, 7, 0),
-        else => Vec4{},
+/// adds a glyph to the texture at a given offset in CELL SIZE
+/// returns the bounding box for the glyph in texel space
+fn addGlyphToTexture(
+    self: *Self,
+    codepoint: u32,
+) !Vec4 {
+    // write to the pixels array
+    const cell = self.bdf.header.bb;
+    const ncol = self.atlas_dimension / cell.x;
+    const xoff = self.next_index % ncol;
+    const yoff = (self.next_index - xoff) / cell.y;
+    // put a bunch of pixels on the stack
+    var pixels: [256]u8 = [_]u8{0} ** 256;
+    // get our glyph
+    const glyph = try self.bdf.getGlyph(codepoint);
+    try glyph.writeToTex(&pixels, 0, 0, cell.x);
+    // flip it
+    resources.flipData(cell.x, cell.y, &pixels);
+    // write to the cell size
+    try resources.updateTexture(
+        self.texture,
+        0,
+        pixels[0 .. cell.x * cell.y],
+        cell.x * xoff,
+        (self.atlas_dimension - ((yoff + 1) * cell.y)),
+        cell.x,
+        cell.y,
+    );
+
+    const bb = .{
+        .x = @intToFloat(f32, glyph.bb.x),
+        .y = @intToFloat(f32, glyph.bb.y),
+        .z = @intToFloat(f32, cell.x * xoff),
+        .w = @intToFloat(f32, cell.y * yoff),
     };
+
+    try self.bb_cache.put(codepoint, bb);
+
+    //for (pixels) |b, i| {
+    //    std.debug.print("{d}, ", .{b});
+    //    if ((i + 1) % 16 == 0) {
+    //        std.debug.print("//\n", .{});
+    //    }
+    //}
+    self.next_index += 1;
+    return bb;
 }
 
 pub fn addGlyph(
@@ -194,12 +201,17 @@ pub fn addGlyph(
     // convert from points to pixels
     // assumes a ppi of 96
     const cell_height = self.bdf.header.size_p * @intToFloat(f32, self.bdf.header.size_y) / 96.0;
+    const ratio = height / cell_height;
 
-    const glyph = try self.bdf.getGlyph(codepoint);
+    // bounding box in the texture
+    const tex_bb = self.bb_cache.get(codepoint) orelse (try self.addGlyphToTexture(codepoint));
+
     const size = .{
-        .x = glyph.bb.x * (height / cell_height),
-        .y = glyph.bb.y * (height / cell_height),
+        .x = tex_bb.x * ratio,
+        .y = tex_bb.y * ratio,
     };
+
+    const bb = (try self.bdf.getGlyph(codepoint)).bb;
 
     _ = try renderer.updateBuffer(
         self.buffer,
@@ -207,8 +219,13 @@ pub fn addGlyph(
         GlyphData,
         &[_]GlyphData{
             .{
-                .rect = Vec4.new(pos.x, pos.y, size.x, size.y),
-                .bb = getGlyphLoc(codepoint),
+                .rect = Vec4.new(
+                    pos.x - @intToFloat(f32, bb.x_off) * ratio,
+                    pos.y - @intToFloat(f32, bb.y_off) * ratio,
+                    size.x,
+                    size.y,
+                ),
+                .bb = tex_bb,
             },
         },
     );
@@ -253,6 +270,31 @@ pub fn addGlyph(
 pub fn drawGlyphs(self: Self, cmd: *CmdBuf) !void {
     try cmd.bindPipeline(self.pipeline);
 
+    // TODO: this should be a shader variant with specialization const
+    try cmd.pushConst(self.pipeline, @as(u32, 0));
+    // draw the quads
+    try cmd.drawIndexed(.{
+        .count = self.index_offset * 6,
+        .vertex_handle = .{},
+        .index_handle = self.inds,
+    });
+}
+
+pub const GlyphDebugMode = enum {
+    /// same as drawGlyphs
+    normal,
+    /// with outlines for the quads
+    outlined,
+    /// solid quads
+    solid,
+};
+
+/// draw the glyphs with some debugging
+pub fn drawGlyphsDebug(self: Self, cmd: *CmdBuf, mode: GlyphDebugMode) !void {
+    try cmd.bindPipeline(self.pipeline);
+
+    // TODO: this should be a shader variant with specialization const
+    try cmd.pushConst(self.pipeline, @as(u32, @enumToInt(mode)));
     // draw the quads
     try cmd.drawIndexed(.{
         .count = self.index_offset * 6,
@@ -292,6 +334,7 @@ pub fn clear(self: *Self) void {
 }
 
 pub fn deinit(self: *Self) void {
+    self.bb_cache.deinit();
     self.allocator.free(self.bdf.glyphs);
     self.allocator.free(self.bdf.codepoints);
 }

@@ -11,21 +11,33 @@ layout(location = 0) in struct {
 
 layout(location = 0) out vec4 o_color;
 
+layout( push_constant ) uniform PushConstants
+{
+  uint mode;
+} pc;
+
 void main() {
-  // glyph color
+  // TODO: glyph color
   vec3 color = vec3(1);
 
-  // dummy data for this guy
   // texture resolution
-  vec2 res = vec2(16, 16);
+  vec2 res = vec2(textureSize(sampler2D(tex, samp), 0));
 
   vec2 uv = (dto.uv + vec2(0, res.y - 1)) * (dto.bb.xy / res) + dto.bb.zw / res;
 
   float a = texture(sampler2D(tex, samp), uv).r;
 
-  // draw an outline using the rectangle coords
-  vec2 f = dto.rect.zw * dto.uv;
-  a += step(f.x, 1) + step(f.y, 1) + step(dto.rect.z - 1, f.x) + step(dto.rect.w - 1, f.y);
+  switch (pc.mode) {
+    case 1: 
+      // draw an outline using the rectangle coords
+      vec2 f = dto.rect.zw * dto.uv;
+      a += step(f.x, 1) + step(f.y, 1) + step(dto.rect.z - 1, f.x) + step(dto.rect.w - 1, f.y);
+      break;
+    case 2:
+      a = 1;
+      break;
+    default: break;
+  }
 
   o_color = vec4(color, a);
   // o_color = vec4(vec3(texture(sampler2D(tex, samp), dto.uv)), 1.0);

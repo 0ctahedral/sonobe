@@ -6,10 +6,10 @@ const Allocator = std.mem.Allocator;
 
 /// bounding box for glyphs
 const BoundingBox = struct {
-    x: f32 = 0,
-    y: f32 = 0,
-    x_off: f32 = 0,
-    y_off: f32 = 0,
+    x: u32 = 0,
+    y: u32 = 0,
+    x_off: i32 = 0,
+    y_off: i32 = 0,
 };
 const DevWidth = struct {
     x: u32 = 0,
@@ -28,10 +28,10 @@ pub const Glyph = struct {
         y_off: usize,
         width: usize,
     ) !void {
-        if (@floatToInt(usize, self.bb.x * self.bb.y) > tex.len) return error.TextureSliceTooSmall;
+        if (@intCast(usize, self.bb.x * self.bb.y) > tex.len) return error.TextureSliceTooSmall;
         // for each row we loop over the bits and set them to 255 if the bit is set
         var row: usize = 0;
-        while (row < @floatToInt(usize, self.bb.y)) : (row += 1) {
+        while (row < @intCast(usize, self.bb.y)) : (row += 1) {
             var i: usize = 0;
             while (i < 8) : (i += 1) {
                 if ((self.bitmap[row] >> @intCast(u3, 7 - i)) & 0x1 != 0) {
@@ -99,18 +99,18 @@ fn parseHeader(header: *BDFHeader, n_glyphs: *usize, buf: []u8) !usize {
         } else if (std.mem.startsWith(u8, line, "FONTBOUNDINGBOX")) {
             var off: usize = 16;
             var eoff: usize = std.mem.indexOf(u8, line[off..], " ") orelse return error.Malformed;
-            header.bb.x = try std.fmt.parseFloat(f32, line[off .. off + eoff]);
+            header.bb.x = try std.fmt.parseInt(u32, line[off .. off + eoff], 0);
             off = off + eoff + 1;
 
             eoff = std.mem.indexOf(u8, line[off..], " ") orelse return error.Malformed;
-            header.bb.y = try std.fmt.parseFloat(f32, line[off .. off + eoff]);
+            header.bb.y = try std.fmt.parseInt(u32, line[off .. off + eoff], 0);
             off = off + eoff + 1;
 
             eoff = std.mem.indexOf(u8, line[off..], " ") orelse return error.Malformed;
-            header.bb.x_off = try std.fmt.parseFloat(f32, line[off .. off + eoff]);
+            header.bb.x_off = try std.fmt.parseInt(i32, line[off .. off + eoff], 0);
             off = off + eoff + 1;
 
-            header.bb.y_off = try std.fmt.parseFloat(f32, line[off..]);
+            header.bb.y_off = try std.fmt.parseInt(i32, line[off..], 0);
         } else if (std.mem.startsWith(u8, line, "CHARS ")) {
             n_glyphs.* = try std.fmt.parseInt(u32, line[6..], 0);
             return fsoff + feoff + 1;
@@ -143,18 +143,18 @@ fn parseGlyph(bdf: *BDF, idx: usize, buf: []u8) !usize {
         } else if (std.mem.startsWith(u8, line, "BBX")) {
             var off: usize = 4;
             var eoff: usize = std.mem.indexOf(u8, line[off..], " ") orelse return error.Malformed;
-            glyph.bb.x = try std.fmt.parseFloat(f32, line[off .. off + eoff]);
+            glyph.bb.x = try std.fmt.parseInt(u32, line[off .. off + eoff], 0);
             off = off + eoff + 1;
 
             eoff = std.mem.indexOf(u8, line[off..], " ") orelse return error.Malformed;
-            glyph.bb.y = try std.fmt.parseFloat(f32, line[off .. off + eoff]);
+            glyph.bb.y = try std.fmt.parseInt(u32, line[off .. off + eoff], 0);
             off = off + eoff + 1;
 
             eoff = std.mem.indexOf(u8, line[off..], " ") orelse return error.Malformed;
-            glyph.bb.x_off = try std.fmt.parseFloat(f32, line[off .. off + eoff]);
+            glyph.bb.x_off = try std.fmt.parseInt(i32, line[off .. off + eoff], 0);
             off = off + eoff + 1;
 
-            glyph.bb.y_off = try std.fmt.parseFloat(f32, line[off..]);
+            glyph.bb.y_off = try std.fmt.parseInt(i32, line[off..], 0);
         } else if (std.mem.startsWith(u8, line, "BITMAP")) {
             var row: usize = 0;
             // now we are in the bitmap section
@@ -162,7 +162,7 @@ fn parseGlyph(bdf: *BDF, idx: usize, buf: []u8) !usize {
             var eol: usize = 0;
 
             // get next line
-            while (row < @floatToInt(usize, glyph.bb.y)) : (row += 1) {
+            while (row < @intCast(usize, glyph.bb.y)) : (row += 1) {
                 eol = start + std.mem.indexOf(u8, buf[start..], "\n").?;
                 glyph.bitmap[row] = std.fmt.parseInt(u8, buf[start..eol], 16) catch {
                     std.debug.print("invalid row: {s}\n", .{buf[start..eol]});

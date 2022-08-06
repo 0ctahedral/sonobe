@@ -31,6 +31,10 @@ screen_dim: Vec2 = .{ .x = 800, .y = 600 },
 
 font_ren: FontRen = undefined,
 
+should_draw_atlas: bool = true,
+
+glyph_debug_mode: FontRen.GlyphDebugMode = .normal,
+
 const allocator = std.testing.allocator;
 
 pub fn init(app: *App) !void {
@@ -49,27 +53,45 @@ pub fn init(app: *App) !void {
 
     // render some shit
     app.font_ren.clear();
-    try app.font_ren.addGlyph(@as(u32, '$'), Vec2.new(200, 200), 200);
-    try app.font_ren.addGlyph(@as(u32, 'm'), Vec2.new(200, 400), 200);
-    try app.font_ren.addGlyph(@as(u32, '3'), Vec2.new(400, 400), 200);
+    try app.font_ren.addGlyph(@as(u32, '$'), Vec2.new(20, 20), 20);
+    try app.font_ren.addGlyph(@as(u32, 'm'), Vec2.new(30, 20), 20);
+    try app.font_ren.addGlyph(@as(u32, 'o'), Vec2.new(40, 20), 20);
+    try app.font_ren.addGlyph(@as(u32, 'r'), Vec2.new(50, 20), 20);
+    try app.font_ren.addGlyph(@as(u32, 'g'), Vec2.new(60, 20), 20);
+    try app.font_ren.addGlyph(@as(u32, 'a'), Vec2.new(70, 20), 20);
+    try app.font_ren.addGlyph(@as(u32, 'n'), Vec2.new(80, 20), 20);
 }
 
-pub fn update(_: *App, _: f64) !void {}
+pub fn update(app: *App, _: f64) !void {
+    if (input.keyIs(.space, .press)) {
+        app.should_draw_atlas = !app.should_draw_atlas;
+        std.log.info("toggle draw atlas", .{});
+    }
+
+    if (input.keyIs(.n, .press))
+        app.glyph_debug_mode = .normal;
+    if (input.keyIs(.m, .press))
+        app.glyph_debug_mode = .solid;
+    if (input.keyIs(.o, .press))
+        app.glyph_debug_mode = .outlined;
+}
 
 pub fn render(app: *App) !void {
     var cmd = renderer.getCmdBuf();
 
     try cmd.beginRenderPass(app.screen_pass);
 
-    try app.font_ren.drawGlyphs(&cmd);
+    try app.font_ren.drawGlyphsDebug(&cmd, app.glyph_debug_mode);
 
-    try app.font_ren.drawAtlas(
-        &cmd,
-        app.screen_dim.x - 200,
-        app.screen_dim.y - 200,
-        200,
-        200,
-    );
+    if (app.should_draw_atlas) {
+        try app.font_ren.drawAtlas(
+            &cmd,
+            app.screen_dim.x - 240,
+            app.screen_dim.y - 240,
+            240,
+            240,
+        );
+    }
 
     try cmd.endRenderPass(app.screen_pass);
 
