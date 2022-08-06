@@ -34,7 +34,7 @@ buffer: Handle = .{},
 
 pub fn init(self: *Self) !void {
     self.group = try resources.createBindingGroup(&.{
-        .{ .binding_type = .Buffer },
+        .{ .binding_type = .UniformBuffer },
     });
     self.buffer = try resources.createBuffer(.{
         .size = @sizeOf(Data),

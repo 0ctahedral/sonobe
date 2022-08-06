@@ -18,7 +18,6 @@ uniform_buffer: Handle = .{},
 data: Data = .{},
 texture: Handle = .{},
 sampler: Handle = .{},
-ind_buf: Handle = .{},
 
 pub const Data = struct {
     // sky_color: Vec3 = octal.color.hexToVec3(0xbe7ce2),
@@ -93,14 +92,6 @@ pub fn init(camera: Camera, procedural: bool) !Self {
         .compare = .greater,
     });
 
-    self.ind_buf = try resources.createBuffer(
-        .{
-            .size = cube.indices.len * @sizeOf(u32),
-            .usage = .Index,
-        },
-    );
-    _ = try renderer.updateBuffer(self.ind_buf, 0, u32, cube.indices);
-
     self.uniform_buffer = try resources.createBuffer(
         .{
             .size = @sizeOf(Data),
@@ -110,7 +101,7 @@ pub fn init(camera: Camera, procedural: bool) !Self {
     _ = try renderer.updateBuffer(self.uniform_buffer, 0, Data, &[_]Data{self.data});
 
     const group = try resources.createBindingGroup(&.{
-        .{ .binding_type = .Buffer },
+        .{ .binding_type = .UniformBuffer },
         .{ .binding_type = .Texture },
         .{ .binding_type = .Sampler },
     });
@@ -172,9 +163,9 @@ pub fn draw(self: Self, cmd: *CmdBuf) !void {
     try cmd.bindPipeline(self.pipeline);
 
     try cmd.drawIndexed(.{
-        .count = cube.indices.len,
+        .count = @intCast(u32, cube.indices.len),
         .vertex_handle = .{},
-        .index_handle = self.ind_buf,
+        .index_handle = (try cube.getBuffers()).indices,
     });
 
     try cmd.endRenderPass(self.pass);

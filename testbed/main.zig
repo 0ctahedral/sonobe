@@ -37,9 +37,6 @@ const MaterialData = struct {
 /// transform of the quad
 t: Transform = .{},
 
-quad_verts: renderer.Handle = .{},
-quad_inds: renderer.Handle = .{},
-
 world_pass: renderer.Handle = .{},
 
 camera: Camera = .{
@@ -53,9 +50,6 @@ material_data: MaterialData = .{},
 default_texture: renderer.Handle = .{},
 default_sampler: renderer.Handle = .{},
 
-cube_verts: renderer.Handle = .{},
-cube_inds: renderer.Handle = .{},
-
 simple_pipeline: renderer.Handle = .{},
 
 last_pos: Vec2 = .{},
@@ -64,45 +58,8 @@ skybox: Skybox = .{},
 
 camera_move_speed: f32 = 5.0,
 pub fn init(app: *App) !void {
-    // index and vertex buffer for cube
-    app.cube_verts = try resources.createBuffer(
-        .{
-            .size = cube.uvs.len * @sizeOf(Vec2) + cube.positions.len * @sizeOf(Vec3),
-            .usage = .Vertex,
-        },
-    );
-    var offset = try renderer.updateBuffer(app.cube_verts, 0, Vec3, cube.positions);
-    offset = try renderer.updateBuffer(app.cube_verts, offset, Vec2, cube.uvs);
-
-    app.cube_inds = try resources.createBuffer(
-        .{
-            .size = cube.indices.len * @sizeOf(u32),
-            .usage = .Index,
-        },
-    );
-    _ = try renderer.updateBuffer(app.cube_inds, 0, u32, cube.indices);
-
     app.t.pos = .{ .x = 0, .y = 1, .z = 0 };
     app.t.scale = .{ .x = 1, .y = 1, .z = 1 };
-
-    // setup the quad
-
-    app.quad_verts = try resources.createBuffer(
-        .{
-            .size = quad.uvs.len * @sizeOf(Vec2) + quad.positions.len * @sizeOf(Vec3),
-            .usage = .Vertex,
-        },
-    );
-    offset = try renderer.updateBuffer(app.quad_verts, 0, Vec3, quad.positions);
-    offset = try renderer.updateBuffer(app.quad_verts, offset, Vec2, quad.uvs);
-
-    app.quad_inds = try resources.createBuffer(
-        .{
-            .size = quad.indices.len * @sizeOf(u32),
-            .usage = .Index,
-        },
-    );
-    _ = try renderer.updateBuffer(app.quad_inds, 0, u32, quad.indices);
 
     // setup the camera
     try app.camera.init();
@@ -110,7 +67,7 @@ pub fn init(app: *App) !void {
 
     // setup the material
     app.material_group = try resources.createBindingGroup(&.{
-        .{ .binding_type = .Buffer },
+        .{ .binding_type = .UniformBuffer },
         .{ .binding_type = .Texture },
         .{ .binding_type = .Sampler },
     });
@@ -259,20 +216,22 @@ pub fn render(app: *App) !void {
     // draw the floor
     try cmd.pushConst(app.simple_pipeline, floor_mat);
 
+    const quad_bufs = try quad.getBuffers();
     try cmd.drawIndexed(.{
-        .count = quad.indices.len,
-        .vertex_handle = app.quad_verts,
-        .index_handle = app.quad_inds,
+        .count = @intCast(u32, quad.indices.len),
+        .vertex_handle = quad_bufs.vertices,
+        .index_handle = quad_bufs.indices,
         .offsets = &.{ 0, 4 * @sizeOf(Vec3) },
     });
 
     // draw the magic cube
     try cmd.pushConst(app.simple_pipeline, app.t.mat());
 
+    const cube_bufs = try cube.getBuffers();
     try cmd.drawIndexed(.{
-        .count = cube.indices.len,
-        .vertex_handle = app.cube_verts,
-        .index_handle = app.cube_inds,
+        .count = @intCast(u32, cube.indices.len),
+        .vertex_handle = cube_bufs.vertices,
+        .index_handle = cube_bufs.indices,
         .offsets = &.{ 0, 8 * @sizeOf(Vec3) },
     });
 

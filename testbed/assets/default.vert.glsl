@@ -13,7 +13,6 @@ layout (set = 0, binding = 0) uniform readonly camera_data {
 
 layout( push_constant ) uniform PushConstants
 {
-// 	uint id;
   mat4 model;
 } pc;
 
