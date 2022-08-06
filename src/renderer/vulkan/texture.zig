@@ -85,6 +85,15 @@ pub const Texture = struct {
         desc: types.TextureDesc,
         data: []const u8,
     ) !Self {
+        var self: Self = try initEmpty(device, desc);
+        try self.write(device, 0, data);
+        return self;
+    }
+
+    pub fn initEmpty(
+        device: Device,
+        desc: types.TextureDesc,
+    ) !Self {
         var self: Self = undefined;
         self.desc = desc;
 
@@ -114,9 +123,6 @@ pub const Texture = struct {
             .{ .color_bit = true },
             desc.texture_type,
         );
-
-        // const image_size = desc.width * desc.height * @as(u32, desc.channels);
-        try self.write(device, 0, data);
 
         return self;
     }

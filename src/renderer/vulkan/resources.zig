@@ -526,7 +526,6 @@ pub fn flipData(width: usize, height: usize, data: []u8) void {
     }
 }
 
-// TODO: need to be able to update textures
 pub fn createTexture(desc: types.TextureDesc, data: []u8) !Handle {
     const handle_idx = try resources.allocIndex();
     const tex_idx = try textures.allocIndex();
@@ -541,12 +540,26 @@ pub fn createTexture(desc: types.TextureDesc, data: []u8) !Handle {
     return Handle{ .resource = handle_idx };
 }
 
+pub fn createTextureEmpty(desc: types.TextureDesc) !Handle {
+    const handle_idx = try resources.allocIndex();
+    const tex_idx = try textures.allocIndex();
+
+    textures.set(tex_idx, try Texture.initEmpty(device, desc));
+
+    resources.set(
+        handle_idx,
+        .{ .Texture = .{ .index = tex_idx, .desc = desc } },
+    );
+
+    return Handle{ .resource = handle_idx };
+}
 /// update data in a texture at an offset
 pub fn updateTexture(
     handle: Handle,
     // offset into the buffer
     offset: u32,
     data: []u8,
+    //TODO: make a struct for this
     offset_x: u32,
     offset_y: u32,
     extent_x: u32,
