@@ -3,10 +3,14 @@ const octal = @import("octal");
 const renderer = octal.renderer;
 const resources = octal.renderer.resources;
 const font = octal.font;
+const quad = octal.mesh.quad;
 const mmath = octal.mmath;
 
 const Allocator = std.mem.Allocator;
+
+const CmdBuf = renderer.CmdBuf;
 const Vec2 = mmath.Vec2;
+const Vec3 = mmath.Vec3;
 const Vec4 = mmath.Vec4;
 const Mat4 = mmath.Mat4;
 
@@ -18,6 +22,8 @@ const GlyphData = struct {
 };
 
 const MAX_GLYPHS = 1024;
+
+allocator: Allocator,
 
 bdf: font.BDF,
 /// bindgroup for the font
@@ -33,10 +39,10 @@ texture: renderer.Handle = .{},
 sampler: renderer.Handle = .{},
 /// pipeline for rendering fonts
 pipeline: renderer.Handle = .{},
+/// pipeline for rendering fonts
+atlas_pipeline: renderer.Handle = .{},
 
-allocator: Allocator,
-
-/// offset into the index buffer
+// offset into the index buffer
 index_offset: u32 = 0,
 
 pub fn init(path: []const u8, renderpass: renderer.Handle, allocator: Allocator) !Self {
@@ -141,8 +147,36 @@ pub fn init(path: []const u8, renderpass: renderer.Handle, allocator: Allocator)
         .renderpass = renderpass,
         .cull_mode = .back,
     });
+    self.atlas_pipeline = try resources.createPipeline(.{
+        .stages = &.{
+            .{
+                .bindpoint = .Vertex,
+                .path = "font_example/assets/atlas.vert.spv",
+            },
+            .{
+                .bindpoint = .Fragment,
+                .path = "font_example/assets/atlas.frag.spv",
+            },
+        },
+        .binding_groups = &.{self.group},
+        .renderpass = renderpass,
+        .cull_mode = .none,
+        .vertex_inputs = &.{ .Vec3, .Vec2 },
+        .push_const_size = @sizeOf(Mat4),
+    });
 
     return self;
+}
+
+/// look up the glyph location in the texture
+/// TOOD: will add glyphs not in the texture
+fn getGlyphLoc(codepoint: u32) Vec4 {
+    return switch (codepoint) {
+        109 => Vec4.new(4, 5, 3, 0),
+        36 => Vec4.new(3, 9, 0, 0),
+        51 => Vec4.new(4, 7, 7, 0),
+        else => Vec4{},
+    };
 }
 
 pub fn addGlyph(
@@ -215,15 +249,42 @@ pub fn addGlyph(
     self.index_offset += 1;
 }
 
-/// look up the glyph location in the texture
-/// TOOD: will add glyphs not in the texture
-fn getGlyphLoc(codepoint: u32) Vec4 {
-    return switch (codepoint) {
-        109 => Vec4.new(4, 5, 3, 0),
-        36 => Vec4.new(3, 9, 0, 0),
-        51 => Vec4.new(4, 7, 7, 0),
-        else => Vec4{},
-    };
+/// draw the glyphs in the buffer
+pub fn drawGlyphs(self: Self, cmd: *CmdBuf) !void {
+    try cmd.bindPipeline(self.pipeline);
+
+    // draw the quads
+    try cmd.drawIndexed(.{
+        .count = self.index_offset * 6,
+        .vertex_handle = .{},
+        .index_handle = self.inds,
+    });
+}
+
+/// draw the full texture atlass
+pub fn drawAtlas(
+    self: Self,
+    cmd: *CmdBuf,
+    x: f32,
+    y: f32,
+    w: f32,
+    h: f32,
+) !void {
+    try cmd.bindPipeline(self.atlas_pipeline);
+
+    const bufs = try quad.getBuffers();
+    try cmd.pushConst(
+        self.atlas_pipeline,
+        Mat4.scale(Vec3.new(w, h, 0))
+            .mul(Mat4.translate(Vec3.new(x + w / 2, y + h / 2, 0))),
+    );
+    // draw the quad
+    try cmd.drawIndexed(.{
+        .count = 6,
+        .vertex_handle = bufs.vertices,
+        .index_handle = bufs.indices,
+        .offsets = &.{ 0, 4 * @sizeOf(Vec3) },
+    });
 }
 
 pub fn clear(self: *Self) void {

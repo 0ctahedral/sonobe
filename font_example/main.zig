@@ -61,14 +61,15 @@ pub fn render(app: *App) !void {
 
     try cmd.beginRenderPass(app.screen_pass);
 
-    try cmd.bindPipeline(app.font_ren.pipeline);
+    try app.font_ren.drawGlyphs(&cmd);
 
-    // draw the quads
-    try cmd.drawIndexed(.{
-        .count = app.font_ren.index_offset * 6,
-        .vertex_handle = .{},
-        .index_handle = app.font_ren.inds,
-    });
+    try app.font_ren.drawAtlas(
+        &cmd,
+        app.screen_dim.x - 200,
+        app.screen_dim.y - 200,
+        200,
+        200,
+    );
 
     try cmd.endRenderPass(app.screen_pass);
 
