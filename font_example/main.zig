@@ -53,12 +53,18 @@ pub fn init(app: *App) !void {
 
     // render some shit
     app.font_ren.clear();
-    try app.font_ren.addString("$hello world!", Vec2.new(20, 20), 20);
-    try app.font_ren.addString("A B C D E F G H I J K L M N O P Q R S T U V W X Y Z", Vec2.new(100, 50), 20);
-    try app.font_ren.addString("a b c d e f g h i j k l m n o p q r s t u v w x y z", Vec2.new(100, 75), 20);
-    try app.font_ren.addString("1 2 3 4 5 6 7 8 9 0", Vec2.new(150, 100), 20);
-    try app.font_ren.addString("() [] {} <> ? / \\ : \" ' ; ! @ # $ % & * + - = - | ~ `", Vec2.new(90, 125), 20);
-    try app.font_ren.addString("|this is|text|", Vec2.new(100, 500), 50);
+    _ = try app.font_ren.addString("$hello world!", Vec2.new(20, 20), 20);
+    var pos = Vec2.new(100, 50);
+    pos.y += (try app.font_ren.addString("A B C D E F G H I J K L M N O P Q R S T U V W X Y Z", pos, 20)).y;
+    pos.y += (try app.font_ren.addString("a b c d e f g h i j k l m n o p q r s t u v w x y z", pos, 20)).y;
+    pos.x = 150;
+    pos.y += (try app.font_ren.addString("1 2 3 4 5 6 7 8 9 0", pos, 20)).y;
+    pos.x = 90;
+    pos.y += (try app.font_ren.addString("() [] {} <> ? / \\ : \" ' ; ! @ # $ % & * + - = - | ~ `", pos, 20)).y;
+
+    _ = try app.font_ren.addString("try app.font_ren = @sizeOf(UrMom)", Vec2.new(100, 300), 24);
+
+    _ = try app.font_ren.addString("|this is|text|", Vec2.new(100, 500), 50);
 }
 
 pub fn update(app: *App, _: f64) !void {

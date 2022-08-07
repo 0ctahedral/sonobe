@@ -214,6 +214,8 @@ fn addGlyphToTexture(
     return bb;
 }
 
+/// adds glyphs from a string to the draw buffer and returns the offset
+/// from the starting position
 pub fn addString(
     self: *Self,
     /// character we are printing
@@ -222,18 +224,23 @@ pub fn addString(
     pos: Vec2,
     /// font height in pixels 
     height: f32,
-) !void {
+) !Vec2 {
     var offset = Vec2{};
+    var max_y = height;
     for (string) |b| {
         // increase x offset by width of previous glyph
-        offset.x += try self.addGlyph(@intCast(u32, b), pos.add(offset), height);
+        const o = try self.addGlyph(@intCast(u32, b), pos.add(offset), height);
+        offset.x += o.x;
+        max_y = @maximum(max_y, height + o.y);
     }
 
-    // TODO: return offset?
+    offset.y = max_y;
+    return offset;
 }
 
 /// adds a glyph to our render buffer
 /// returns the x offset from that should be used for next glyph
+/// and the y position
 pub fn addGlyph(
     self: *Self,
     /// character we are printing
@@ -242,7 +249,7 @@ pub fn addGlyph(
     pos: Vec2,
     /// font height in pixels 
     height: f32,
-) !f32 {
+) !Vec2 {
     // convert from points to pixels
     // assumes a ppi of 96
     const cell_height = self.bdf.header.size_p * @intToFloat(f32, self.bdf.header.size_y) / 96.0;
@@ -266,7 +273,7 @@ pub fn addGlyph(
             .{
                 .rect = Vec4.new(
                     pos.x + @intToFloat(f32, glyph.bb.x_off) * ratio,
-                    pos.y - @intToFloat(f32, glyph.bb.y_off) * ratio,
+                    pos.y + (height - size.y) - @intToFloat(f32, glyph.bb.y_off) * ratio,
                     size.x,
                     size.y,
                 ),
@@ -310,7 +317,7 @@ pub fn addGlyph(
 
     self.index_offset += 1;
 
-    return @intToFloat(f32, glyph.dwidth.x) * ratio;
+    return Vec2.new(@intToFloat(f32, glyph.dwidth.x) * ratio, -@intToFloat(f32, glyph.bb.y_off) * ratio);
 }
 
 /// draw the glyphs in the buffer
