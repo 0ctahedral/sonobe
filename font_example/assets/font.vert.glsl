@@ -4,6 +4,7 @@
 struct glyph_data {
   vec4 rect;
   vec4 bb;
+  vec4 color;
 };
 
 layout (set = 0, binding = 0) readonly buffer tex_data {
@@ -25,6 +26,7 @@ layout(location = 0) out struct {
   vec2 uv;
   vec4 bb;
   vec4 rect;
+  vec4 color;
 } out_dto;
 
 void main() {
@@ -42,5 +44,6 @@ void main() {
   out_dto.uv = uvs[corner];
   out_dto.bb = glyphs[idx].bb;
   out_dto.rect = rect;
+  out_dto.color = glyphs[idx].color;
   gl_Position = projection  * vec4(pos[corner], 0.0, 1.0 );
 }

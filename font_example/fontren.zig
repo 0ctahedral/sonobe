@@ -19,6 +19,7 @@ const Self = @This();
 const GlyphData = struct {
     rect: Vec4,
     bb: Vec4,
+    color: Vec4,
 };
 
 const MAX_GLYPHS = 1024;
@@ -224,12 +225,19 @@ pub fn addString(
     pos: Vec2,
     /// font height in pixels 
     height: f32,
+    /// the color of this string
+    color: Vec4,
 ) !Vec2 {
     var offset = Vec2{};
     var max_y = height;
     for (string) |b| {
         // increase x offset by width of previous glyph
-        const o = try self.addGlyph(@intCast(u32, b), pos.add(offset), height);
+        const o = try self.addGlyph(
+            @intCast(u32, b),
+            pos.add(offset),
+            height,
+            color,
+        );
         offset.x += o.x;
         max_y = @maximum(max_y, height + o.y);
     }
@@ -249,6 +257,8 @@ pub fn addGlyph(
     pos: Vec2,
     /// font height in pixels 
     height: f32,
+    /// the color of this glyph
+    color: Vec4,
 ) !Vec2 {
     // convert from points to pixels
     // assumes a ppi of 96
@@ -278,6 +288,7 @@ pub fn addGlyph(
                     size.y,
                 ),
                 .bb = tex_bb,
+                .color = color,
             },
         },
     );

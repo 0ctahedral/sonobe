@@ -13,6 +13,7 @@ layout(location = 0) in struct {
   vec2 uv;
   vec4 bb;
   vec4 rect;
+  vec4 color;
 } dto;
 
 layout(location = 0) out vec4 o_color;
@@ -24,7 +25,7 @@ layout( push_constant ) uniform PushConstants
 
 void main() {
   // TODO: glyph color
-  vec3 color = vec3(1);
+  vec4 color = dto.color;
 
   vec4 bb = dto.bb;
 
@@ -44,11 +45,11 @@ void main() {
       a = 1;
       break;
     case 3:
-      color = vec3(uv, 0.0);
+      color = vec4(uv, 0.0, 1.0);
       a = 1;
       break;
     default: break;
   }
 
-  o_color = vec4(color, a);
+  o_color = color * a;
 }
