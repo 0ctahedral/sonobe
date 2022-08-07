@@ -3,6 +3,12 @@
 layout (set = 0, binding = 1) uniform texture2D tex;
 layout (set = 0, binding = 2) uniform sampler samp;
 
+layout (set = 0, binding = 0) readonly buffer tex_data {
+  mat4 projection;
+  vec2 res;
+  vec2 cell;
+};
+
 layout(location = 0) in struct {
   vec2 uv;
   vec4 bb;
@@ -20,14 +26,11 @@ void main() {
   // TODO: glyph color
   vec3 color = vec3(1);
 
-  // texture resolution
-  vec2 res = vec2(textureSize(sampler2D(tex, samp), 0));
-
   vec4 bb = dto.bb;
 
   vec2 uv = (dto.uv * bb.xy) / res;
-  uv.y += res.y - (bb.y + bb.w)/ res.y;
-  uv.x += (bb.z) / res.x;
+  uv.y += (bb.w + (cell.y - bb.y))/ res.y;
+  uv.x += bb.z / res.x;
 
   float a = texture(sampler2D(tex, samp), uv).r;
 

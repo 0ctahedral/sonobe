@@ -8,6 +8,8 @@ struct glyph_data {
 
 layout (set = 0, binding = 0) readonly buffer tex_data {
   mat4 projection;
+  vec2 res;
+  vec2 cell;
   glyph_data glyphs[];
 };
 
