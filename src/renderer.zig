@@ -1,17 +1,34 @@
 //! Renderer front end
 
+// public declarations
+pub const CmdBuf = @import("renderer/cmdbuf.zig");
+pub const types = @import("renderer/rendertypes.zig");
+pub const Handle = types.Handle;
+pub const BufferDesc = types.BufferDesc;
+pub const RenderPassDesc = types.RenderPassDesc;
+pub const PipelineDesc = types.PipelineDesc;
+pub const resources = backend.resources;
+pub const Camera = @import("renderer/camera.zig");
+pub const Skybox = @import("renderer/skybox.zig");
+
+// other stuff
 const std = @import("std");
 const Allocator = std.mem.Allocator;
+const RingBuffer = @import("containers.zig").RingBuffer;
+const Transform = @import("math.zig").Transform;
+const backend = @import("renderer/vulkan/renderer.zig");
 const platform = @import("platform.zig");
 const events = @import("events.zig");
-const RingBuffer = @import("containers.zig").RingBuffer;
 
-const Transform = @import("math.zig").Transform;
-
-// TODO: make private and depend on which backend we are using
-pub const backend = @import("renderer/vulkan/renderer.zig");
-
-pub const CmdBuf = @import("renderer/cmdbuf.zig");
+/// the current frame
+pub var frame: usize = 0;
+var submitted_cmds: RingBuffer(CmdBuf, 32) = undefined;
+// State for resizing
+var frames_since_resize: usize = 0;
+// width and height of window, probs gonna get rid of this
+pub var w: u32 = 800;
+pub var h: u32 = 600;
+var resizing = false;
 
 pub fn init(_allocator: Allocator, app_name: [*:0]const u8, window: platform.Window) !void {
     try backend.init(_allocator, app_name, window);
@@ -25,8 +42,6 @@ pub fn init(_allocator: Allocator, app_name: [*:0]const u8, window: platform.Win
     submitted_cmds = RingBuffer(CmdBuf, 32).init();
 }
 
-var submitted_cmds: RingBuffer(CmdBuf, 32) = undefined;
-
 // TODO: make a command pool api
 pub fn getCmdBuf() CmdBuf {
     return .{};
@@ -37,8 +52,6 @@ pub fn submit(cmdbuf: CmdBuf) !void {
     try submitted_cmds.push(cmdbuf);
 }
 
-/// the current frame
-pub var frame: usize = 0;
 pub fn drawFrame() !void {
     // regardless of control flow we need to reset the command buffer
     // at the end of this function
@@ -69,12 +82,6 @@ pub fn deinit() void {
     backend.deinit();
 }
 
-// State for resizing
-var frames_since_resize: usize = 0;
-pub var w: u32 = 800;
-pub var h: u32 = 600;
-var resizing = false;
-
 pub fn onResize(ev: events.Event) bool {
     frames_since_resize = 0;
     w = @as(u32, ev.WindowResize.w);
@@ -84,14 +91,6 @@ pub fn onResize(ev: events.Event) bool {
     // other systems might need this event
     return true;
 }
-
-pub const types = @import("renderer/rendertypes.zig");
-pub const Handle = types.Handle;
-pub const BufferDesc = types.BufferDesc;
-pub const RenderPassDesc = types.RenderPassDesc;
-pub const PipelineDesc = types.PipelineDesc;
-
-pub const resources = backend.resources;
 
 /// uploades data to a buffer and returns the resulting offest in bytes
 // TODO: make this just in the resources

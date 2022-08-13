@@ -1,10 +1,9 @@
 const std = @import("std");
-const octal = @import("octal");
-const renderer = octal.renderer;
-const resources = octal.renderer.resources;
-const font = octal.font;
-const quad = octal.mesh.quad;
-const mmath = octal.mmath;
+const renderer = @import("../renderer.zig");
+const resources = renderer.resources;
+const quad = @import("../mesh.zig").quad;
+const mmath = @import("../math.zig");
+const BDF = @import("bdf.zig");
 
 const Allocator = std.mem.Allocator;
 
@@ -26,7 +25,7 @@ const MAX_GLYPHS = 1024;
 
 allocator: Allocator,
 
-bdf: font.BDF,
+bdf: BDF,
 /// bindgroup for the font
 group: renderer.Handle = .{},
 /// buffer containing the orthographic matrix?
@@ -59,7 +58,7 @@ const Cache = struct {
 pub fn init(path: []const u8, renderpass: renderer.Handle, allocator: Allocator) !Self {
     var self = Self{
         .allocator = allocator,
-        .bdf = try font.loadBDF(path, allocator),
+        .bdf = try BDF.init(path, allocator),
         .bb_cache = .{
             .map = std.AutoHashMap(u32, Vec4).init(allocator),
         },

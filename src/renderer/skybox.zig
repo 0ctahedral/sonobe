@@ -1,14 +1,15 @@
 const std = @import("std");
-const octal = @import("octal");
-const cube = octal.mesh.cube;
-const renderer = octal.renderer;
+const renderer = @import("../renderer.zig");
 const resources = renderer.resources;
+const color = @import("../color.zig");
 
 const Handle = renderer.Handle;
 const CmdBuf = renderer.CmdBuf;
-const Mat4 = octal.mmath.Mat4;
-const Vec3 = octal.mmath.Vec3;
 const Camera = @import("camera.zig");
+const mmath = @import("../math.zig");
+const Mat4 = mmath.Mat4;
+const Vec3 = mmath.Vec3;
+const cube = @import("../mesh.zig").cube;
 
 const Self = @This();
 
@@ -20,10 +21,10 @@ texture: Handle = .{},
 sampler: Handle = .{},
 
 pub const Data = struct {
-    // sky_color: Vec3 = octal.color.hexToVec3(0xbe7ce2),
-    sky_color: Vec3 = octal.color.hexToVec3(0x2c0d7a),
+    // sky_color: Vec3 = color.hexToVec3(0xbe7ce2),
+    sky_color: Vec3 = color.hexToVec3(0x2c0d7a),
     star_density: f32 = 10.0,
-    horizon_color: Vec3 = octal.color.hexToVec3(0x8dc2f7),
+    horizon_color: Vec3 = color.hexToVec3(0x8dc2f7),
     star_size: f32 = 0.05,
     sun_dir: Vec3 = Vec3.new(0.0, 0.5, 0.5).norm(),
     sun_size: f32 = 0.3,

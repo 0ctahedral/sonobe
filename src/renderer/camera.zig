@@ -1,10 +1,9 @@
 const std = @import("std");
-const octal = @import("octal");
-const renderer = octal.renderer;
+const renderer = @import("../renderer.zig");
 const resources = renderer.resources;
 
 const Handle = renderer.Handle;
-const mmath = octal.mmath;
+const mmath = @import("../math.zig");
 const Mat4 = mmath.Mat4;
 const Vec3 = mmath.Vec3;
 const Vec2 = mmath.Vec2;

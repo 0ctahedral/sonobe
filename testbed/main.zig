@@ -17,8 +17,8 @@ const Quat = mmath.Quat;
 const Mat4 = mmath.Mat4;
 const Transform = mmath.Transform;
 
-const Skybox = @import("skybox.zig");
-const Camera = @import("camera.zig");
+const Skybox = renderer.Skybox;
+const Camera = renderer.Camera;
 
 // since this file is implicitly a struct we can store state in here
 // and use methods that we expect to be defined in the engine itself.

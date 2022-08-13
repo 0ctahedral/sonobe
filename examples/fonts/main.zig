@@ -15,7 +15,7 @@ const Vec2 = mmath.Vec2;
 const Quat = mmath.Quat;
 const Mat4 = mmath.Mat4;
 const Transform = mmath.Transform;
-const FontRen = @import("fontren.zig");
+const FontRen = octal.font.FontRen;
 // since this file is implicitly a struct we can store state in here
 // and use methods that we expect to be defined in the engine itself.
 // we can then make our app a package which is included by the engine
