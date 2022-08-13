@@ -39,7 +39,7 @@ const allocator = std.testing.allocator;
 
 pub fn init(app: *App) !void {
     app.screen_pass = try resources.createRenderPass(.{
-        .clear_color = .{ 0.75, 0.49, 0.89, 1.0 },
+        .clear_color = Vec4.new(0.75, 0.49, 0.89, 1.0),
         .clear_depth = 1.0,
         .clear_stencil = 1.0,
         .clear_flags = .{ .depth = true, .color = true },

@@ -26,6 +26,7 @@ const RenderTarget = @import("render_target.zig").RenderTarget;
 pub const resources = @import("resources.zig");
 const mmath = @import("../../math.zig");
 const Mat4 = mmath.Mat4;
+const Vec4 = mmath.Vec4;
 const Vec3 = mmath.Vec3;
 const Vec2 = mmath.Vec2;
 
@@ -173,7 +174,7 @@ pub fn init(provided_allocator: Allocator, app_name: [*:0]const u8, window: plat
                 .depth = true,
                 .stencil = true,
             },
-            .clear_color = .{ 0, 0, 0.1, 1 },
+            .clear_color = Vec4.new(0, 0, 0.1, 1),
             .clear_depth = 1.0,
             .clear_stencil = 0,
         },

@@ -121,7 +121,12 @@ pub const RenderPass = struct {
 
         return Self{
             .handle = rp,
-            .clear_color = desc.clear_color,
+            .clear_color = [_]f32{
+                desc.clear_color.x,
+                desc.clear_color.y,
+                desc.clear_color.z,
+                desc.clear_color.w,
+            },
             .depth = desc.clear_depth,
             .stencil = desc.clear_stencil,
         };

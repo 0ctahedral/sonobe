@@ -95,7 +95,7 @@ pub const RenderPassDesc = struct {
         stencil: bool = false,
     };
     /// color this renderpass should clear the rendertarget to
-    clear_color: [4]f32,
+    clear_color: @import("../math.zig").Vec4,
     /// value the renderpass should clear the rendertarget depth bufffer to
     clear_depth: f32,
     /// value the renderpass should clear the rendertarget stencil buffer to

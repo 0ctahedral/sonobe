@@ -8,6 +8,7 @@ const CmdBuf = renderer.CmdBuf;
 const Camera = @import("camera.zig");
 const mmath = @import("../math.zig");
 const Mat4 = mmath.Mat4;
+const Vec4 = mmath.Vec4;
 const Vec3 = mmath.Vec3;
 const cube = @import("../mesh.zig").cube;
 
@@ -36,8 +37,7 @@ pub fn init(camera: Camera, procedural: bool) !Self {
     // skybox stuff
     // setup the texture
     self.pass = try resources.createRenderPass(.{
-        // .clear_color = .{ 0.75, 0.49, 0.89, 1.0 },
-        .clear_color = .{ 0.0, 0.0, 0.0, 1.0 },
+        .clear_color = Vec4{ .w = 1.0 },
         .clear_depth = 1.0,
         .clear_stencil = 1.0,
         .clear_flags = .{ .color = true, .depth = true },
