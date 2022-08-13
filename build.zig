@@ -20,26 +20,32 @@ pub fn build(b: *Builder) !void {
     test_step.dependOn(&tests.step);
 
     // make our testbed app
-    const exe = try makeApp(b, "testbed");
+    const exe = try makeApp(b, "testbed", null);
     exe.install();
 
-    const font = try makeApp(b, "font_example");
-    font.install();
+    const fonts = try makeApp(b, "fonts", "examples/fonts");
+    fonts.install();
+
+    const lines = try makeApp(b, "lines", "examples/lines");
+    lines.install();
 
     try compileShadersInDir(b, "testbed/assets", exe);
-    try compileShadersInDir(b, "font_example/assets", font);
+    try compileShadersInDir(b, "examples/fonts/assets", fonts);
+    try compileShadersInDir(b, "examples/lines/assets", lines);
 }
 
-pub fn makeApp(b: *Builder, name: []const u8) !*std.build.LibExeObjStep {
+pub fn makeApp(b: *Builder, name: []const u8, path: ?[]const u8) !*std.build.LibExeObjStep {
     // start with the engine entrypoint
     const exe = b.addExecutable(name, "src/entry.zig");
 
     linkEngineDeps(b, exe);
 
+    const pkg_path = if (path) |_| b.fmt("{s}/main.zig", .{path}) else b.fmt("{s}/main.zig", .{name});
+
     // add package for the app contents
     exe.addPackage(.{
         .name = "app",
-        .path = .{ .path = b.fmt("{s}/main.zig", .{name}) },
+        .path = .{ .path = pkg_path },
         // depnd on the engine (of course)
         .dependencies = &[_]std.build.Pkg{
             .{

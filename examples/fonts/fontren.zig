@@ -126,11 +126,11 @@ pub fn init(path: []const u8, renderpass: renderer.Handle, allocator: Allocator)
         .stages = &.{
             .{
                 .bindpoint = .Vertex,
-                .path = "font_example/assets/font.vert.spv",
+                .path = "examples/fonts/assets/font.vert.spv",
             },
             .{
                 .bindpoint = .Fragment,
-                .path = "font_example/assets/font.frag.spv",
+                .path = "examples/fonts/assets/font.frag.spv",
             },
         },
         .binding_groups = &.{self.group},
@@ -142,11 +142,11 @@ pub fn init(path: []const u8, renderpass: renderer.Handle, allocator: Allocator)
         .stages = &.{
             .{
                 .bindpoint = .Vertex,
-                .path = "font_example/assets/atlas.vert.spv",
+                .path = "examples/fonts/assets/atlas.vert.spv",
             },
             .{
                 .bindpoint = .Fragment,
-                .path = "font_example/assets/atlas.frag.spv",
+                .path = "examples/fonts/assets/atlas.frag.spv",
             },
         },
         .binding_groups = &.{self.group},
