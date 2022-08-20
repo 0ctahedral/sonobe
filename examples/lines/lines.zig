@@ -38,8 +38,12 @@ line_buf: Handle = .{},
 group: Handle = .{},
 /// line renderpass
 pass: Handle = .{},
-/// pipeline for the line shader
-pipeline: Handle = .{},
+/// pipeline for simple debug type lines
+simple_pipeline: Handle = .{},
+/// pipeline for more advanced anti aliased lines
+aa_pipeline: Handle = .{},
+/// wireframe on and culling none
+debug_pipeline: Handle = .{},
 /// offset into the index buffer
 next_index: u32 = 0,
 
@@ -79,7 +83,7 @@ pub fn init() !Self {
         },
     });
 
-    self.pipeline = try resources.createPipeline(.{
+    self.simple_pipeline = try resources.createPipeline(.{
         .stages = &.{
             .{
                 .bindpoint = .Vertex,
@@ -94,9 +98,42 @@ pub fn init() !Self {
         .renderpass = self.pass,
         .cull_mode = .back,
         .push_const_size = @sizeOf(PushConst),
-        //.wireframe = true,
     });
 
+    self.aa_pipeline = try resources.createPipeline(.{
+        .stages = &.{
+            .{
+                .bindpoint = .Vertex,
+                .path = "examples/lines/assets/lines_aa.vert.spv",
+            },
+            .{
+                .bindpoint = .Fragment,
+                .path = "examples/lines/assets/lines_aa.frag.spv",
+            },
+        },
+        .binding_groups = &.{self.group},
+        .renderpass = self.pass,
+        .cull_mode = .back,
+        .push_const_size = @sizeOf(PushConst),
+    });
+
+    self.debug_pipeline = try resources.createPipeline(.{
+        .stages = &.{
+            .{
+                .bindpoint = .Vertex,
+                .path = "examples/lines/assets/lines_aa.vert.spv",
+            },
+            .{
+                .bindpoint = .Fragment,
+                .path = "examples/lines/assets/lines.frag.spv",
+            },
+        },
+        .binding_groups = &.{self.group},
+        .renderpass = self.pass,
+        .cull_mode = .none,
+        .push_const_size = @sizeOf(PushConst),
+        .wireframe = true,
+    });
     return self;
 }
 
@@ -128,7 +165,7 @@ pub fn addLine(self: *Self, data: LineData) !void {
             .index = @intCast(u24, self.next_index),
         }),
         @bitCast(u32, Index{
-            .corner = 2,
+            .corner = 1,
             .index = @intCast(u24, self.next_index),
         }),
         @bitCast(u32, Index{
@@ -136,7 +173,7 @@ pub fn addLine(self: *Self, data: LineData) !void {
             .index = @intCast(u24, self.next_index),
         }),
         @bitCast(u32, Index{
-            .corner = 0,
+            .corner = 2,
             .index = @intCast(u24, self.next_index),
         }),
     });
@@ -149,22 +186,41 @@ pub fn clear(self: *Self) void {
 }
 
 const PushConst = struct {
-    viewproj: Mat4,
-    aspect: f32,
+    view: Mat4,
+    proj: Mat4,
+    // viewproj: Mat4,
+    // aspect: f32,
 };
 
-pub fn draw(self: Self, cmd: *CmdBuf, viewproj: Mat4, aspect: f32) !void {
+pub const Type = enum {
+    debug,
+    simple,
+    anti_aliased,
+};
+
+pub fn draw(self: Self, cmd: *CmdBuf, camera: renderer.Camera, line_type: Type) !void {
     try cmd.beginRenderPass(self.pass);
-    try cmd.bindPipeline(self.pipeline);
-    try cmd.pushConst(self.pipeline, [_]PushConst{.{
-        .viewproj = viewproj,
-        .aspect = aspect,
+    const pipeline = switch (line_type) {
+        .debug => self.debug_pipeline,
+        .simple => self.simple_pipeline,
+        .anti_aliased => self.aa_pipeline,
+    };
+
+    try cmd.bindPipeline(pipeline);
+    try cmd.pushConst(pipeline, [_]PushConst{.{
+        .view = camera.view(),
+        .proj = camera.proj(),
     }});
-    // draw the quads
-    try cmd.drawIndexed(.{
-        .count = 6 * self.next_index,
-        .vertex_handle = .{},
-        .index_handle = self.index_buf,
-    });
+
+    var i: usize = 0;
+    while (i < self.next_index) : (i += 1) {
+        // draw the quads
+        try cmd.drawIndexed(.{
+            .count = 6,
+            .vertex_handle = .{},
+            .index_handle = self.index_buf,
+            .index_offset = i * 6 * @sizeOf(u32),
+        });
+    }
     try cmd.endRenderPass(self.pass);
 }

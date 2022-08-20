@@ -39,6 +39,8 @@ camera: renderer.Camera = .{
 camera_move_speed: f32 = 5.0,
 lines: Lines = undefined,
 
+line_mode: u8 = 2,
+
 pub fn init(app: *App) !void {
     try app.camera.init();
     app.camera.aspect = @intToFloat(f32, renderer.w) / @intToFloat(f32, renderer.h);
@@ -52,47 +54,28 @@ pub fn init(app: *App) !void {
 
     app.lines = try Lines.init();
     const thickness = 0.2;
-    const feather = 0.5;
+    // const feather = 0.5;
     try app.lines.addLine(.{
-        .start = .{},
-        .end = .{ .x = 5 },
-        .color = .{ .x = 1, .w = 1 },
+        .start = .{ .x = 0 },
+        .end = .{ .z = 5 },
+        .color = .{ .z = 1, .w = 1 },
         .thickness = thickness,
-        .feather = feather,
     });
+
     try app.lines.addLine(.{
         .start = .{},
         .end = .{ .y = 5 },
         .color = .{ .y = 1, .w = 1 },
         .thickness = thickness,
-        .feather = feather,
-    });
-    try app.lines.addLine(.{
-        .start = .{},
-        .end = .{ .z = 5 },
-        .color = .{ .z = 1, .w = 1 },
-        .thickness = thickness,
-        .feather = feather,
     });
 
-    var i: f32 = 1;
-    var l = Lines.LineData{
-        .start = .{},
-        .end = .{ .z = 5 },
-        .color = octal.color.hexToVec4(0xffffffff),
-        .thickness = thickness / 2.0,
-    };
-    const segments = 20.0;
-    const radius = 0.25;
-    const frac = std.math.tau / segments;
-    var last_pos = Vec3{ .x = radius, .z = 0 };
-    while (i < segments + 1.0) : (i += 1) {
-        var pos = Vec3{ .x = @cos(i * frac) * radius, .z = @sin(i * frac) * radius };
-        l.start = last_pos;
-        l.end = pos;
-        try app.lines.addLine(l);
-        last_pos = pos;
-    }
+    try app.lines.addLine(.{
+        .start = .{ .x = 0 },
+        .end = .{ .x = 6 },
+        .color = .{ .x = 1, .w = 1 },
+        .thickness = thickness,
+        //.feather = feather,
+    });
 }
 
 pub fn update(app: *App, dt: f64) !void {
@@ -117,13 +100,9 @@ pub fn update(app: *App, dt: f64) !void {
         ivec = ivec.add(Vec3.DOWN);
     }
 
-    if (input.keyIs(.v, .press)) {
-        app.camera.fov += 10;
-        std.log.debug("fov changed to: {d:.2}", .{app.camera.fov});
-    }
-    if (input.keyIs(.c, .press)) {
-        app.camera.fov -= 10;
-        std.log.debug("fov changed to: {d:.2}", .{app.camera.fov});
+    if (input.keyIs(.space, .press)) {
+        app.line_mode = (app.line_mode + 1) % 3;
+        std.log.debug("line mode ({})", .{app.line_mode});
     }
 
     const mag = ivec.len();
@@ -149,8 +128,8 @@ pub fn render(app: *App) !void {
 
     try cmd.endRenderPass(app.world_pass);
 
-    var vp = app.camera.view().mul(app.camera.proj());
-    try app.lines.draw(&cmd, vp, app.camera.aspect);
+    //var vp = app.camera.view().mul(app.camera.proj());
+    try app.lines.draw(&cmd, app.camera, @intToEnum(Lines.Type, app.line_mode));
 
     try renderer.submit(cmd);
 }

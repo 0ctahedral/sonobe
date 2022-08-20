@@ -5,12 +5,12 @@ layout(location = 0) in struct {
   vec4 color;
   vec2 uv;
   float feather;
+  float thickness;
+  float len;
 } dto;
 
 layout(location = 0) out vec4 o_color;
 
 void main() {
-  vec3 color = dto.color.rgb;
-  float a = smoothstep(0, dto.feather, dto.color.a - abs((dto.uv.x * 2) - 1));
-  o_color = vec4(color, a);
+  o_color = dto.color;
 }

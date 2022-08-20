@@ -94,12 +94,14 @@ void main() {
 
   vec2 dir = normalize(end_screen - start_screen);
   vec2 norm = vec2(-dir.y, dir.x);
+  //vec4 off = vec4(norm * d, 0, 0);
+  //off.x /= aspect;
   vec4 rpos[4];
   rpos = vec4[](
-      start_proj + vec4(-norm, 0, 0) * line.thickness,
-      start_proj + vec4(norm, 0, 0) * line.thickness,
-      end_proj + vec4(-norm, 0, 0) * line.thickness,
-      end_proj + vec4(norm, 0, 0) * line.thickness
+      start_proj + vec4(-dir - norm, 0, 0) * d,
+      start_proj + vec4(-dir + norm, 0, 0) * d,
+      end_proj   + vec4(-dir - norm, 0, 0) * d,
+      end_proj   + vec4(-dir + norm, 0, 0) * d
   );
 
   gl_Position = rpos[corner];
