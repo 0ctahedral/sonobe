@@ -13,8 +13,21 @@ layout(location = 0) in struct {
   vec2 uv;
 } dto;
 
+layout( push_constant ) uniform PushConstants
+{
+  mat4 model;
+  uint mode;
+} pc;
+
 layout(location = 0) out vec4 o_color;
 
 void main() {
-  o_color = texture(sampler2D(tex, samp), dto.uv * tiling) * albedo;
+  switch (pc.mode) {
+    case 0:
+      o_color = texture(sampler2D(tex, samp), dto.uv * tiling);
+      break;
+    default:
+      o_color = albedo;
+      break;
+  }
 }

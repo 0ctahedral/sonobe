@@ -30,8 +30,9 @@ layout(location = 0) out struct {
   float len;
 } out_dto;
 
-vec2 viewport = vec2(600, 800);
+vec2 resolution = vec2(600, 800);
 
+/*
 vec2 project(vec4 P) {
   // TODO: make this a variable
   vec2 p = 0.5 + (P.xyz/P.w).xy * 0.5;
@@ -45,6 +46,15 @@ vec4 unproject(vec2 p, float z, float w)
     return P;
 }
 
+
+float estimate_width(vec3 position, vec2 sPosition, float width)
+{
+    vec4 view_pos = view * vec4(position, 1.0);
+    vec4 scale_pos = view_pos - vec4(normalize(view_pos.xy)*width, 0.0, 1.0);
+    vec2 screen_scale_pos = project(proj* scale_pos);
+    return distance(sPosition, screen_scale_pos);
+}
+*/
 #define map(value, low1, high1, low2, high2) \
   low2 + (value - low1) * (high2 - low2) / (high1 - low1)
 
@@ -64,8 +74,8 @@ void main() {
   vec2 uvs[4] = vec2[](
     vec2(-d, d),
     vec2(-d, -d),
-    vec2(len+d, d),
-    vec2(len+d, -d)
+    vec2((d *len)+d, d),
+    vec2((d * len)+d, -d)
   );
 
   // set our attrs
@@ -73,36 +83,38 @@ void main() {
   out_dto.uv = uvs[corner];
   out_dto.feather = line.feather;
   out_dto.thickness = line.thickness;
-  out_dto.len = len;
+  out_dto.len = len * d;
 
   mat4 viewproj = proj * view;
 
-  float aspect = 800 / 600;
-
-  // start position in projection space
-  vec4 start_proj = viewproj * vec4(line.start, 1.0 );
-  // start position in ndc space
-  vec2 start_screen = start_proj.xy / start_proj.w;
-  // correct aspect ratio
-  start_screen.x *= aspect;
-  // end position in projection space
-  vec4 end_proj = viewproj * vec4(line.end, 1.0 );
-  // end position in ndc space
-  vec2 end_screen = end_proj.xy / end_proj.w;
-  // correct aspect ratio
-  end_screen.x *= aspect;
-
-  vec2 dir = normalize(end_screen - start_screen);
-  vec2 norm = vec2(-dir.y, dir.x);
-  //vec4 off = vec4(norm * d, 0, 0);
-  //off.x /= aspect;
-  vec4 rpos[4];
-  rpos = vec4[](
-      start_proj + vec4(-dir - norm, 0, 0) * d,
-      start_proj + vec4(-dir + norm, 0, 0) * d,
-      end_proj   + vec4(-dir - norm, 0, 0) * d,
-      end_proj   + vec4(-dir + norm, 0, 0) * d
+  vec3 positions[4] = vec3[](
+    vec3(0, -1, -1),
+    vec3(0,  1, -1),
+    vec3(1, -1, +1), //+d),
+    vec3(1,  1, +1)  //+d)
   );
 
-  gl_Position = rpos[corner];
+  vec3 position = positions[corner];
+
+  // start position in projection space
+  vec4 start_clip = viewproj * vec4(line.start, 1.0 );
+  // end position in projection space
+  vec4 end_clip = viewproj * vec4(line.end, 1.0 );
+
+  vec2 start_screen = resolution * (0.5 * start_clip.xy/start_clip.w + 0.5);
+  vec2 end_screen = resolution * (0.5 * end_clip.xy/end_clip.w + 0.5);
+
+  vec2 xbasis = normalize(end_screen - start_screen);
+  vec2 ybasis = vec2(-xbasis.y, xbasis.x);
+
+  vec2 pt0 = start_screen + line.thickness * (position.z * xbasis + position.y * ybasis);
+  vec2 pt1 = end_screen + line.thickness * (position.z * xbasis + position.y * ybasis);
+  vec2 pt = mix(pt0, pt1, position.x);
+
+  vec4 clip_dir = normalize(end_clip - start_clip);
+
+  vec4 clip = mix(start_clip, end_clip, position.x);
+  //vec4 clip = start_clip + (clip_dir * position.x);
+
+  gl_Position = vec4(clip.w * ((2.0 * pt) / resolution - 1.0), clip.z, clip.w);
 }

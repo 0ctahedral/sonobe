@@ -3,11 +3,11 @@ const renderer = @import("../renderer.zig");
 const resources = renderer.resources;
 
 const Handle = renderer.Handle;
-const mmath = @import("../math.zig");
-const Mat4 = mmath.Mat4;
-const Vec3 = mmath.Vec3;
-const Vec2 = mmath.Vec2;
-const Quat = mmath.Quat;
+const math = @import("../math.zig");
+const Mat4 = math.Mat4;
+const Vec3 = math.Vec3;
+const Vec2 = math.Vec2;
+const Quat = math.Quat;
 
 const Self = @This();
 // camera settings
@@ -72,11 +72,11 @@ pub fn view(self: Self) Mat4 {
 /// projection matrix for this camera
 pub fn proj(self: Self) Mat4 {
     // calculations with horizontal fov
-    // const half_hor_fov = std.math.tan(mmath.util.rad(self.fov) * 0.5);
+    // const half_hor_fov = std.math.tan(math.util.rad(self.fov) * 0.5);
     // const y_fov = std.math.atan(half_hor_fov / self.aspect) * 2.0;
     // return Mat4.perspective(y_fov, self.aspect, self.near, self.far);
 
-    return Mat4.perspective(mmath.util.rad(self.fov), self.aspect, self.near, self.far);
+    return Mat4.perspective(math.util.rad(self.fov), self.aspect, self.near, self.far);
 }
 
 /// change the camera rotation based on a pitch and yaw vector

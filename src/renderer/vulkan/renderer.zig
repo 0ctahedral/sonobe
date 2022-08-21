@@ -24,11 +24,11 @@ const Mesh = @import("mesh.zig").Mesh;
 const Texture = @import("texture.zig").Texture;
 const RenderTarget = @import("render_target.zig").RenderTarget;
 pub const resources = @import("resources.zig");
-const mmath = @import("../../math.zig");
-const Mat4 = mmath.Mat4;
-const Vec4 = mmath.Vec4;
-const Vec3 = mmath.Vec3;
-const Vec2 = mmath.Vec2;
+const math = @import("../../math.zig");
+const Mat4 = math.Mat4;
+const Vec4 = math.Vec4;
+const Vec3 = math.Vec3;
+const Vec2 = math.Vec2;
 
 // TODO: set this in a config
 const required_layers = [_][*:0]const u8{"VK_LAYER_KHRONOS_validation"};

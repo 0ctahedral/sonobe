@@ -228,7 +228,7 @@ fn parseGlyph(bdf: *BDF, idx: usize, buf: []u8) !usize {
 
 test "load scientifica" {
     const allocator = std.testing.allocator;
-    const bdf = try BDF.init("./assets/scientifica-11.bdf", allocator);
+    const bdf = try BDF.init("./assets/fonts/scientifica-11.bdf", allocator);
     const dim = 4;
     var bitmap: [4 * 7]u8 = undefined;
     for (bitmap) |*r| {
@@ -253,7 +253,7 @@ test "load scientifica" {
 
 test "test glyph" {
     const allocator = std.testing.allocator;
-    const bdf = try BDF.init("./assets/scientifica-11.bdf", allocator);
+    const bdf = try BDF.init("./assets/fonts/scientifica-11.bdf", allocator);
 
     try std.testing.expectEqual(bdf.getGlyph(@as(u32, 'm')), Glyph{
         .dwidth = .{ .x = 5 },

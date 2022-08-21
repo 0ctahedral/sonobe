@@ -12,6 +12,7 @@ layout(location = 0) in struct {
 layout(location = 0) out vec4 o_color;
 
 void main() {
+  /*
   float dy = abs(dto.uv.y);
   float dx = min(abs(dto.uv.x), abs(dto.uv.x - dto.len));
 
@@ -31,6 +32,8 @@ void main() {
     d /= aa;
     float a = exp(-d*d)*dto.color.a;
     if (a < 0.1) discard;
-    o_color = vec4(dto.color.rgb, a);
+    o_color = vec4(dto.color.rgb * a, 1);
   }
+  */
+  o_color = vec4(dto.color.rgb, 1);
 }

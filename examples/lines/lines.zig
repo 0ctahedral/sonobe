@@ -6,12 +6,12 @@ const renderer = octal.renderer;
 const Handle = renderer.Handle;
 const CmdBuf = renderer.CmdBuf;
 const resources = octal.renderer.resources;
-const mmath = octal.mmath;
-const Vec4 = mmath.Vec4;
-const Vec3 = mmath.Vec3;
-const Vec2 = mmath.Vec2;
-const Quat = mmath.Quat;
-const Mat4 = mmath.Mat4;
+const math = octal.math;
+const Vec4 = math.Vec4;
+const Vec3 = math.Vec3;
+const Vec2 = math.Vec2;
+const Quat = math.Quat;
+const Mat4 = math.Mat4;
 
 const Self = @This();
 const MAX_LINES = 1024;
@@ -207,9 +207,10 @@ pub fn draw(self: Self, cmd: *CmdBuf, camera: renderer.Camera, line_type: Type) 
     };
 
     try cmd.bindPipeline(pipeline);
+    const aspect = 800.0 / 600.0;
     try cmd.pushConst(pipeline, [_]PushConst{.{
         .view = camera.view(),
-        .proj = camera.proj(),
+        .proj = Mat4.ortho(0, aspect, 0, aspect, -100, 100),
     }});
 
     var i: usize = 0;

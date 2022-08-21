@@ -12,7 +12,7 @@ pub fn build(b: *Builder) !void {
     const mode = b.standardReleaseOptions();
     const target = b.standardTargetOptions(.{});
 
-    var tests = b.addTest("src/main.zig");
+    var tests = b.addTest("src/octal.zig");
     tests.setBuildMode(mode);
     tests.setTarget(target);
 
@@ -29,6 +29,7 @@ pub fn build(b: *Builder) !void {
     const lines = try makeApp(b, "lines", "examples/lines");
     lines.install();
 
+    try compileShadersInDir(b, "assets/shaders/", exe);
     try compileShadersInDir(b, "testbed/assets", exe);
     try compileShadersInDir(b, "examples/fonts/assets", fonts);
     try compileShadersInDir(b, "examples/lines/assets", lines);
@@ -50,7 +51,7 @@ pub fn makeApp(b: *Builder, name: []const u8, path: ?[]const u8) !*std.build.Lib
         .dependencies = &[_]std.build.Pkg{
             .{
                 .name = "octal",
-                .path = .{ .path = "./src/main.zig" },
+                .path = .{ .path = "./src/octal.zig" },
             },
         },
     });
@@ -90,7 +91,7 @@ fn link(b: *Builder, step: *std.build.LibExeObjStep) void {
     const gen = vkgen.VkGenerateStep.init(b, "deps/vulkan-zig/examples/vk.xml", "vk.zig");
     step.addPackage(.{
         .name = "octal",
-        .path = .{ .path = "./src/main.zig" },
+        .path = .{ .path = "./src/octal.zig" },
         .dependencies = &[_]std.build.Pkg{gen.package},
     });
     // links / c stuff

@@ -6,10 +6,10 @@ const color = @import("../color.zig");
 const Handle = renderer.Handle;
 const CmdBuf = renderer.CmdBuf;
 const Camera = @import("camera.zig");
-const mmath = @import("../math.zig");
-const Mat4 = mmath.Mat4;
-const Vec4 = mmath.Vec4;
-const Vec3 = mmath.Vec3;
+const math = @import("../math.zig");
+const Mat4 = math.Mat4;
+const Vec4 = math.Vec4;
+const Vec3 = math.Vec3;
 const cube = @import("../mesh.zig").cube;
 
 const Self = @This();
@@ -120,16 +120,16 @@ pub fn init(camera: Camera, procedural: bool) !Self {
         if (procedural)
     .{
         .bindpoint = .Fragment,
-        .path = "testbed/assets/procedural_skybox.frag.spv",
+        .path = "assets/shaders/procedural_skybox.frag.spv",
     } else .{
         .bindpoint = .Fragment,
-        .path = "testbed/assets/skybox.frag.spv",
+        .path = "assets/shaders/skybox.frag.spv",
     };
 
     const stages = .{
         .{
             .bindpoint = .Vertex,
-            .path = "testbed/assets/skybox.vert.spv",
+            .path = "assets/shaders/skybox.vert.spv",
         },
         frag_stage,
     };

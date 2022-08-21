@@ -8,13 +8,13 @@ const resources = octal.renderer.resources;
 const input = octal.input;
 const CmdBuf = renderer.CmdBuf;
 
-const mmath = octal.mmath;
-const Vec4 = mmath.Vec4;
-const Vec3 = mmath.Vec3;
-const Vec2 = mmath.Vec2;
-const Quat = mmath.Quat;
-const Mat4 = mmath.Mat4;
-const Transform = mmath.Transform;
+const math = octal.math;
+const Vec4 = math.Vec4;
+const Vec3 = math.Vec3;
+const Vec2 = math.Vec2;
+const Quat = math.Quat;
+const Mat4 = math.Mat4;
+const Transform = math.Transform;
 // since this file is implicitly a struct we can store state in here
 // and use methods that we expect to be defined in the engine itself.
 // we can then make our app a package which is included by the engine
@@ -53,25 +53,26 @@ pub fn init(app: *App) !void {
     });
 
     app.lines = try Lines.init();
-    const thickness = 0.2;
-    // const feather = 0.5;
+    // const thickness = 0.2;
+    const thickness = 4;
+    //const feather = 0.5;
     try app.lines.addLine(.{
-        .start = .{ .x = 0 },
-        .end = .{ .z = 5 },
+        .start = .{},
+        .end = .{ .z = 1 },
         .color = .{ .z = 1, .w = 1 },
         .thickness = thickness,
     });
 
     try app.lines.addLine(.{
         .start = .{},
-        .end = .{ .y = 5 },
+        .end = .{ .y = 1 },
         .color = .{ .y = 1, .w = 1 },
         .thickness = thickness,
     });
 
     try app.lines.addLine(.{
-        .start = .{ .x = 0 },
-        .end = .{ .x = 6 },
+        .start = .{},
+        .end = .{ .x = 1 },
         .color = .{ .x = 1, .w = 1 },
         .thickness = thickness,
         //.feather = feather,

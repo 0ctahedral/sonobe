@@ -2,16 +2,16 @@ const std = @import("std");
 const renderer = @import("../renderer.zig");
 const resources = renderer.resources;
 const quad = @import("../mesh.zig").quad;
-const mmath = @import("../math.zig");
+const math = @import("../math.zig");
 const BDF = @import("bdf.zig");
 
 const Allocator = std.mem.Allocator;
 
 const CmdBuf = renderer.CmdBuf;
-const Vec2 = mmath.Vec2;
-const Vec3 = mmath.Vec3;
-const Vec4 = mmath.Vec4;
-const Mat4 = mmath.Mat4;
+const Vec2 = math.Vec2;
+const Vec3 = math.Vec3;
+const Vec4 = math.Vec4;
+const Mat4 = math.Mat4;
 
 const Self = @This();
 
@@ -125,11 +125,11 @@ pub fn init(path: []const u8, renderpass: renderer.Handle, allocator: Allocator)
         .stages = &.{
             .{
                 .bindpoint = .Vertex,
-                .path = "examples/fonts/assets/font.vert.spv",
+                .path = "assets/shaders/font.vert.spv",
             },
             .{
                 .bindpoint = .Fragment,
-                .path = "examples/fonts/assets/font.frag.spv",
+                .path = "assets/shaders/font.frag.spv",
             },
         },
         .binding_groups = &.{self.group},
@@ -141,11 +141,11 @@ pub fn init(path: []const u8, renderpass: renderer.Handle, allocator: Allocator)
         .stages = &.{
             .{
                 .bindpoint = .Vertex,
-                .path = "examples/fonts/assets/atlas.vert.spv",
+                .path = "assets/shaders/atlas.vert.spv",
             },
             .{
                 .bindpoint = .Fragment,
-                .path = "examples/fonts/assets/atlas.frag.spv",
+                .path = "assets/shaders/atlas.frag.spv",
             },
         },
         .binding_groups = &.{self.group},
@@ -391,7 +391,7 @@ pub fn drawAtlas(
         .count = 6,
         .vertex_handle = bufs.vertices,
         .index_handle = bufs.indices,
-        .offsets = &.{ 0, 4 * @sizeOf(Vec3) },
+        .vertex_offsets = &.{ 0, 4 * @sizeOf(Vec3) },
     });
 }
 

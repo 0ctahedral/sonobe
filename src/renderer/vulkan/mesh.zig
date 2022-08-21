@@ -1,9 +1,9 @@
 const std = @import("std");
 const builtin = @import("builtin");
 const vk = @import("vulkan");
-const mmath = @import("../../math.zig");
-const Vec3 = mmath.Vec3;
-const Vec2 = mmath.Vec2;
+const math = @import("../../math.zig");
+const Vec3 = math.Vec3;
+const Vec2 = math.Vec2;
 
 pub const Mesh = struct {
     positions: []const Vec3,

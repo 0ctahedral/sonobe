@@ -8,13 +8,13 @@ const resources = octal.renderer.resources;
 const input = octal.input;
 const CmdBuf = renderer.CmdBuf;
 
-const mmath = octal.mmath;
-const Vec4 = mmath.Vec4;
-const Vec3 = mmath.Vec3;
-const Vec2 = mmath.Vec2;
-const Quat = mmath.Quat;
-const Mat4 = mmath.Mat4;
-const Transform = mmath.Transform;
+const math = octal.math;
+const Vec4 = math.Vec4;
+const Vec3 = math.Vec3;
+const Vec2 = math.Vec2;
+const Quat = math.Quat;
+const Mat4 = math.Mat4;
+const Transform = math.Transform;
 const FontRen = octal.font.FontRen;
 // since this file is implicitly a struct we can store state in here
 // and use methods that we expect to be defined in the engine itself.
@@ -45,7 +45,7 @@ pub fn init(app: *App) !void {
         .clear_flags = .{ .depth = true, .color = true },
     });
 
-    app.font_ren = try FontRen.init("./assets/scientifica-11.bdf", app.screen_pass, allocator);
+    app.font_ren = try FontRen.init("./assets/fonts/scientifica-11.bdf", app.screen_pass, allocator);
     // update the buffer with our projection
     _ = try renderer.updateBuffer(app.font_ren.buffer, 0, Mat4, &[_]Mat4{
         Mat4.ortho(0, app.screen_dim.x, 0, app.screen_dim.y, -100, 100),

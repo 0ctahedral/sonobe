@@ -9,13 +9,13 @@ const input = octal.input;
 const jobs = octal.jobs;
 const CmdBuf = renderer.CmdBuf;
 
-const mmath = octal.mmath;
-const Vec4 = mmath.Vec4;
-const Vec3 = mmath.Vec3;
-const Vec2 = mmath.Vec2;
-const Quat = mmath.Quat;
-const Mat4 = mmath.Mat4;
-const Transform = mmath.Transform;
+const math = octal.math;
+const Vec4 = math.Vec4;
+const Vec3 = math.Vec3;
+const Vec2 = math.Vec2;
+const Quat = math.Quat;
+const Mat4 = math.Mat4;
+const Transform = math.Transform;
 
 const Skybox = renderer.Skybox;
 const Camera = renderer.Camera;

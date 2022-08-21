@@ -14,6 +14,7 @@ layout (set = 0, binding = 0) uniform readonly camera_data {
 layout( push_constant ) uniform PushConstants
 {
   mat4 model;
+  uint mode;
 } pc;
 
 // data transfer object
