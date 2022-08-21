@@ -1,11 +1,10 @@
 const std = @import("std");
 const Allocator = std.mem.Allocator;
-
-pub const Vec3 = struct {
-    x: f32 = 0,
-    y: f32 = 0,
-    z: f32 = 0,
-};
+const ArrayList = std.ArrayList;
+const math = @import("../math.zig");
+const Vec3 = math.Vec3;
+const Vec2 = math.Vec2;
+const Mesh = @import("mesh.zig").Mesh;
 
 const FileHeader = packed struct {
     magic: u32, // has to equal 0x46546C67
@@ -20,34 +19,11 @@ const ChunkHeader = packed struct {
     chunk_type: u32,
 };
 
-const ArrayList = std.ArrayList;
-
-// a mesh for our purposes
-pub const Mesh = struct {
-    indices: ArrayList(u16),
-    positions: ArrayList(Vec3),
-    allocator: Allocator,
-
-    const Self = @This();
-
-    pub fn init(allocator: Allocator) Self {
-        return .{
-            .positions = ArrayList(Vec3).init(allocator),
-            .indices = ArrayList(u16).init(allocator),
-            .allocator = allocator,
-        };
-    }
-
-    pub fn deinit(self: Self) void {
-        self.indices.deinit();
-        self.positions.deinit();
-    }
-};
-
 const Primitive = struct {
     /// accessor for indices
     ind: usize,
     pos: usize,
+    uv: usize,
 };
 
 const Accessor = struct {
@@ -63,116 +39,203 @@ const BufView = struct {
     stride: ?usize,
 };
 
-test "binary gltf" {
-    const allocator = std.testing.allocator;
-    var file = try std.fs.cwd().openFile("assets/Box.glb", .{ .read = true });
-    defer file.close();
-    const reader = file.reader();
-    _ = try reader.readStruct(FileHeader);
-    var chunk = try reader.readStruct(ChunkHeader);
-    try std.testing.expect(chunk.chunk_type == 0x4E4F534A);
+const JsonChunk = struct {
+    accessors: ArrayList(Accessor),
+    bufviews: ArrayList(BufView),
+    // TODO: make list??
+    primitive: Primitive,
 
-    var buf = try allocator.alloc(u8, chunk.len);
-    _ = try reader.readAll(buf);
-    // defer allocator.free(buf);
+    const Self = @This();
 
-    var parser = std.json.Parser.init(allocator, false);
-    defer parser.deinit();
+    pub fn init(buf: []const u8, allocator: Allocator) !Self {
+        var self = Self{
+            .accessors = ArrayList(Accessor).init(allocator),
+            .bufviews = ArrayList(BufView).init(allocator),
+            .primitive = undefined,
+        };
 
-    var tree = try parser.parse(buf);
-    defer tree.deinit();
-    var meshes = tree.root.Object.get("meshes").?.Array;
+        var parser = std.json.Parser.init(allocator, false);
+        defer parser.deinit();
 
-    var primitive: Primitive = undefined;
-    var accessors = ArrayList(Accessor).init(allocator);
-    defer accessors.deinit();
-    var buffer_views = ArrayList(BufView).init(allocator);
-    defer buffer_views.deinit();
+        var tree = try parser.parse(buf);
+        defer tree.deinit();
+        var mesh_listes = tree.root.Object.get("meshes").?.Array;
 
-    for (meshes.items) |m, i| {
-        std.debug.print("\nmesh[{}]\n", .{i});
-        var prims = m.Object.get("primitives").?.Array;
-        for (prims.items) |p, j| {
-            // ASSUME THE MODE IS ALWAYS TRIANGLES
-            const mode = p.Object.get("mode").?.Integer;
-            try std.testing.expect(mode == 4);
+        for (mesh_listes.items) |m, i| {
+            std.debug.print("\nmesh_list[{}]\n", .{i});
+            var prims = m.Object.get("primitives").?.Array;
+            for (prims.items) |p, j| {
+                // ASSUME THE MODE IS ALWAYS TRIANGLES
+                if (p.Object.get("mode")) |mode| {
+                    try std.testing.expect(mode.Integer == 4);
+                }
 
-            const attrs = p.Object.get("attributes").?.Object;
-            primitive = .{
-                .ind = @intCast(usize, p.Object.get("indices").?.Integer),
-                .pos = @intCast(usize, attrs.get("POSITION").?.Integer),
+                const attrs = p.Object.get("attributes").?.Object;
+                self.primitive = .{
+                    .ind = @intCast(usize, p.Object.get("indices").?.Integer),
+                    .pos = @intCast(usize, attrs.get("POSITION").?.Integer),
+                    .uv = @intCast(usize, attrs.get("TEXCOORD_0").?.Integer),
+                };
+
+                std.debug.print("primitive[{}] = {}\n", .{ j, self.primitive });
+            }
+        }
+
+        for (tree.root.Object.get("accessors").?.Array.items) |a, i| {
+            const obj = a.Object;
+            const acc = Accessor{
+                .view_num = @intCast(usize, obj.get("bufferView").?.Integer),
+                .offset = @intCast(usize, if (obj.get("byteOffset")) |b| b.Integer else 0),
+                .count = @intCast(usize, obj.get("count").?.Integer),
             };
+            try self.accessors.append(acc);
+            std.debug.print("accessor {}: {}\n", .{ i, acc });
+        }
 
-            std.debug.print("primitive[{}] = {}\n", .{ j, primitive });
+        for (tree.root.Object.get("bufferViews").?.Array.items) |v, i| {
+            const obj = v.Object;
+            const bv = BufView{
+                .buf_num = @intCast(usize, obj.get("buffer").?.Integer),
+                .offset = @intCast(usize, obj.get("byteOffset").?.Integer),
+                .len = @intCast(usize, obj.get("byteLength").?.Integer),
+                .stride = if (obj.get("byteStride")) |s| @intCast(usize, s.Integer) else null,
+            };
+            try self.bufviews.append(bv);
+            std.debug.print("bv[{}]: {}\n", .{ i, bv });
+        }
+
+        var buffers = tree.root.Object.get("buffers").?.Array;
+        for (buffers.items) |b, i| {
+            std.debug.print("buf[{}] len = {}\n", .{ i, b.Object.get("byteLength").?.Integer });
+        }
+        return self;
+    }
+
+    pub fn deinit(self: Self) void {
+        self.bufviews.deinit();
+        self.accessors.deinit();
+    }
+};
+
+fn getMesh(data: JsonChunk, buf: []const u8, mesh: *Mesh) !void {
+    {
+        // okay lets read some indices
+        const ind_acc = data.accessors.items[data.primitive.ind];
+        const ind_view = data.bufviews.items[ind_acc.view_num];
+        const offset = ind_view.offset + ind_acc.offset;
+        const inds = @ptrCast([*]const u16, @alignCast(4, buf[offset .. offset + ind_view.len]))[0..ind_acc.count];
+        try mesh.indices.ensureTotalCapacity(inds.len);
+        for (inds) |i| {
+            try mesh.indices.append(@as(u32, i));
         }
     }
 
-    for (tree.root.Object.get("accessors").?.Array.items) |a, i| {
-        const obj = a.Object;
-        const acc = Accessor{
-            .view_num = @intCast(usize, obj.get("bufferView").?.Integer),
-            .offset = @intCast(usize, obj.get("byteOffset").?.Integer),
-            .count = @intCast(usize, obj.get("count").?.Integer),
-        };
-        try accessors.append(acc);
-        std.debug.print("accessor {}: {}\n", .{ i, acc });
-    }
-
-    for (tree.root.Object.get("bufferViews").?.Array.items) |v, i| {
-        const obj = v.Object;
-        const bv = BufView{
-            .buf_num = @intCast(usize, obj.get("buffer").?.Integer),
-            .offset = @intCast(usize, obj.get("byteOffset").?.Integer),
-            .len = @intCast(usize, obj.get("byteLength").?.Integer),
-            .stride = if (obj.get("byteStride")) |s| @intCast(usize, s.Integer) else null,
-        };
-        try buffer_views.append(bv);
-        std.debug.print("bv[{}]: {}\n", .{ i, bv });
-    }
-
-    var buffers = tree.root.Object.get("buffers").?.Array;
-    for (buffers.items) |b, i| {
-        std.debug.print("buf[{}] len = {}\n", .{ i, b.Object.get("byteLength").?.Integer });
-    }
-
-    chunk = try reader.readStruct(ChunkHeader);
-    std.debug.print("{}\n", .{chunk});
-    try std.testing.expect(chunk.chunk_type == 0x004E4942);
-    // try std.testing.expect(chunk.len == buffer_lens[0]);
-    // read binary into a buffer
-    allocator.free(buf);
-    buf = try allocator.alloc(u8, chunk.len);
-    _ = try reader.readAll(buf);
-    defer allocator.free(buf);
-
-    var mesh = Mesh.init(allocator);
-    defer mesh.deinit();
     {
-        // okay lets read some indices
-        const ind_acc = accessors.items[primitive.ind];
-        const ind_view = buffer_views.items[ind_acc.view_num];
-        const offset = ind_view.offset + ind_acc.offset;
-        const inds = @ptrCast([*]u16, @alignCast(4, buf[offset .. offset + ind_view.len]))[0..ind_acc.count];
-        try mesh.indices.appendSlice(inds);
-    }
-
-    {
-        const pos_acc = accessors.items[primitive.pos];
-        const pos_view = buffer_views.items[pos_acc.view_num];
+        const pos_acc = data.accessors.items[data.primitive.pos];
+        const pos_view = data.bufviews.items[pos_acc.view_num];
         var offset = pos_view.offset + pos_acc.offset;
 
+        const stride = pos_view.stride orelse 0;
         var i: usize = 0;
         while (i < pos_acc.count) : ({
             i += 1;
-            offset += pos_view.stride.?;
+            offset += stride + @sizeOf(Vec3);
         }) {
-            const ptr = @ptrCast([*]Vec3, @alignCast(@alignOf(Vec3), buf[offset .. offset + @sizeOf(Vec3)]));
-            // std.debug.print("off[{}]: {}\n", .{ offset, i });
-            //TODO: vec from buf
+            const ptr = @ptrCast([*]const Vec3, @alignCast(@alignOf(Vec3), buf[offset .. offset + @sizeOf(Vec3)]));
+            //TODO: Vec3.fromSlice
             try mesh.positions.append(ptr[0]);
         }
     }
 
+    {
+        const uv_acc = data.accessors.items[data.primitive.uv];
+        const uv_view = data.bufviews.items[uv_acc.view_num];
+        var offset = uv_view.offset + uv_acc.offset;
+
+        const stride = uv_view.stride orelse 0;
+        var i: usize = 0;
+        while (i < uv_acc.count) : ({
+            i += 1;
+            offset += stride + @sizeOf(Vec2);
+        }) {
+            const ptr = @ptrCast([*]const Vec2, @alignCast(@alignOf(Vec3), buf[offset .. offset + @sizeOf(Vec3)]));
+            //TODO: Vec3.fromSlice
+            try mesh.uvs.append(ptr[0]);
+        }
+    }
+}
+
+pub fn MeshFromGltf(
+    path: []const u8,
+    allocator: Allocator,
+) !Mesh {
+    // get the reader from the file
+    var file = try std.fs.cwd().openFile(path, .{ .read = true });
+    defer file.close();
+    const reader = file.reader();
+
+    var data: JsonChunk = undefined;
+    defer data.deinit();
+
+    var mesh = Mesh.init(allocator);
+
+    // read the header, we don't really care about that rn
+    _ = try reader.readStruct(FileHeader);
+
+    // for each chunk:
+    var chunk = try reader.readStruct(ChunkHeader);
+    try std.testing.expect(chunk.chunk_type == 0x4E4F534A);
+
+    if (chunk.chunk_type == 0x4E4F534A) {
+        var buf = try allocator.alloc(u8, chunk.len);
+        defer allocator.free(buf);
+        _ = try reader.readAll(buf);
+        data = try JsonChunk.init(buf, allocator);
+    }
+
+    chunk = try reader.readStruct(ChunkHeader);
+    try std.testing.expect(chunk.chunk_type == 0x004E4942);
+
+    if (chunk.chunk_type == 0x004E4942) {
+        var buf = try allocator.alloc(u8, chunk.len);
+        defer allocator.free(buf);
+        _ = try reader.readAll(buf);
+        try getMesh(data, buf, &mesh);
+    }
+
+    return mesh;
+}
+
+//test "box_binary_gltf" {
+//    const allocator = std.testing.allocator;
+//    const path = "assets/Box.glb";
+//
+//    const mesh = try MeshFromGltf(path, allocator);
+//    defer mesh.deinit();
+//    std.debug.print("inds: {any}\n", .{mesh.indices.items});
+//    for (mesh.positions.items) |p| {
+//        std.debug.print("pos: {d:.2}, {d:.2}, {d:.2}\n", .{ p.x, p.y, p.z });
+//    }
+//}
+
+test "octahedron_binary_gltf" {
+    const allocator = std.testing.allocator;
+    const path = "assets/models/octahedron.glb";
+
+    const mesh = try MeshFromGltf(path, allocator);
+    defer mesh.deinit();
+    std.debug.print("inds: {any}\n", .{mesh.indices.items});
+    for (mesh.positions.items) |p| {
+        std.debug.print("pos: {d:.2}, {d:.2}, {d:.2}\n", .{ p.x, p.y, p.z });
+    }
+}
+
+test "seamus_binary_gltf" {
+    const allocator = std.testing.allocator;
+    const path = "assets/models/seamus.glb";
+
+    const mesh = try MeshFromGltf(path, allocator);
+    defer mesh.deinit();
     std.debug.print("inds: {any}\n", .{mesh.indices.items});
     for (mesh.positions.items) |p| {
         std.debug.print("pos: {d:.2}, {d:.2}, {d:.2}\n", .{ p.x, p.y, p.z });

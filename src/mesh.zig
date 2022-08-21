@@ -1,48 +1,16 @@
 const std = @import("std");
 const renderer = @import("renderer.zig");
 const resources = @import("renderer.zig").resources;
-const mmath = @import("math.zig");
-const Vec3 = mmath.Vec3;
-const Vec2 = mmath.Vec2;
-pub const Mesh = struct {
-    positions: []const Vec3,
-    uvs: []const Vec2,
-    indices: []const u32,
-    buffers: ?Buffers = null,
+const math = @import("math.zig");
+const Vec3 = math.Vec3;
+const Vec2 = math.Vec2;
 
-    pub fn getBuffers(self: *@This()) !Buffers {
-        if (self.buffers) |b| return b;
-
-        self.buffers = Buffers{
-            .vertices = try resources.createBuffer(
-                .{
-                    .size = self.uvs.len * @sizeOf(Vec2) + self.positions.len * @sizeOf(Vec3),
-                    .usage = .Vertex,
-                },
-            ),
-            .indices = try resources.createBuffer(
-                .{
-                    .size = self.indices.len * @sizeOf(u32),
-                    .usage = .Index,
-                },
-            ),
-        };
-
-        var offset = try renderer.updateBuffer(self.buffers.?.vertices, 0, Vec3, self.positions);
-        offset = try renderer.updateBuffer(self.buffers.?.vertices, offset, Vec2, self.uvs);
-        _ = try renderer.updateBuffer(self.buffers.?.indices, 0, u32, self.indices);
-
-        return self.buffers.?;
-    }
-};
-
-pub const Buffers = struct {
-    vertices: renderer.Handle = .{},
-    indices: renderer.Handle = .{},
-};
+pub const gltf = @import("mesh/gltf.zig");
+pub const Mesh = @import("mesh/mesh.zig").Mesh;
+pub const ConstMesh = @import("mesh/mesh.zig").ConstMesh;
 
 pub const quad = &quad_data;
-var quad_data = Mesh{
+var quad_data = ConstMesh{
     .positions = &[_]Vec3{
         Vec3.new(-0.5, -0.5, 0),
         Vec3.new(0.5, 0.5, 0),
@@ -59,7 +27,7 @@ var quad_data = Mesh{
 };
 
 pub const cube = &cube_data;
-var cube_data = Mesh{
+var cube_data = ConstMesh{
     .positions = &[_]Vec3{
         Vec3.new(-1.00, -1.00, -1.00),
         Vec3.new(1.00, -1.00, -1.00),

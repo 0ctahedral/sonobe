@@ -2,6 +2,7 @@ const std = @import("std");
 const octal = @import("octal");
 const cube = octal.mesh.cube;
 const quad = octal.mesh.quad;
+const mesh = octal.mesh;
 
 const renderer = octal.renderer;
 const resources = octal.renderer.resources;
@@ -29,7 +30,7 @@ const App = @This();
 pub const name = "testbed";
 
 const MaterialData = struct {
-    albedo: Vec4 = Vec4.new(1, 1, 1, 1),
+    albedo: Vec4 = octal.color.hexToVec4(0x70819BFF),
     tile: Vec2 = Vec2.new(10, 10),
 };
 
@@ -55,6 +56,8 @@ simple_pipeline: renderer.Handle = .{},
 last_pos: Vec2 = .{},
 
 skybox: Skybox = .{},
+
+oct: mesh.Mesh = undefined,
 
 camera_move_speed: f32 = 5.0,
 pub fn init(app: *App) !void {
@@ -132,12 +135,12 @@ pub fn init(app: *App) !void {
         .renderpass = app.world_pass,
         .cull_mode = .back,
         .vertex_inputs = &.{ .Vec3, .Vec2 },
-        .push_const_size = @sizeOf(Mat4),
+        .push_const_size = @sizeOf(PushConst),
     });
 
     app.skybox = try Skybox.init(app.camera, true);
 
-    // hot reload this bitch
+    app.oct = try mesh.gltf.MeshFromGltf("assets/models/seamus.glb", std.testing.allocator);
 }
 
 pub fn update(app: *App, dt: f64) !void {
@@ -194,13 +197,18 @@ pub fn update(app: *App, dt: f64) !void {
 
     // make that lil cube spin
     app.t.rot = app.t.rot
-        .mul(Quat.fromAxisAngle(Vec3.FORWARD, mmath.util.rad(30) * @floatCast(f32, dt)))
-        .mul(Quat.fromAxisAngle(Vec3.UP, mmath.util.rad(30) * @floatCast(f32, dt)));
-    app.t.pos = Vec3.UP.scale(1 + @sin(@intToFloat(f32, renderer.frame) * 0.03));
+        .mul(Quat.fromAxisAngle(Vec3.FORWARD, math.util.rad(30) * @floatCast(f32, dt)))
+        .mul(Quat.fromAxisAngle(Vec3.UP, math.util.rad(30) * @floatCast(f32, dt)));
+    app.t.pos = Vec3.UP.scale(2 + @sin(@intToFloat(f32, renderer.frame) * 0.03));
 }
 
 const floor_mat = Mat4.scale(.{ .x = 100, .y = 100, .z = 100 })
     .mul(Mat4.translate(.{ .y = -1 }));
+
+const PushConst = struct {
+    model: Mat4,
+    mode: u32 = 0,
+};
 
 pub fn render(app: *App) !void {
     var cmd = renderer.getCmdBuf();
@@ -214,25 +222,29 @@ pub fn render(app: *App) !void {
     try cmd.bindPipeline(app.simple_pipeline);
 
     // draw the floor
-    try cmd.pushConst(app.simple_pipeline, floor_mat);
+    try cmd.pushConst(app.simple_pipeline, PushConst{ .model = floor_mat });
 
     const quad_bufs = try quad.getBuffers();
     try cmd.drawIndexed(.{
         .count = @intCast(u32, quad.indices.len),
         .vertex_handle = quad_bufs.vertices,
         .index_handle = quad_bufs.indices,
-        .offsets = &.{ 0, 4 * @sizeOf(Vec3) },
+        .vertex_offsets = &.{ 0, 4 * @sizeOf(Vec3) },
     });
 
     // draw the magic cube
-    try cmd.pushConst(app.simple_pipeline, app.t.mat());
+    try cmd.pushConst(app.simple_pipeline, PushConst{
+        .model = app.t.mat(),
+        .mode = 1,
+    });
 
-    const cube_bufs = try cube.getBuffers();
+    // const cube_bufs = try cube.getBuffers();
+    const oct_bufs = try app.oct.getBuffers();
     try cmd.drawIndexed(.{
-        .count = @intCast(u32, cube.indices.len),
-        .vertex_handle = cube_bufs.vertices,
-        .index_handle = cube_bufs.indices,
-        .offsets = &.{ 0, 8 * @sizeOf(Vec3) },
+        .count = @intCast(u32, app.oct.indices.items.len),
+        .vertex_handle = oct_bufs.vertices,
+        .index_handle = oct_bufs.indices,
+        .vertex_offsets = &.{ 0, 8 * @sizeOf(Vec3) },
     });
 
     try cmd.endRenderPass(app.world_pass);
@@ -241,7 +253,7 @@ pub fn render(app: *App) !void {
 }
 
 pub fn deinit(app: *App) void {
-    _ = app;
+    app.oct.deinit();
     std.log.info("{s}: deinitialized", .{App.name});
 }
 
