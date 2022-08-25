@@ -57,7 +57,8 @@ last_pos: Vec2 = .{},
 
 skybox: Skybox = .{},
 
-oct: mesh.Mesh = undefined,
+octahedron: mesh.Mesh = undefined,
+seamus: mesh.Mesh = undefined,
 
 camera_move_speed: f32 = 5.0,
 pub fn init(app: *App) !void {
@@ -140,7 +141,8 @@ pub fn init(app: *App) !void {
 
     app.skybox = try Skybox.init(app.camera, true);
 
-    app.oct = try mesh.gltf.MeshFromGltf("assets/models/seamus.glb", std.testing.allocator);
+    app.octahedron = try mesh.gltf.MeshFromGltf("assets/models/octahedron.glb", std.testing.allocator);
+    app.seamus = try mesh.gltf.MeshFromGltf("assets/models/seamus.glb", std.testing.allocator);
 }
 
 pub fn update(app: *App, dt: f64) !void {
@@ -224,28 +226,37 @@ pub fn render(app: *App) !void {
     // draw the floor
     try cmd.pushConst(app.simple_pipeline, PushConst{ .model = floor_mat });
 
-    const quad_bufs = try quad.getBuffers();
-    try cmd.drawIndexed(.{
-        .count = @intCast(u32, quad.indices.len),
-        .vertex_handle = quad_bufs.vertices,
-        .index_handle = quad_bufs.indices,
-        .vertex_offsets = &.{ 0, 4 * @sizeOf(Vec3) },
-    });
+    // const quad_bufs = try quad.getBuffers();
+    // try cmd.drawIndexed(.{
+    //     .count = @intCast(u32, quad.indices.len),
+    //     .vertex_handle = quad_bufs.vertices,
+    //     .index_handle = quad_bufs.indices,
+    //     .vertex_offsets = &.{ 0, 4 * @sizeOf(Vec3) },
+    // });
 
     // draw the magic cube
     try cmd.pushConst(app.simple_pipeline, PushConst{
         .model = app.t.mat(),
-        .mode = 1,
+        .mode = 0,
     });
 
-    // const cube_bufs = try cube.getBuffers();
-    const oct_bufs = try app.oct.getBuffers();
-    try cmd.drawIndexed(.{
-        .count = @intCast(u32, app.oct.indices.items.len),
-        .vertex_handle = oct_bufs.vertices,
-        .index_handle = oct_bufs.indices,
-        .vertex_offsets = &.{ 0, 8 * @sizeOf(Vec3) },
-    });
+    const oct_bufs = try app.octahedron.getBuffers();
+    const offsets = [_]u64{ 0, oct_bufs.uv_offset };
+    try cmd.drawIndexed(
+        @intCast(u32, app.octahedron.indices.items.len),
+        oct_bufs.vertices,
+        &offsets,
+        oct_bufs.indices,
+        0,
+    );
+
+    // const seamus_bufs = try app.seamus.getBuffers();
+    // try cmd.drawIndexed(.{
+    //     .count = @intCast(u32, app.seamus.indices.items.len),
+    //     .vertex_handle = seamus_bufs.vertices,
+    //     .index_handle = seamus_bufs.indices,
+    //     .vertex_offsets = &.{ 0, 8 * @sizeOf(Vec3) },
+    // });
 
     try cmd.endRenderPass(app.world_pass);
 
@@ -253,7 +264,7 @@ pub fn render(app: *App) !void {
 }
 
 pub fn deinit(app: *App) void {
-    app.oct.deinit();
+    app.octahedron.deinit();
     std.log.info("{s}: deinitialized", .{App.name});
 }
 

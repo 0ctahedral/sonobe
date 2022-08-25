@@ -11,6 +11,7 @@ const ArrayList = std.ArrayList;
 pub const Mesh = struct {
     indices: ArrayList(u32),
     positions: ArrayList(Vec3),
+    normals: ArrayList(Vec3),
     uvs: ArrayList(Vec2),
     buffers: ?Buffers = null,
 
@@ -18,8 +19,9 @@ pub const Mesh = struct {
 
     pub fn init(allocator: Allocator) Self {
         return .{
-            .positions = ArrayList(Vec3).init(allocator),
             .indices = ArrayList(u32).init(allocator),
+            .positions = ArrayList(Vec3).init(allocator),
+            .normals = ArrayList(Vec3).init(allocator),
             .uvs = ArrayList(Vec2).init(allocator),
         };
     }
@@ -33,10 +35,17 @@ pub const Mesh = struct {
     pub fn getBuffers(self: *Self) !Buffers {
         if (self.buffers) |b| return b;
 
-        self.buffers = Buffers{
+        const uv_size = self.uvs.items.len * @sizeOf(Vec2);
+        const normals_size = self.normals.items.len * @sizeOf(Vec3);
+        const positions_size = self.positions.items.len * @sizeOf(Vec3);
+
+        const buffers = Buffers{
+            .positions_offset = 0,
+            .normals_offset = positions_size,
+            .uv_offset = positions_size + normals_size,
             .vertices = try resources.createBuffer(
                 .{
-                    .size = self.uvs.items.len * @sizeOf(Vec2) + self.positions.items.len * @sizeOf(Vec3),
+                    .size = uv_size + normals_size + positions_size,
                     .usage = .Vertex,
                 },
             ),
@@ -48,11 +57,29 @@ pub const Mesh = struct {
             ),
         };
 
-        var offset = try renderer.updateBuffer(self.buffers.?.vertices, 0, Vec3, self.positions.items);
-        offset = try renderer.updateBuffer(self.buffers.?.vertices, offset, Vec2, self.uvs.items);
-        _ = try renderer.updateBuffer(self.buffers.?.indices, 0, u32, self.indices.items);
+        _ = try renderer.updateBuffer(
+            buffers.vertices,
+            buffers.positions_offset,
+            Vec3,
+            self.positions.items,
+        );
+        _ = try renderer.updateBuffer(
+            buffers.vertices,
+            buffers.normals_offset,
+            Vec3,
+            self.normals.items,
+        );
+        _ = try renderer.updateBuffer(
+            buffers.vertices,
+            buffers.uv_offset,
+            Vec2,
+            self.uvs.items,
+        );
+        _ = try renderer.updateBuffer(buffers.indices, 0, u32, self.indices.items);
 
-        return self.buffers.?;
+        self.buffers = buffers;
+
+        return buffers;
     }
 };
 
@@ -68,10 +95,18 @@ pub const ConstMesh = struct {
     pub fn getBuffers(self: *Self) !Buffers {
         if (self.buffers) |b| return b;
 
+        const uv_size = self.uvs.len * @sizeOf(Vec2);
+        // const normals_size = self.normals.items.len * @sizeOf(Vec3);
+        const positions_size = self.positions.len * @sizeOf(Vec3);
+
         self.buffers = Buffers{
+            .positions_offset = 0,
+            // TODO: add
+            .normals_offset = 0,
+            .uv_offset = positions_size,
             .vertices = try resources.createBuffer(
                 .{
-                    .size = self.uvs.len * @sizeOf(Vec2) + self.positions.len * @sizeOf(Vec3),
+                    .size = uv_size + positions_size,
                     .usage = .Vertex,
                 },
             ),
@@ -94,4 +129,7 @@ pub const ConstMesh = struct {
 pub const Buffers = struct {
     vertices: renderer.Handle = .{},
     indices: renderer.Handle = .{},
+    uv_offset: usize,
+    normals_offset: usize,
+    positions_offset: usize,
 };

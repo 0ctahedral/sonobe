@@ -57,7 +57,26 @@ pub fn pushConst(self: *CmdBuf, pipeline: types.Handle, pc: anytype) !void {
 }
 
 /// draw geometry specified with some kind of indirection
-pub fn drawIndexed(self: *CmdBuf, desc: types.DrawIndexedDesc) !void {
+pub fn drawIndexed(
+    self: *CmdBuf,
+    count: u32,
+    vertex_handle: types.Handle,
+    vertex_offsets: []const u64,
+    index_handle: types.Handle,
+    index_offset: u64,
+) !void {
+    var desc: types.DrawIndexedDesc = .{
+        .count = count,
+        .vertex_handle = vertex_handle,
+        .index_handle = index_handle,
+        .index_offset = index_offset,
+        .n_vertex_offsets = @intCast(u8, vertex_offsets.len),
+    };
+
+    for (vertex_offsets) |o, i| {
+        desc.vertex_offsets[i] = o;
+    }
+
     const idx = try self.getNextIdx();
     self.commands[idx] = .{ .DrawIndexed = desc };
 }

@@ -15,7 +15,8 @@ pub const DrawIndexedDesc = struct {
     /// handle for the buffer we are drawing from
     vertex_handle: Handle = .{},
     /// offsets into the vertex buffer for different attributes
-    vertex_offsets: []const u64 = &.{},
+    vertex_offsets: [8]u64 = [_]u64{0} ** 8,
+    n_vertex_offsets: u8,
     /// handle for the index buffer we are drawing from
     index_handle: Handle,
     /// offset into the index buffer in bytes

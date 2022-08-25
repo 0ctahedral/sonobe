@@ -163,11 +163,7 @@ pub fn draw(self: Self, cmd: *CmdBuf) !void {
 
     try cmd.bindPipeline(self.pipeline);
 
-    try cmd.drawIndexed(.{
-        .count = @intCast(u32, cube.indices.len),
-        .vertex_handle = .{},
-        .index_handle = (try cube.getBuffers()).indices,
-    });
+    try cmd.drawIndexed(@intCast(u32, cube.indices.len), .{}, &.{}, (try cube.getBuffers()).indices, 0);
 
     try cmd.endRenderPass(self.pass);
 }

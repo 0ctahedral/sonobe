@@ -24,6 +24,7 @@ const Primitive = struct {
     ind: usize,
     pos: usize,
     uv: usize,
+    norm: usize,
 };
 
 const Accessor = struct {
@@ -75,6 +76,7 @@ const JsonChunk = struct {
                     .ind = @intCast(usize, p.Object.get("indices").?.Integer),
                     .pos = @intCast(usize, attrs.get("POSITION").?.Integer),
                     .uv = @intCast(usize, attrs.get("TEXCOORD_0").?.Integer),
+                    .norm = @intCast(usize, attrs.get("NORMAL").?.Integer),
                 };
 
                 std.debug.print("primitive[{}] = {}\n", .{ j, self.primitive });
@@ -117,8 +119,23 @@ const JsonChunk = struct {
     }
 };
 
+fn addFromBuf(comptime T: type, arr: *ArrayList(T), acc: Accessor, view: BufView, buf: []const u8) !void {
+    var offset = view.offset + acc.offset;
+    const stride = view.stride orelse 0;
+    var i: usize = 0;
+    while (i < acc.count) : ({
+        i += 1;
+        offset += stride + @sizeOf(T);
+    }) {
+        const ptr = @ptrCast([*]const T, @alignCast(@alignOf(T), buf[offset .. offset + @sizeOf(T)]));
+        //TODO: Vec3.fromSlice
+        try arr.append(ptr[0]);
+    }
+}
+
 fn getMesh(data: JsonChunk, buf: []const u8, mesh: *Mesh) !void {
     {
+        // doing their own thing because we have type conversion
         // okay lets read some indices
         const ind_acc = data.accessors.items[data.primitive.ind];
         const ind_view = data.bufviews.items[ind_acc.view_num];
@@ -133,35 +150,19 @@ fn getMesh(data: JsonChunk, buf: []const u8, mesh: *Mesh) !void {
     {
         const pos_acc = data.accessors.items[data.primitive.pos];
         const pos_view = data.bufviews.items[pos_acc.view_num];
-        var offset = pos_view.offset + pos_acc.offset;
-
-        const stride = pos_view.stride orelse 0;
-        var i: usize = 0;
-        while (i < pos_acc.count) : ({
-            i += 1;
-            offset += stride + @sizeOf(Vec3);
-        }) {
-            const ptr = @ptrCast([*]const Vec3, @alignCast(@alignOf(Vec3), buf[offset .. offset + @sizeOf(Vec3)]));
-            //TODO: Vec3.fromSlice
-            try mesh.positions.append(ptr[0]);
-        }
+        try addFromBuf(Vec3, &mesh.positions, pos_acc, pos_view, buf);
     }
 
     {
         const uv_acc = data.accessors.items[data.primitive.uv];
         const uv_view = data.bufviews.items[uv_acc.view_num];
-        var offset = uv_view.offset + uv_acc.offset;
+        try addFromBuf(Vec2, &mesh.uvs, uv_acc, uv_view, buf);
+    }
 
-        const stride = uv_view.stride orelse 0;
-        var i: usize = 0;
-        while (i < uv_acc.count) : ({
-            i += 1;
-            offset += stride + @sizeOf(Vec2);
-        }) {
-            const ptr = @ptrCast([*]const Vec2, @alignCast(@alignOf(Vec3), buf[offset .. offset + @sizeOf(Vec3)]));
-            //TODO: Vec3.fromSlice
-            try mesh.uvs.append(ptr[0]);
-        }
+    {
+        const norm_acc = data.accessors.items[data.primitive.norm];
+        const norm_view = data.bufviews.items[norm_acc.view_num];
+        try addFromBuf(Vec3, &mesh.normals, norm_acc, norm_view, buf);
     }
 }
 
@@ -233,7 +234,6 @@ test "octahedron_binary_gltf" {
 test "seamus_binary_gltf" {
     const allocator = std.testing.allocator;
     const path = "assets/models/seamus.glb";
-
     const mesh = try MeshFromGltf(path, allocator);
     defer mesh.deinit();
     std.debug.print("inds: {any}\n", .{mesh.indices.items});

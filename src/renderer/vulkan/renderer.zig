@@ -356,13 +356,13 @@ fn applyEndRenderPass(cb: *CommandBuffer, handle: types.Handle) void {
 }
 
 fn applyDrawIndexed(cb: *CommandBuffer, desc: types.DrawIndexedDesc) void {
-    const n_attr = @intCast(u32, @minimum(16, desc.vertex_offsets.len));
+    // const n_attr = @intCast(u32, @minimum(16, desc.vertex_offsets.len));
     var vertex_offsets = [_]vk.DeviceSize{0} ** 16;
     var buffers = [_]vk.Buffer{.null_handle} ** 16;
-    if (n_attr > 0) {
+    if (desc.n_vertex_offsets > 0) {
         {
             var i: usize = 0;
-            while (i < n_attr) : (i += 1) {
+            while (i < desc.n_vertex_offsets) : (i += 1) {
                 vertex_offsets[i] = desc.vertex_offsets[i];
                 buffers[i] = resources.getBuffer(desc.vertex_handle).handle;
             }
@@ -370,9 +370,9 @@ fn applyDrawIndexed(cb: *CommandBuffer, desc: types.DrawIndexedDesc) void {
         device.vkd.cmdBindVertexBuffers(
             cb.handle,
             0,
-            n_attr,
+            desc.n_vertex_offsets,
             @ptrCast([*]const vk.Buffer, buffers[0..]),
-            vertex_offsets[0..],
+            &vertex_offsets,
         );
     }
     device.vkd.cmdBindIndexBuffer(
