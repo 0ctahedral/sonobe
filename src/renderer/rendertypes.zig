@@ -1,24 +1,20 @@
+const Handle = @import("../handle.zig").Handle;
 /// Identifier for a device resource
 /// the default values in the struct indicate a null handle
 /// TODO: use enums/types to make this typesafe
 /// also make the resource an enum so we can have null handles
-pub const Handle = struct {
-    /// index of this resource
-    resource: u32 = 0,
-};
-
 /// data for a draw call
 /// right now it can only be indexed
 pub const DrawIndexedDesc = struct {
     /// number of indices to draw
     count: u32,
     /// handle for the buffer we are drawing from
-    vertex_handle: Handle = .{},
+    vertex_handle: Handle(null) = .{},
     /// offsets into the vertex buffer for different attributes
     vertex_offsets: [8]u64 = [_]u64{0} ** 8,
     n_vertex_offsets: u8,
     /// handle for the index buffer we are drawing from
-    index_handle: Handle,
+    index_handle: Handle(null),
     /// offset into the index buffer in bytes
     index_offset: u64 = 0,
 };
@@ -147,14 +143,14 @@ pub const PipelineDesc = struct {
         both,
     };
     /// render pass this pipeline is going to draw with
-    // render_pass: Handle,
+    // render_pass: Handle(null),
     stages: []const StageDesc = undefined,
 
     /// groups of bindings we want to access from the shader
-    binding_groups: []const Handle = &.{},
+    binding_groups: []const Handle(null) = &.{},
 
     /// the renderpass that we will use this shader in
-    renderpass: Handle,
+    renderpass: Handle(null),
 
     /// which faces should we cull?
     cull_mode: CullMode = .back,
@@ -171,7 +167,7 @@ pub const PipelineDesc = struct {
 };
 
 pub const PushConstDesc = struct {
-    pipeline: Handle,
+    pipeline: Handle(null),
     size: u8,
     data: [128]u8 = [_]u8{0} ** 128,
 };

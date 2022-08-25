@@ -3,7 +3,7 @@
 // public declarations
 pub const CmdBuf = @import("renderer/cmdbuf.zig");
 pub const types = @import("renderer/rendertypes.zig");
-pub const Handle = types.Handle;
+pub const Handle = @import("octal.zig").Handle;
 pub const BufferDesc = types.BufferDesc;
 pub const RenderPassDesc = types.RenderPassDesc;
 pub const PipelineDesc = types.PipelineDesc;
@@ -95,7 +95,7 @@ pub fn onResize(ev: events.Event) bool {
 /// uploades data to a buffer and returns the resulting offest in bytes
 // TODO: make this just in the resources
 pub fn updateBuffer(
-    handle: types.Handle,
+    handle: Handle(null),
     offset: usize,
     comptime T: type,
     data: []const T,

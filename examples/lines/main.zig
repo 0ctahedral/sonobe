@@ -26,7 +26,7 @@ pub const name = "lines";
 const allocator = std.testing.allocator;
 
 /// renderpass for drawing to the screen
-world_pass: renderer.Handle = .{},
+world_pass: octal.Handle(null) = .{},
 
 screen_dim: Vec2 = .{ .x = 800, .y = 600 },
 

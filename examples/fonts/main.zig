@@ -25,7 +25,7 @@ const App = @This();
 pub const name = "font";
 
 /// renderpass for drawing to the screen
-screen_pass: renderer.Handle = .{},
+screen_pass: octal.Handle(null) = .{},
 
 screen_dim: Vec2 = .{ .x = 800, .y = 600 },
 

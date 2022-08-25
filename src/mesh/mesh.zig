@@ -1,6 +1,7 @@
 const std = @import("std");
 const math = @import("../math.zig");
 const renderer = @import("../renderer.zig");
+const Handle = @import("../handle.zig").Handle;
 const resources = renderer.resources;
 const Vec3 = math.Vec3;
 const Vec2 = math.Vec2;
@@ -127,8 +128,8 @@ pub const ConstMesh = struct {
 };
 
 pub const Buffers = struct {
-    vertices: renderer.Handle = .{},
-    indices: renderer.Handle = .{},
+    vertices: Handle(null) = .{},
+    indices: Handle(null) = .{},
     uv_offset: usize,
     normals_offset: usize,
     positions_offset: usize,

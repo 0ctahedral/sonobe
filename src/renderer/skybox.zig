@@ -3,7 +3,7 @@ const renderer = @import("../renderer.zig");
 const resources = renderer.resources;
 const color = @import("../color.zig");
 
-const Handle = renderer.Handle;
+const Handle = @import("../handle.zig").Handle;
 const CmdBuf = renderer.CmdBuf;
 const Camera = @import("camera.zig");
 const math = @import("../math.zig");
@@ -14,12 +14,12 @@ const cube = @import("../mesh.zig").cube;
 
 const Self = @This();
 
-pass: Handle = .{},
-pipeline: Handle = .{},
-uniform_buffer: Handle = .{},
+pass: Handle(null) = .{},
+pipeline: Handle(null) = .{},
+uniform_buffer: Handle(null) = .{},
 data: Data = .{},
-texture: Handle = .{},
-sampler: Handle = .{},
+texture: Handle(null) = .{},
+sampler: Handle(null) = .{},
 
 pub const Data = struct {
     // sky_color: Vec3 = color.hexToVec3(0xbe7ce2),

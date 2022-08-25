@@ -1,5 +1,6 @@
 const std = @import("std");
 const renderer = @import("../renderer.zig");
+const Handle = @import("../handle.zig").Handle;
 const resources = renderer.resources;
 const quad = @import("../mesh.zig").quad;
 const math = @import("../math.zig");
@@ -27,20 +28,20 @@ allocator: Allocator,
 
 bdf: BDF,
 /// bindgroup for the font
-group: renderer.Handle = .{},
+group: Handle(null) = .{},
 /// buffer containing the orthographic matrix?
 /// later it will contain the offsets of the glyphs
-buffer: renderer.Handle = .{},
+buffer: Handle(null) = .{},
 /// quad for fonts
-inds: renderer.Handle = .{},
+inds: Handle(null) = .{},
 /// texture containing all the glyphs
-texture: renderer.Handle = .{},
+texture: Handle(null) = .{},
 /// sampler for above texture
-sampler: renderer.Handle = .{},
+sampler: Handle(null) = .{},
 /// pipeline for rendering fonts
-pipeline: renderer.Handle = .{},
+pipeline: Handle(null) = .{},
 /// pipeline for rendering fonts
-atlas_pipeline: renderer.Handle = .{},
+atlas_pipeline: Handle(null) = .{},
 
 /// offset into the index buffer
 index_offset: u32 = 0,
@@ -55,7 +56,7 @@ const Cache = struct {
     map: std.AutoHashMap(u32, Vec4),
     next_index: u32 = 0,
 };
-pub fn init(path: []const u8, renderpass: renderer.Handle, allocator: Allocator) !Self {
+pub fn init(path: []const u8, renderpass: Handle(null), allocator: Allocator) !Self {
     var self = Self{
         .allocator = allocator,
         .bdf = try BDF.init(path, allocator),
@@ -362,11 +363,7 @@ pub fn drawGlyphsDebug(self: Self, cmd: *CmdBuf, mode: GlyphDebugMode) !void {
     // TODO: this should be a shader variant with specialization const
     try cmd.pushConst(self.pipeline, @as(u32, @enumToInt(mode)));
     // draw the quads
-    try cmd.drawIndexed(.{
-        .count = self.index_offset * 6,
-        .vertex_handle = .{},
-        .index_handle = self.inds,
-    });
+    try cmd.drawIndexed(self.index_offset * 6, .{}, &.{}, self.inds, 0);
 }
 
 /// draw the full texture atlass
@@ -387,12 +384,13 @@ pub fn drawAtlas(
             .mul(Mat4.translate(Vec3.new(x + w / 2, y + h / 2, 0))),
     );
     // draw the quad
-    try cmd.drawIndexed(.{
-        .count = 6,
-        .vertex_handle = bufs.vertices,
-        .index_handle = bufs.indices,
-        .vertex_offsets = &.{ 0, 4 * @sizeOf(Vec3) },
-    });
+    try cmd.drawIndexed(
+        6,
+        bufs.vertices,
+        &.{ 0, 4 * @sizeOf(Vec3) },
+        bufs.indices,
+        0,
+    );
 }
 
 pub fn clear(self: *Self) void {

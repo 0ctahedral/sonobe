@@ -3,7 +3,7 @@ const octal = @import("octal");
 const cube = octal.mesh.cube;
 const quad = octal.mesh.quad;
 const renderer = octal.renderer;
-const Handle = renderer.Handle;
+const Handle = octal.Handle;
 const CmdBuf = renderer.CmdBuf;
 const resources = octal.renderer.resources;
 const math = octal.math;
@@ -31,19 +31,19 @@ pub const LineData = struct {
 };
 
 /// indices for the line quads
-index_buf: Handle = .{},
+index_buf: Handle(null) = .{},
 /// data for each line
-line_buf: Handle = .{},
+line_buf: Handle(null) = .{},
 /// bind group for our buffers
-group: Handle = .{},
+group: Handle(null) = .{},
 /// line renderpass
-pass: Handle = .{},
+pass: Handle(null) = .{},
 /// pipeline for simple debug type lines
-simple_pipeline: Handle = .{},
+simple_pipeline: Handle(null) = .{},
 /// pipeline for more advanced anti aliased lines
-aa_pipeline: Handle = .{},
+aa_pipeline: Handle(null) = .{},
 /// wireframe on and culling none
-debug_pipeline: Handle = .{},
+debug_pipeline: Handle(null) = .{},
 /// offset into the index buffer
 next_index: u32 = 0,
 
@@ -216,12 +216,13 @@ pub fn draw(self: Self, cmd: *CmdBuf, camera: renderer.Camera, line_type: Type) 
     var i: usize = 0;
     while (i < self.next_index) : (i += 1) {
         // draw the quads
-        try cmd.drawIndexed(.{
-            .count = 6,
-            .vertex_handle = .{},
-            .index_handle = self.index_buf,
-            .index_offset = i * 6 * @sizeOf(u32),
-        });
+        try cmd.drawIndexed(
+            6,
+            .{},
+            &.{},
+            self.index_buf,
+            i * 6 * @sizeOf(u32),
+        );
     }
     try cmd.endRenderPass(self.pass);
 }

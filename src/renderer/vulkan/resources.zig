@@ -12,7 +12,7 @@ const MAX_FRAMES = @import("renderer.zig").MAX_FRAMES;
 
 const types = @import("../rendertypes.zig");
 
-const Handle = types.Handle;
+const Handle = @import("../../handle.zig").Handle;
 
 /// the GPU side buffer that store the currenlty rendering objects
 /// this one stores the indices of all geometry
@@ -79,7 +79,7 @@ const Resource = union(ResourceType) {
     Pipeline: struct {
         index: u32,
         n_bind_groups: u8,
-        bind_groups: [8]Handle,
+        bind_groups: [8]Handle(null),
     },
 };
 
@@ -186,7 +186,7 @@ fn destroyResource(res: Resource) void {
     }
 }
 
-pub fn createBuffer(desc: types.BufferDesc) !Handle {
+pub fn createBuffer(desc: types.BufferDesc) !Handle(null) {
     // TODO: throw error if too big
 
     const res = try resources.allocIndex();
@@ -232,11 +232,11 @@ pub fn createBuffer(desc: types.BufferDesc) !Handle {
 
     last_vert += desc.size;
 
-    const handle = Handle{ .resource = res };
+    const handle = Handle(null){ .id = res };
     return handle;
 }
 
-pub fn createPipeline(desc: types.PipelineDesc) !Handle {
+pub fn createPipeline(desc: types.PipelineDesc) !Handle(null) {
     const handle_idx = try resources.allocIndex();
     const pl_idx = try pipelines.allocIndex();
 
@@ -302,7 +302,7 @@ pub fn createPipeline(desc: types.PipelineDesc) !Handle {
         allocator,
     ));
 
-    var bgs = [_]Handle{.{}} ** 8;
+    var bgs = [_]Handle(null){.{}} ** 8;
     for (desc.binding_groups) |h, i| {
         bgs[i] = h;
     }
@@ -316,10 +316,10 @@ pub fn createPipeline(desc: types.PipelineDesc) !Handle {
         } },
     );
 
-    return Handle{ .resource = handle_idx };
+    return Handle(null){ .id = handle_idx };
 }
 
-pub fn createRenderPass(desc: types.RenderPassDesc) !Handle {
+pub fn createRenderPass(desc: types.RenderPassDesc) !Handle(null) {
     const handle_idx = try resources.allocIndex();
     const rp_idx = try renderpasses.allocIndex();
 
@@ -335,11 +335,11 @@ pub fn createRenderPass(desc: types.RenderPassDesc) !Handle {
         .{ .RenderPass = .{ .index = rp_idx } },
     );
 
-    return Handle{ .resource = handle_idx };
+    return Handle(null){ .id = handle_idx };
 }
 
 /// creates a binding group for a pipeline
-pub fn createBindingGroup(binds: []const types.BindingDesc) !Handle {
+pub fn createBindingGroup(binds: []const types.BindingDesc) !Handle(null) {
     // create layout bindings in place
     var bindings: [16]vk.DescriptorSetLayoutBinding = undefined;
     if (binds.len > bindings.len) return error.TooManyBindings;
@@ -395,17 +395,17 @@ pub fn createBindingGroup(binds: []const types.BindingDesc) !Handle {
         .{ .BindGroup = .{ .index = data_idx } },
     );
 
-    return Handle{ .resource = handle_idx };
+    return Handle(null){ .id = handle_idx };
 }
 
 // TODO: does this need a different home?
 pub const BindingUpdate = struct {
     binding: u8,
-    handle: Handle,
+    handle: Handle(null),
 };
-pub fn updateBindings(group: Handle, updates: []const BindingUpdate) !void {
+pub fn updateBindings(group: Handle(null), updates: []const BindingUpdate) !void {
     // get the group
-    const bg: *BindGroup = bind_groups.get(resources.get(group.resource).BindGroup.index);
+    const bg: *BindGroup = bind_groups.get(resources.get(group.id).BindGroup.index);
 
     if (updates.len > bg.n_bindings) return error.TooManyUpdates;
 
@@ -420,7 +420,7 @@ pub fn updateBindings(group: Handle, updates: []const BindingUpdate) !void {
 
         switch (b.binding_type) {
             .UniformBuffer, .StorageBuffer => {
-                const res = resources.get(u.handle.resource).Buffer;
+                const res = resources.get(u.handle.id).Buffer;
                 const buffer = buffers[@enumToInt(res.desc.usage)].get(res.index);
                 const buf_infos = [_]vk.DescriptorBufferInfo{
                     .{
@@ -448,7 +448,7 @@ pub fn updateBindings(group: Handle, updates: []const BindingUpdate) !void {
                 };
             },
             .Texture => {
-                const tex = textures.get(resources.get(u.handle.resource).Texture.index);
+                const tex = textures.get(resources.get(u.handle.id).Texture.index);
                 const tex_infos = [_]vk.DescriptorImageInfo{.{
                     .sampler = .null_handle,
                     .image_view = tex.image.view,
@@ -467,7 +467,7 @@ pub fn updateBindings(group: Handle, updates: []const BindingUpdate) !void {
                 };
             },
             .Sampler => {
-                const sampler = samplers.get(resources.get(u.handle.resource).Sampler.index);
+                const sampler = samplers.get(resources.get(u.handle.id).Sampler.index);
                 const sampler_infos = [_]vk.DescriptorImageInfo{.{
                     .sampler = sampler.handle,
                     .image_view = .null_handle,
@@ -496,9 +496,9 @@ pub fn updateBindings(group: Handle, updates: []const BindingUpdate) !void {
     device.vkd.updateDescriptorSets(device.logical, @intCast(u32, updates.len * MAX_FRAMES), &writes, 0, undefined);
 }
 
-pub fn updateBuffer(handle: Handle, offset: usize, data: [*]const u8, size: usize) !void {
+pub fn updateBuffer(handle: Handle(null), offset: usize, data: [*]const u8, size: usize) !void {
     // TODO: error if handle not found
-    const res = resources.get(handle.resource).Buffer;
+    const res = resources.get(handle.id).Buffer;
 
     // TODO: make this use the appropriate load type
     var buf = buffers[@enumToInt(res.desc.usage)].get(res.index);
@@ -526,7 +526,7 @@ pub fn flipData(width: usize, height: usize, data: []u8) void {
     }
 }
 
-pub fn createTexture(desc: types.TextureDesc, data: []u8) !Handle {
+pub fn createTexture(desc: types.TextureDesc, data: []u8) !Handle(null) {
     const handle_idx = try resources.allocIndex();
     const tex_idx = try textures.allocIndex();
 
@@ -537,10 +537,10 @@ pub fn createTexture(desc: types.TextureDesc, data: []u8) !Handle {
         .{ .Texture = .{ .index = tex_idx, .desc = desc } },
     );
 
-    return Handle{ .resource = handle_idx };
+    return Handle(null){ .id = handle_idx };
 }
 
-pub fn createTextureEmpty(desc: types.TextureDesc) !Handle {
+pub fn createTextureEmpty(desc: types.TextureDesc) !Handle(null) {
     const handle_idx = try resources.allocIndex();
     const tex_idx = try textures.allocIndex();
 
@@ -551,11 +551,11 @@ pub fn createTextureEmpty(desc: types.TextureDesc) !Handle {
         .{ .Texture = .{ .index = tex_idx, .desc = desc } },
     );
 
-    return Handle{ .resource = handle_idx };
+    return Handle(null){ .id = handle_idx };
 }
 /// update data in a texture at an offset
 pub fn updateTexture(
-    handle: Handle,
+    handle: Handle(null),
     // offset into the buffer
     offset: u32,
     data: []u8,
@@ -565,12 +565,12 @@ pub fn updateTexture(
     extent_x: u32,
     extent_y: u32,
 ) !void {
-    const res = resources.get(handle.resource).Texture;
+    const res = resources.get(handle.id).Texture;
     var tex = textures.get(res.index);
     try tex.writeRegion(device, offset, data, offset_x, offset_y, extent_x, extent_y);
 }
 
-pub fn createSampler(desc: types.SamplerDesc) !Handle {
+pub fn createSampler(desc: types.SamplerDesc) !Handle(null) {
     const handle_idx = try resources.allocIndex();
     const samp_idx = try samplers.allocIndex();
 
@@ -581,46 +581,46 @@ pub fn createSampler(desc: types.SamplerDesc) !Handle {
         .{ .Sampler = .{ .index = samp_idx, .desc = desc } },
     );
 
-    return Handle{ .resource = handle_idx };
+    return Handle(null){ .id = handle_idx };
 }
 
 /// destroys a resource given the handle
-pub inline fn destroy(handle: Handle) void {
-    const res = resources.get(handle.resource);
+pub inline fn destroy(handle: Handle(null)) void {
+    const res = resources.get(handle.id);
     destroyResource(res.*);
-    resources.freeIndex(handle.resource);
+    resources.freeIndex(handle.id);
 }
 
 // TODO: should these go somewhere else? it kinda breaks the abstraction
 
 /// helper to get the buffer based on handle
-pub fn getBuffer(handle: Handle) *Buffer {
-    const res = resources.get(handle.resource).Buffer;
+pub fn getBuffer(handle: Handle(null)) *Buffer {
+    const res = resources.get(handle.id).Buffer;
     return buffers[@enumToInt(res.desc.usage)].get(res.index);
 }
 
 /// helper to get a texture based on handle
-pub fn getTexture(handle: Handle) *Texture {
-    const res = resources.get(handle.resource).Texture;
+pub fn getTexture(handle: Handle(null)) *Texture {
+    const res = resources.get(handle.id).Texture;
     return textures.get(res.index);
 }
 
-pub fn getSampler(handle: Handle) *Sampler {
-    const res = resources.get(handle.resource).Sampler;
+pub fn getSampler(handle: Handle(null)) *Sampler {
+    const res = resources.get(handle.id).Sampler;
     return samplers.get(res.index);
 }
 
-pub fn getBindGroup(handle: Handle) *BindGroup {
-    const res = resources.get(handle.resource).BindGroup;
+pub fn getBindGroup(handle: Handle(null)) *BindGroup {
+    const res = resources.get(handle.id).BindGroup;
     return bind_groups.get(res.index);
 }
 
-pub fn getRenderPass(handle: Handle) *RenderPass {
-    const res = resources.get(handle.resource).RenderPass;
+pub fn getRenderPass(handle: Handle(null)) *RenderPass {
+    const res = resources.get(handle.id).RenderPass;
     return renderpasses.get(res.index);
 }
 
-pub fn getPipeline(handle: Handle) *Pipeline {
-    const res = resources.get(handle.resource).Pipeline;
+pub fn getPipeline(handle: Handle(null)) *Pipeline {
+    const res = resources.get(handle.id).Pipeline;
     return pipelines.get(res.index);
 }

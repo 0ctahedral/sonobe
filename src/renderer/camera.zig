@@ -2,7 +2,7 @@ const std = @import("std");
 const renderer = @import("../renderer.zig");
 const resources = renderer.resources;
 
-const Handle = renderer.Handle;
+const Handle = @import("../handle.zig").Handle;
 const math = @import("../math.zig");
 const Mat4 = math.Mat4;
 const Vec3 = math.Vec3;
@@ -27,9 +27,9 @@ aspect: f32 = 800.0 / 600.0,
 
 drag_scale: f32 = (-1 / 400.0),
 
-group: Handle = .{},
+group: Handle(null) = .{},
 /// the buffer with data about this camera
-buffer: Handle = .{},
+buffer: Handle(null) = .{},
 
 pub fn init(self: *Self) !void {
     self.group = try resources.createBindingGroup(&.{

@@ -1,5 +1,6 @@
 const std = @import("std");
 const octal = @import("octal");
+const Handle = octal.Handle;
 const cube = octal.mesh.cube;
 const quad = octal.mesh.quad;
 const mesh = octal.mesh;
@@ -38,20 +39,20 @@ const MaterialData = struct {
 /// transform of the quad
 t: Transform = .{},
 
-world_pass: renderer.Handle = .{},
+world_pass: Handle(null) = .{},
 
 camera: Camera = .{
     .pos = .{ .y = -10, .z = 5 },
     .fov = 60,
 },
 
-material_group: renderer.Handle = .{},
-material_buffer: renderer.Handle = .{},
+material_group: Handle(null) = .{},
+material_buffer: Handle(null) = .{},
 material_data: MaterialData = .{},
-default_texture: renderer.Handle = .{},
-default_sampler: renderer.Handle = .{},
+default_texture: Handle(null) = .{},
+default_sampler: Handle(null) = .{},
 
-simple_pipeline: renderer.Handle = .{},
+simple_pipeline: Handle(null) = .{},
 
 last_pos: Vec2 = .{},
 

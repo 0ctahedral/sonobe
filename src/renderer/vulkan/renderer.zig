@@ -5,7 +5,7 @@ const vk = @import("vulkan");
 const platform = @import("../../platform.zig");
 
 const types = @import("../rendertypes.zig");
-const Handle = types.Handle;
+const Handle = @import("../../handle.zig").Handle;
 const CmdBuf = @import("../cmdbuf.zig");
 
 const dispatch_types = @import("dispatch_types.zig");
@@ -54,7 +54,7 @@ var allocator: Allocator = undefined;
 
 // TODO: these will eventually not exist
 
-var default_renderpass: Handle = .{};
+var default_renderpass: Handle(null) = .{};
 
 /// current dimesnsions of the framebuffer
 var fb_width: u32 = 0;
@@ -297,12 +297,12 @@ fn applyPushConst(cb: *CommandBuffer, desc: types.PushConstDesc) void {
     );
 }
 
-fn applyBindPipeline(cb: *CommandBuffer, handle: types.Handle) !void {
+fn applyBindPipeline(cb: *CommandBuffer, handle: Handle(null)) !void {
     const pl = resources.getPipeline(handle);
     device.vkd.cmdBindPipeline(cb.handle, .graphics, pl.handle);
 
     var descriptor_sets: [8]vk.DescriptorSet = undefined;
-    const res = resources.resources.get(handle.resource).Pipeline;
+    const res = resources.resources.get(handle.id).Pipeline;
     var i: usize = 0;
     while (i < res.n_bind_groups) : (i += 1) {
         const bg = resources.getBindGroup(res.bind_groups[i]);
@@ -321,7 +321,7 @@ fn applyBindPipeline(cb: *CommandBuffer, handle: types.Handle) !void {
     );
 }
 
-fn applyBeginRenderPass(cb: *CommandBuffer, handle: types.Handle) void {
+fn applyBeginRenderPass(cb: *CommandBuffer, handle: Handle(null)) void {
     // set the viewport
     const viewport = vk.Viewport{
         .x = 0,
@@ -350,7 +350,7 @@ fn applyBeginRenderPass(cb: *CommandBuffer, handle: types.Handle) void {
     } });
 }
 
-fn applyEndRenderPass(cb: *CommandBuffer, handle: types.Handle) void {
+fn applyEndRenderPass(cb: *CommandBuffer, handle: Handle(null)) void {
     _ = handle;
     resources.getRenderPass(handle).end(device, cb);
 }
