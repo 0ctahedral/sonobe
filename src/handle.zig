@@ -60,11 +60,9 @@ pub const HandlePool = struct {
         }
 
         if (self.n_free > 0) {
-            const idx = @as(usize, self.n_free);
             self.n_free -= 1;
 
-            const id = self.freed_ids[idx];
-            self.generations[@as(usize, id)] += 1;
+            const id = self.freed_ids[self.n_free];
 
             return ErasedHandle{
                 .id = id,
@@ -75,13 +73,22 @@ pub const HandlePool = struct {
         return error.OutOfHandles;
     }
 
-    pub fn free(self: Self, h: ErasedHandle) void {
-        // should this return an error if its out of date or just do nothing?
-        testing.expect(self.generations[h.id] == h.generation);
+    pub fn free(self: *Self, h: ErasedHandle) void {
+        // TODO: should this return an error if its out of date or just do nothing?
+        if (!self.valid(h)) return;
+
+        // we increase the generation on free
+        // this makes it so that we can prevent use after free
         self.generations[h.id] += 1;
 
         self.freed_ids[self.n_free] = h.id;
         self.n_free += 1;
+    }
+
+    /// is this handle valid? just checks the generation
+    pub inline fn valid(self: Self, h: ErasedHandle) bool {
+        // TODO: should we be checking if the value is less than last used as well?
+        return h.id < N and self.generations[h.id] == h.generation;
     }
 };
 
@@ -125,4 +132,28 @@ test "free" {
     pool.last_used = HandlePool.N;
 
     try testing.expectError(error.OutOfHandles, pool.alloc());
+
+    // lets free some handles
+    pool.free(ErasedHandle{
+        .id = 3,
+        .generation = 0,
+    });
+    try testing.expect(pool.n_free == 1);
+    try testing.expect(pool.generations[3] == 1);
+    pool.free(ErasedHandle{
+        .id = 7,
+        .generation = 0,
+    });
+    try testing.expect(pool.generations[7] == 1);
+    try testing.expect(pool.n_free == 2);
+
+    // we expect that each re allocated handle should be
+    // popped off the stack with a new generation
+    const h1 = try pool.alloc();
+    try testing.expect(h1.generation == 1);
+    try testing.expect(h1.id == 7);
+
+    const h2 = try pool.alloc();
+    try testing.expect(h2.generation == 1);
+    try testing.expect(h2.id == 3);
 }
