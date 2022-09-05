@@ -139,7 +139,7 @@ pub fn init() !Self {
 }
 
 pub fn addLine(self: *Self, data: LineData) !void {
-    _ = try device.updateBuffer(
+    _ = try resources.updateBufferTyped(
         self.line_buf,
         @sizeOf(LineData) * self.next_index,
         LineData,
@@ -152,7 +152,7 @@ pub fn addLine(self: *Self, data: LineData) !void {
         corner: u8,
     };
 
-    _ = try device.updateBuffer(self.index_buf, @sizeOf(u32) * self.next_index * 6, u32, &[_]u32{
+    _ = try resources.updateBufferTyped(self.index_buf, @sizeOf(u32) * self.next_index * 6, u32, &[_]u32{
         @bitCast(u32, Index{
             .corner = 0,
             .index = @intCast(u24, self.next_index),

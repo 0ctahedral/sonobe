@@ -91,21 +91,3 @@ pub fn onResize(ev: events.Event) bool {
     // other systems might need this event
     return true;
 }
-
-/// uploades data to a buffer and returns the resulting offest in bytes
-// TODO: make this just in the resources
-pub fn updateBuffer(
-    handle: Handle(null),
-    offset: usize,
-    comptime T: type,
-    data: []const T,
-) !usize {
-    const size = @sizeOf(T) * data.len;
-    try backend.resources.updateBuffer(
-        handle,
-        offset,
-        @ptrCast([*]const u8, data),
-        size,
-    );
-    return size + offset;
-}

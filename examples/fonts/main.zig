@@ -47,7 +47,7 @@ pub fn init(app: *App) !void {
 
     app.font_ren = try FontRen.init("./assets/fonts/scientifica-11.bdf", app.screen_pass, allocator);
     // update the buffer with our projection
-    _ = try device.updateBuffer(app.font_ren.buffer, 0, Mat4, &[_]Mat4{
+    _ = try resources.updateBufferTyped(app.font_ren.buffer, 0, Mat4, &[_]Mat4{
         Mat4.ortho(0, app.screen_dim.x, 0, app.screen_dim.y, -100, 100),
     });
 
@@ -150,7 +150,7 @@ pub fn onResize(app: *App, w: u16, h: u16) void {
     app.screen_dim.y = @intToFloat(f32, h);
 
     //// update the buffer with our projection
-    _ = device.updateBuffer(app.font_ren.buffer, 0, Mat4, &[_]Mat4{
+    _ = resources.updateBufferTyped(app.font_ren.buffer, 0, Mat4, &[_]Mat4{
         Mat4.ortho(0, app.screen_dim.x, 0, app.screen_dim.y, -100, 100),
     }) catch {
         std.log.warn("cound not update uniform buffer", .{});

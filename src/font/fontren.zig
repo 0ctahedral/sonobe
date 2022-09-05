@@ -87,7 +87,7 @@ pub fn init(path: []const u8, renderpass: Handle(null), allocator: Allocator) !S
             .usage = .Storage,
         },
     );
-    _ = try device.updateBuffer(
+    _ = try resources.updateBufferTyped(
         self.buffer,
         @sizeOf(Mat4),
         Vec2,
@@ -276,7 +276,7 @@ pub fn addGlyph(
 
     const glyph = try self.bdf.getGlyph(codepoint);
 
-    _ = try device.updateBuffer(
+    _ = try resources.updateBufferTyped(
         self.buffer,
         @sizeOf(Mat4) + (2 * @sizeOf(Vec2)) + (@sizeOf(GlyphData) * self.index_offset),
         GlyphData,
@@ -300,32 +300,37 @@ pub fn addGlyph(
         corner: u8,
     };
 
-    _ = try device.updateBuffer(self.inds, @sizeOf(u32) * self.index_offset * 6, u32, &[_]u32{
-        @bitCast(u32, Index{
-            .corner = 0,
-            .index = @intCast(u24, self.index_offset),
-        }),
-        @bitCast(u32, Index{
-            .corner = 1,
-            .index = @intCast(u24, self.index_offset),
-        }),
-        @bitCast(u32, Index{
-            .corner = 2,
-            .index = @intCast(u24, self.index_offset),
-        }),
-        @bitCast(u32, Index{
-            .corner = 2,
-            .index = @intCast(u24, self.index_offset),
-        }),
-        @bitCast(u32, Index{
-            .corner = 3,
-            .index = @intCast(u24, self.index_offset),
-        }),
-        @bitCast(u32, Index{
-            .corner = 0,
-            .index = @intCast(u24, self.index_offset),
-        }),
-    });
+    _ = try resources.updateBufferTyped(
+        self.inds,
+        @sizeOf(u32) * self.index_offset * 6,
+        u32,
+        &[_]u32{
+            @bitCast(u32, Index{
+                .corner = 0,
+                .index = @intCast(u24, self.index_offset),
+            }),
+            @bitCast(u32, Index{
+                .corner = 1,
+                .index = @intCast(u24, self.index_offset),
+            }),
+            @bitCast(u32, Index{
+                .corner = 2,
+                .index = @intCast(u24, self.index_offset),
+            }),
+            @bitCast(u32, Index{
+                .corner = 2,
+                .index = @intCast(u24, self.index_offset),
+            }),
+            @bitCast(u32, Index{
+                .corner = 3,
+                .index = @intCast(u24, self.index_offset),
+            }),
+            @bitCast(u32, Index{
+                .corner = 0,
+                .index = @intCast(u24, self.index_offset),
+            }),
+        },
+    );
 
     self.index_offset += 1;
 

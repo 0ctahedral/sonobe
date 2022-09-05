@@ -84,7 +84,7 @@ pub fn init(app: *App) !void {
             .usage = .Uniform,
         },
     );
-    _ = try device.updateBuffer(app.material_buffer, 0, MaterialData, &[_]MaterialData{app.material_data});
+    _ = try resources.updateBufferTyped(app.material_buffer, 0, MaterialData, &[_]MaterialData{app.material_data});
 
     const tex_dimension: u32 = 2;
     const channels: u32 = 4;

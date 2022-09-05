@@ -100,7 +100,7 @@ pub fn init(camera: Camera, procedural: bool) !Self {
             .usage = .Uniform,
         },
     );
-    _ = try device.updateBuffer(self.uniform_buffer, 0, Data, &[_]Data{self.data});
+    _ = try resources.updateBufferTyped(self.uniform_buffer, 0, Data, &[_]Data{self.data});
 
     const group = try resources.createBindingGroup(&.{
         .{ .binding_type = .UniformBuffer },
@@ -147,7 +147,7 @@ pub fn init(camera: Camera, procedural: bool) !Self {
 }
 
 pub fn update(self: Self) !void {
-    _ = try device.updateBuffer(self.uniform_buffer, 0, Data, &[_]Data{self.data});
+    _ = try resources.updateBufferTyped(self.uniform_buffer, 0, Data, &[_]Data{self.data});
 }
 
 pub fn onFileChange(self: *Self, file: *std.fs.File) !void {

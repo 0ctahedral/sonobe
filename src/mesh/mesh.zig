@@ -59,25 +59,25 @@ pub const Mesh = struct {
             ),
         };
 
-        _ = try device.updateBuffer(
+        _ = try resources.updateBufferTyped(
             buffers.vertices,
             buffers.positions_offset,
             Vec3,
             self.positions.items,
         );
-        _ = try device.updateBuffer(
+        _ = try resources.updateBufferTyped(
             buffers.vertices,
             buffers.normals_offset,
             Vec3,
             self.normals.items,
         );
-        _ = try device.updateBuffer(
+        _ = try resources.updateBufferTyped(
             buffers.vertices,
             buffers.uv_offset,
             Vec2,
             self.uvs.items,
         );
-        _ = try device.updateBuffer(buffers.indices, 0, u32, self.indices.items);
+        _ = try resources.updateBufferTyped(buffers.indices, 0, u32, self.indices.items);
 
         self.buffers = buffers;
 
@@ -120,9 +120,9 @@ pub const ConstMesh = struct {
             ),
         };
 
-        var offset = try device.updateBuffer(self.buffers.?.vertices, 0, Vec3, self.positions);
-        offset = try device.updateBuffer(self.buffers.?.vertices, offset, Vec2, self.uvs);
-        _ = try device.updateBuffer(self.buffers.?.indices, 0, u32, self.indices);
+        var offset = try resources.updateBufferTyped(self.buffers.?.vertices, 0, Vec3, self.positions);
+        offset = try resources.updateBufferTyped(self.buffers.?.vertices, offset, Vec2, self.uvs);
+        _ = try resources.updateBufferTyped(self.buffers.?.indices, 0, u32, self.indices);
 
         return self.buffers.?;
     }

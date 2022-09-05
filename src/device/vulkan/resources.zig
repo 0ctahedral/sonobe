@@ -497,7 +497,12 @@ pub fn updateBindings(group: Handle(null), updates: []const BindingUpdate) !void
     device.vkd.updateDescriptorSets(device.logical, @intCast(u32, updates.len * MAX_FRAMES), &writes, 0, undefined);
 }
 
-pub fn updateBuffer(handle: Handle(null), offset: usize, data: [*]const u8, size: usize) !void {
+pub fn updateBuffer(
+    handle: Handle(null),
+    offset: usize,
+    data: [*]const u8,
+    size: usize,
+) !void {
     // TODO: error if handle not found
     const res = resources.get(handle.id).Buffer;
 
@@ -510,6 +515,22 @@ pub fn updateBuffer(handle: Handle(null), offset: usize, data: [*]const u8, size
         offset,
         size,
     );
+}
+
+pub fn updateBufferTyped(
+    handle: Handle(null),
+    offset: usize,
+    comptime T: type,
+    data: []const T,
+) !usize {
+    const size = @sizeOf(T) * data.len;
+    try updateBuffer(
+        handle,
+        offset,
+        @ptrCast([*]const u8, data),
+        size,
+    );
+    return size + offset;
 }
 
 // TODO: put this somewhere

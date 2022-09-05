@@ -47,7 +47,7 @@ pub fn init(self: *Self) !void {
 
 /// updates the gpu buffer of camera info
 pub fn update(self: Self) !void {
-    _ = try device.updateBuffer(self.buffer, 0, Data, &[_]Data{.{
+    _ = try resources.updateBufferTyped(self.buffer, 0, Data, &[_]Data{.{
         .view = self.view(),
         .proj = self.proj(),
     }});
