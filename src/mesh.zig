@@ -1,7 +1,8 @@
 const std = @import("std");
-const renderer = @import("renderer.zig");
-const resources = @import("renderer.zig").resources;
-const math = @import("math.zig");
+const sonobe = @import("sonobe.zig");
+const renderer = sonobe.renderer;
+const resources = renderer.resources;
+const math = sonobe.math;
 const Vec3 = math.Vec3;
 const Vec2 = math.Vec2;
 

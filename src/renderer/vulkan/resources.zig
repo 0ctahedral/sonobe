@@ -1,6 +1,7 @@
 const std = @import("std");
 const vk = @import("vulkan");
-const FreeList = @import("../../containers.zig").FreeList;
+const sonobe = @import("../../sonobe.zig");
+const FreeList = sonobe.containers.FreeList;
 const Device = @import("device.zig").Device;
 const Buffer = @import("buffer.zig").Buffer;
 const Sampler = @import("texture.zig").Sampler;
@@ -12,7 +13,7 @@ const MAX_FRAMES = @import("renderer.zig").MAX_FRAMES;
 
 const types = @import("../rendertypes.zig");
 
-const Handle = @import("../../handle.zig").Handle;
+const Handle = sonobe.Handle;
 
 /// the GPU side buffer that store the currenlty rendering objects
 /// this one stores the indices of all geometry

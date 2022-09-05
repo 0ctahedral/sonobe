@@ -2,11 +2,12 @@
 
 const std = @import("std");
 const App = @import("app");
-const platform = @import("platform.zig");
-const renderer = @import("renderer.zig");
-const events = @import("events.zig");
-const input = @import("input.zig");
-const jobs = @import("jobs.zig");
+const sonobe = @import("sonobe.zig");
+const platform = sonobe.platform;
+const renderer = sonobe.renderer;
+const events = platform.events;
+const input = platform.input;
+const jobs = sonobe.jobs;
 
 var app: App = .{};
 var window: platform.Window = .{};

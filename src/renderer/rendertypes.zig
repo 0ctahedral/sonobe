@@ -1,4 +1,6 @@
-const Handle = @import("../handle.zig").Handle;
+const sonobe = @import("../sonobe.zig");
+const Handle = sonobe.Handle;
+const math = sonobe.math;
 /// Identifier for a device resource
 /// the default values in the struct indicate a null handle
 /// TODO: use enums/types to make this typesafe
@@ -94,7 +96,7 @@ pub const RenderPassDesc = struct {
         stencil: bool = false,
     };
     /// color this renderpass should clear the rendertarget to
-    clear_color: @import("../math.zig").Vec4,
+    clear_color: math.Vec4,
     /// value the renderpass should clear the rendertarget depth bufffer to
     clear_depth: f32,
     /// value the renderpass should clear the rendertarget stencil buffer to

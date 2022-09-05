@@ -12,7 +12,7 @@ pub fn build(b: *Builder) !void {
     const mode = b.standardReleaseOptions();
     const target = b.standardTargetOptions(.{});
 
-    var tests = b.addTest("src/octal.zig");
+    var tests = b.addTest("src/sonobe.zig");
     tests.setBuildMode(mode);
     tests.setTarget(target);
 
@@ -50,8 +50,8 @@ pub fn makeApp(b: *Builder, name: []const u8, path: ?[]const u8) !*std.build.Lib
         // depnd on the engine (of course)
         .dependencies = &[_]std.build.Pkg{
             .{
-                .name = "octal",
-                .path = .{ .path = "./src/octal.zig" },
+                .name = "sonobe",
+                .path = .{ .path = "./src/sonobe.zig" },
             },
         },
     });
@@ -90,8 +90,8 @@ fn link(b: *Builder, step: *std.build.LibExeObjStep) void {
     // packages
     const gen = vkgen.VkGenerateStep.init(b, "deps/vulkan-zig/examples/vk.xml", "vk.zig");
     step.addPackage(.{
-        .name = "octal",
-        .path = .{ .path = "./src/octal.zig" },
+        .name = "sonobe",
+        .path = .{ .path = "./src/sonobe.zig" },
         .dependencies = &[_]std.build.Pkg{gen.package},
     });
     // links / c stuff

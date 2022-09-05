@@ -1,14 +1,16 @@
 const std = @import("std");
 const vk = @import("vulkan");
 const glfw = @import("glfw");
+// TODO: get rid of this dep
 const InstanceDispatch = @import("../renderer/vulkan/dispatch_types.zig").InstanceDispatch;
-const events = @import("../events.zig");
+const events = @import("events.zig");
 const Event = events.Event;
-const input = @import("../input.zig");
+const input = @import("input.zig");
 const Key = input.Key;
 const Window = @import("window.zig");
-const RingBuffer = @import("../containers.zig").RingBuffer;
-const FreeList = @import("../containers.zig").FreeList;
+const sonobe = @import("../sonobe.zig");
+const RingBuffer = sonobe.containers.RingBuffer;
+const FreeList = sonobe.containers.FreeList;
 
 var windows: FreeList(glfw.Window) = undefined;
 var window_store: [10]glfw.Window = undefined;

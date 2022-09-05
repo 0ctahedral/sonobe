@@ -1,11 +1,12 @@
 const std = @import("std");
 const vk = @import("vulkan");
+const sonobe = @import("../../sonobe.zig");
 
 // TODO: get rid of this dependency if possible
-const platform = @import("../../platform.zig");
+const platform = sonobe.platform;
 
 const types = @import("../rendertypes.zig");
-const Handle = @import("../../handle.zig").Handle;
+const Handle = sonobe.Handle;
 const CmdBuf = @import("../cmdbuf.zig");
 
 const dispatch_types = @import("dispatch_types.zig");
@@ -24,7 +25,7 @@ const Mesh = @import("mesh.zig").Mesh;
 const Texture = @import("texture.zig").Texture;
 const RenderTarget = @import("render_target.zig").RenderTarget;
 pub const resources = @import("resources.zig");
-const math = @import("../../math.zig");
+const math = sonobe.math;
 const Mat4 = math.Mat4;
 const Vec4 = math.Vec4;
 const Vec3 = math.Vec3;

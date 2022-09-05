@@ -1,7 +1,7 @@
 const std = @import("std");
 const vk = @import("vulkan");
 const InstanceDispatch = @import("../renderer/vulkan/dispatch_types.zig").InstanceDispatch;
-const Event = @import("../events.zig").Event;
+const Event = @import("events.zig").Event;
 const Window = @import("window.zig");
 const FreeList = @import("../containers/freelist.zig").FreeList;
 

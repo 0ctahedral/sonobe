@@ -5,11 +5,12 @@
 //! and that multiple objects of the same type can register for the same event
 //! with the same function.
 const std = @import("std");
-const Window = @import("platform/window.zig");
-const RingBuffer = @import("containers.zig").RingBuffer;
+const sonobe = @import("../sonobe.zig");
+const Window = @import("window.zig");
+const RingBuffer = sonobe.containers.RingBuffer;
 const input = @import("input.zig");
 const Key = input.Key;
-const Vec2 = @import("math.zig").Vec2;
+const Vec2 = sonobe.math.Vec2;
 
 var initialized = false;
 

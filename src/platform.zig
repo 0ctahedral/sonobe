@@ -2,15 +2,10 @@ const std = @import("std");
 const builtin = @import("builtin");
 const vk = @import("vulkan");
 const InstanceDispatch = @import("renderer/vulkan/dispatch_types.zig").InstanceDispatch;
-const events = @import("events.zig");
+pub const events = @import("platform/events.zig");
+pub const input = @import("platform/input.zig");
 
 pub const Window = @import("platform/window.zig");
-
-// const backend = switch (builtin.target.os.tag) {
-//     .macos => @import("platform/macos.zig"),
-//     .linux => @import("platform/linux.zig"),
-//     else => unreachable,
-// };
 
 const backend = @import("platform/glfw.zig");
 

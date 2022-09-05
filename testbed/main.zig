@@ -1,17 +1,17 @@
 const std = @import("std");
-const octal = @import("octal");
-const Handle = octal.Handle;
-const cube = octal.mesh.cube;
-const quad = octal.mesh.quad;
-const mesh = octal.mesh;
+const sonobe = @import("sonobe");
+const Handle = sonobe.Handle;
+const cube = sonobe.mesh.cube;
+const quad = sonobe.mesh.quad;
+const mesh = sonobe.mesh;
 
-const renderer = octal.renderer;
-const resources = octal.renderer.resources;
-const input = octal.input;
-const jobs = octal.jobs;
+const renderer = sonobe.renderer;
+const resources = sonobe.renderer.resources;
+const input = sonobe.input;
+const jobs = sonobe.jobs;
 const CmdBuf = renderer.CmdBuf;
 
-const math = octal.math;
+const math = sonobe.math;
 const Vec4 = math.Vec4;
 const Vec3 = math.Vec3;
 const Vec2 = math.Vec2;
@@ -31,7 +31,7 @@ const App = @This();
 pub const name = "testbed";
 
 const MaterialData = struct {
-    albedo: Vec4 = octal.color.hexToVec4(0x70819BFF),
+    albedo: Vec4 = sonobe.color.hexToVec4(0x70819BFF),
     tile: Vec2 = Vec2.new(10, 10),
 };
 

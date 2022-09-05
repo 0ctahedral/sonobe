@@ -1,9 +1,10 @@
 const std = @import("std");
-const renderer = @import("../renderer.zig");
-const Handle = @import("../handle.zig").Handle;
+const sonobe = @import("../sonobe.zig");
+const renderer = sonobe.renderer;
+const Handle = sonobe.Handle;
 const resources = renderer.resources;
-const quad = @import("../mesh.zig").quad;
-const math = @import("../math.zig");
+const quad = sonobe.mesh.quad;
+const math = sonobe.math;
 const BDF = @import("bdf.zig");
 
 const Allocator = std.mem.Allocator;

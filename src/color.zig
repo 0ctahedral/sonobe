@@ -1,5 +1,5 @@
 const std = @import("std");
-const math = @import("./math.zig");
+const math = @import("sonobe.zig").math;
 const Vec4 = math.Vec4;
 const Vec3 = math.Vec3;
 

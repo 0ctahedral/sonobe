@@ -1,5 +1,5 @@
 const std = @import("std");
-const Vec2 = @import("math.zig").Vec2;
+const Vec2 = @import("../sonobe.zig").math.Vec2;
 const Events = @import("events.zig");
 
 var mouse = Mouse{};

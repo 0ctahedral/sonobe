@@ -1,21 +1,21 @@
 const std = @import("std");
-const octal = @import("octal");
-const cube = octal.mesh.cube;
-const quad = octal.mesh.quad;
+const sonobe = @import("sonobe");
+const cube = sonobe.mesh.cube;
+const quad = sonobe.mesh.quad;
 
-const renderer = octal.renderer;
-const resources = octal.renderer.resources;
-const input = octal.input;
+const renderer = sonobe.renderer;
+const resources = sonobe.renderer.resources;
+const input = sonobe.input;
 const CmdBuf = renderer.CmdBuf;
 
-const math = octal.math;
+const math = sonobe.math;
 const Vec4 = math.Vec4;
 const Vec3 = math.Vec3;
 const Vec2 = math.Vec2;
 const Quat = math.Quat;
 const Mat4 = math.Mat4;
 const Transform = math.Transform;
-const FontRen = octal.font.FontRen;
+const FontRen = sonobe.font.FontRen;
 // since this file is implicitly a struct we can store state in here
 // and use methods that we expect to be defined in the engine itself.
 // we can then make our app a package which is included by the engine
@@ -25,7 +25,7 @@ const App = @This();
 pub const name = "font";
 
 /// renderpass for drawing to the screen
-screen_pass: octal.Handle(null) = .{},
+screen_pass: sonobe.Handle(null) = .{},
 
 screen_dim: Vec2 = .{ .x = 800, .y = 600 },
 
@@ -57,48 +57,48 @@ pub fn init(app: *App) !void {
         "$hello world!",
         Vec2.new(20, 20),
         20,
-        octal.color.hexToVec4(0x181bc7ff),
+        sonobe.color.hexToVec4(0x181bc7ff),
     );
     var pos = Vec2.new(100, 50);
     pos.y += (try app.font_ren.addString(
         "A B C D E F G H I J K L M N O P Q R S T U V W X Y Z",
         pos,
         20,
-        octal.color.hexToVec4(0x181bc7ff),
+        sonobe.color.hexToVec4(0x181bc7ff),
     )).y;
     pos.y += (try app.font_ren.addString(
         "a b c d e f g h i j k l m n o p q r s t u v w x y z",
         pos,
         20,
-        octal.color.hexToVec4(0xffffffff),
+        sonobe.color.hexToVec4(0xffffffff),
     )).y;
     pos.x = 150;
     pos.y += (try app.font_ren.addString(
         "1 2 3 4 5 6 7 8 9 0",
         pos,
         20,
-        octal.color.hexToVec4(0xe89c31ff),
+        sonobe.color.hexToVec4(0xe89c31ff),
     )).y;
     pos.x = 90;
     pos.y += (try app.font_ren.addString(
         "() [] {} <> ? / \\ : \" ' ; ! @ # $ % & * + - = - | ~ `",
         pos,
         20,
-        octal.color.hexToVec4(0x145411ff),
+        sonobe.color.hexToVec4(0x145411ff),
     )).y;
 
     _ = try app.font_ren.addString(
         "try app.font_ren = @sizeOf(UrMom)",
         Vec2.new(100, 300),
         24,
-        octal.color.hexToVec4(0x1b0cebff),
+        sonobe.color.hexToVec4(0x1b0cebff),
     );
 
     _ = try app.font_ren.addString(
         "|this is|text|",
         Vec2.new(100, 500),
         50,
-        octal.color.hexToVec4(0x145411ff),
+        sonobe.color.hexToVec4(0x145411ff),
     );
 }
 

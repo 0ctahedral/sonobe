@@ -1,14 +1,14 @@
 const std = @import("std");
-const octal = @import("octal");
-const cube = octal.mesh.cube;
-const quad = octal.mesh.quad;
+const sonobe = @import("sonobe");
+const cube = sonobe.mesh.cube;
+const quad = sonobe.mesh.quad;
 
-const renderer = octal.renderer;
-const resources = octal.renderer.resources;
-const input = octal.input;
+const renderer = sonobe.renderer;
+const resources = sonobe.renderer.resources;
+const input = sonobe.input;
 const CmdBuf = renderer.CmdBuf;
 
-const math = octal.math;
+const math = sonobe.math;
 const Vec4 = math.Vec4;
 const Vec3 = math.Vec3;
 const Vec2 = math.Vec2;
@@ -26,7 +26,7 @@ pub const name = "lines";
 const allocator = std.testing.allocator;
 
 /// renderpass for drawing to the screen
-world_pass: octal.Handle(null) = .{},
+world_pass: sonobe.Handle(null) = .{},
 
 screen_dim: Vec2 = .{ .x = 800, .y = 600 },
 
@@ -46,7 +46,7 @@ pub fn init(app: *App) !void {
     app.camera.aspect = @intToFloat(f32, renderer.w) / @intToFloat(f32, renderer.h);
 
     app.world_pass = try resources.createRenderPass(.{
-        .clear_color = octal.color.hexToVec4(0x8af587ff),
+        .clear_color = sonobe.color.hexToVec4(0x8af587ff),
         .clear_depth = 1.0,
         .clear_stencil = 1.0,
         .clear_flags = .{ .color = true, .depth = true },

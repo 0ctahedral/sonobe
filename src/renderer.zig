@@ -1,9 +1,11 @@
 //! Renderer front end
 
+const sonobe = @import("sonobe.zig");
 // public declarations
+
 pub const CmdBuf = @import("renderer/cmdbuf.zig");
 pub const types = @import("renderer/rendertypes.zig");
-pub const Handle = @import("octal.zig").Handle;
+pub const Handle = sonobe.Handle;
 pub const BufferDesc = types.BufferDesc;
 pub const RenderPassDesc = types.RenderPassDesc;
 pub const PipelineDesc = types.PipelineDesc;
@@ -14,11 +16,11 @@ pub const Skybox = @import("renderer/skybox.zig");
 // other stuff
 const std = @import("std");
 const Allocator = std.mem.Allocator;
-const RingBuffer = @import("containers.zig").RingBuffer;
-const Transform = @import("math.zig").Transform;
+const RingBuffer = sonobe.containers.RingBuffer;
+const Transform = sonobe.math.Transform;
 const backend = @import("renderer/vulkan/renderer.zig");
-const platform = @import("platform.zig");
-const events = @import("events.zig");
+const platform = sonobe.platform;
+const events = sonobe.platform.events;
 
 /// the current frame
 pub var frame: usize = 0;
