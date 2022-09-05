@@ -1,19 +1,18 @@
 const std = @import("std");
 const vk = @import("vulkan");
-const sonobe = @import("../../sonobe.zig");
+const sonobe = @import("../sonobe.zig");
+pub const descs = @import("resources/descs.zig");
+const MAX_FRAMES = @import("vulkan/backend.zig").MAX_FRAMES;
+
 const FreeList = sonobe.containers.FreeList;
-const Device = @import("device.zig").Device;
-const Buffer = @import("buffer.zig").Buffer;
-const Sampler = @import("texture.zig").Sampler;
-const RenderPass = @import("renderpass.zig").RenderPass;
-const Pipeline = @import("pipeline.zig").Pipeline;
-const Texture = @import("texture.zig").Texture;
-const Mesh = @import("mesh.zig").Mesh;
-const MAX_FRAMES = @import("backend.zig").MAX_FRAMES;
-
-const types = @import("../rendertypes.zig");
-
 const Handle = sonobe.Handle;
+
+const Device = @import("vulkan/device.zig").Device;
+const Buffer = @import("vulkan/buffer.zig").Buffer;
+const Sampler = @import("vulkan/texture.zig").Sampler;
+const RenderPass = @import("vulkan/renderpass.zig").RenderPass;
+const Pipeline = @import("vulkan/pipeline.zig").Pipeline;
+const Texture = @import("vulkan/texture.zig").Texture;
 
 /// the GPU side buffer that store the currenlty rendering objects
 /// this one stores the indices of all geometry
@@ -28,7 +27,7 @@ var last_vert: usize = 0;
 
 /// backing buffers we are using for allocating from
 const MAX_BUFFERS = 1024;
-var buffers: [@typeInfo(types.BufferDesc.Usage).Enum.fields.len]FreeList(Buffer) = undefined;
+var buffers: [@typeInfo(descs.BufferDesc.Usage).Enum.fields.len]FreeList(Buffer) = undefined;
 /// textures to allocate from
 const MAX_TEXTURES = 1024;
 var textures: FreeList(Texture) = undefined;
@@ -39,7 +38,7 @@ var pipelines: FreeList(Pipeline) = undefined;
 const MAX_BINDGROUPS = 1024;
 /// stores layout and sets needed for updating a pipeline
 const BindGroup = struct {
-    bindings: [32]types.BindingDesc = undefined,
+    bindings: [32]descs.BindingDesc = undefined,
     n_bindings: u8 = 0,
     layout: vk.DescriptorSetLayout = .null_handle,
     sets: [MAX_FRAMES]vk.DescriptorSet = [_]vk.DescriptorSet{.null_handle} ** MAX_FRAMES,
@@ -55,21 +54,19 @@ const ResourceType = enum {
     Pipeline,
 };
 
-// TODO: add sampler
-// TODO: add shader/pipeline
 const Resource = union(ResourceType) {
     Buffer: struct {
         /// index in buffer freelist
         index: u32,
-        desc: types.BufferDesc,
+        desc: descs.BufferDesc,
     },
     Texture: struct {
         index: u32,
-        desc: types.TextureDesc,
+        desc: descs.TextureDesc,
     },
     Sampler: struct {
         index: u32,
-        desc: types.SamplerDesc,
+        desc: descs.SamplerDesc,
     },
     BindGroup: struct {
         index: u32,
@@ -187,11 +184,11 @@ fn destroyResource(res: Resource) void {
     }
 }
 
-pub fn createBuffer(desc: types.BufferDesc) !Handle(null) {
+pub fn createBuffer(desc: descs.BufferDesc) !Handle(null) {
     // TODO: throw error if too big
 
     const res = try resources.allocIndex();
-    // fix the types
+    // fix the descs
     const usage: vk.BufferUsageFlags = switch (desc.usage) {
         .Vertex => .{
             .vertex_buffer_bit = true,
@@ -237,7 +234,7 @@ pub fn createBuffer(desc: types.BufferDesc) !Handle(null) {
     return handle;
 }
 
-pub fn createPipeline(desc: types.PipelineDesc) !Handle(null) {
+pub fn createPipeline(desc: descs.PipelineDesc) !Handle(null) {
     const handle_idx = try resources.allocIndex();
     const pl_idx = try pipelines.allocIndex();
 
@@ -320,7 +317,7 @@ pub fn createPipeline(desc: types.PipelineDesc) !Handle(null) {
     return Handle(null){ .id = handle_idx };
 }
 
-pub fn createRenderPass(desc: types.RenderPassDesc) !Handle(null) {
+pub fn createRenderPass(desc: descs.RenderPassDesc) !Handle(null) {
     const handle_idx = try resources.allocIndex();
     const rp_idx = try renderpasses.allocIndex();
 
@@ -340,7 +337,7 @@ pub fn createRenderPass(desc: types.RenderPassDesc) !Handle(null) {
 }
 
 /// creates a binding group for a pipeline
-pub fn createBindingGroup(binds: []const types.BindingDesc) !Handle(null) {
+pub fn createBindingGroup(binds: []const descs.BindingDesc) !Handle(null) {
     // create layout bindings in place
     var bindings: [16]vk.DescriptorSetLayoutBinding = undefined;
     if (binds.len > bindings.len) return error.TooManyBindings;
@@ -354,7 +351,7 @@ pub fn createBindingGroup(binds: []const types.BindingDesc) !Handle(null) {
         bindings[i] = .{
             .binding = @intCast(u32, i),
             .descriptor_type = switch (bind.binding_type) {
-                // TODO: use different buffer types?
+                // TODO: use different buffer descs?
                 .UniformBuffer => .uniform_buffer,
                 .StorageBuffer => .storage_buffer,
                 .Texture => .sampled_image,
@@ -548,7 +545,7 @@ pub fn flipData(width: usize, height: usize, data: []u8) void {
     }
 }
 
-pub fn createTexture(desc: types.TextureDesc, data: []u8) !Handle(null) {
+pub fn createTexture(desc: descs.TextureDesc, data: []u8) !Handle(null) {
     const handle_idx = try resources.allocIndex();
     const tex_idx = try textures.allocIndex();
 
@@ -562,7 +559,7 @@ pub fn createTexture(desc: types.TextureDesc, data: []u8) !Handle(null) {
     return Handle(null){ .id = handle_idx };
 }
 
-pub fn createTextureEmpty(desc: types.TextureDesc) !Handle(null) {
+pub fn createTextureEmpty(desc: descs.TextureDesc) !Handle(null) {
     const handle_idx = try resources.allocIndex();
     const tex_idx = try textures.allocIndex();
 
@@ -592,7 +589,7 @@ pub fn updateTexture(
     try tex.writeRegion(device, offset, data, offset_x, offset_y, extent_x, extent_y);
 }
 
-pub fn createSampler(desc: types.SamplerDesc) !Handle(null) {
+pub fn createSampler(desc: descs.SamplerDesc) !Handle(null) {
     const handle_idx = try resources.allocIndex();
     const samp_idx = try samplers.allocIndex();
 

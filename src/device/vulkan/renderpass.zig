@@ -6,7 +6,7 @@ const vk = @import("vulkan");
 const Device = @import("device.zig").Device;
 const Swapchain = @import("swapchain.zig").Swapchain;
 const CommandBuffer = @import("commandbuffer.zig").CommandBuffer;
-const types = @import("../rendertypes.zig");
+const descs = @import("../resources/descs.zig");
 
 pub const ClearFlags = packed struct {
     color: bool = false,
@@ -29,7 +29,7 @@ pub const RenderPass = struct {
     pub fn init(
         device: Device,
         format: vk.Format,
-        desc: types.RenderPassDesc,
+        desc: descs.RenderPassDesc,
     ) !Self {
         // start by making attachments
         // color

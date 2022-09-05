@@ -151,7 +151,7 @@ test "push pop" {
     try testing.expect(rb.empty());
 }
 
-test "different types" {
+test "different descs" {
     const vec = struct { x: f32 = 0, y: f32 = 0 };
 
     var rb = RingBuffer(vec, 10).init();

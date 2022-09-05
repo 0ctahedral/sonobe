@@ -61,7 +61,7 @@ const Callback = struct {
     func: fn (Event) bool,
 };
 
-/// Where we store our different callbacks for different event types
+/// Where we store our different callbacks for different event descs
 var callbacks: [EVENTS_LEN][MAX_CALLBACKS]?Callback = undefined;
 
 /// Queue of pending events

@@ -117,7 +117,7 @@ pub fn init(camera: Camera, procedural: bool) !Self {
 
     // TODO: make this a specialization constant later
     // or two separate pipelines
-    const frag_stage: device.types.StageDesc =
+    const frag_stage: device.descs.StageDesc =
         if (procedural)
     .{
         .bindpoint = .Fragment,

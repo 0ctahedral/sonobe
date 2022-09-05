@@ -4,11 +4,11 @@ const sonobe = @import("sonobe.zig");
 // public declarations
 
 pub const CmdBuf = @import("device/cmdbuf.zig");
-pub const types = @import("device/rendertypes.zig");
-pub const BufferDesc = types.BufferDesc;
-pub const RenderPassDesc = types.RenderPassDesc;
-pub const PipelineDesc = types.PipelineDesc;
-pub const resources = backend.resources;
+pub const descs = @import("device/resources/descs.zig");
+pub const BufferDesc = descs.BufferDesc;
+pub const RenderPassDesc = descs.RenderPassDesc;
+pub const PipelineDesc = descs.PipelineDesc;
+pub const resources = @import("device/resources.zig");
 
 // other stuff
 const std = @import("std");

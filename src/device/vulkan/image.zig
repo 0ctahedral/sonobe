@@ -5,7 +5,7 @@ const InstanceDispatch = dispatch_types.InstanceDispatch;
 const Device = @import("device.zig").Device;
 const Buffer = @import("buffer.zig").Buffer;
 const CommandBuffer = @import("commandbuffer.zig").CommandBuffer;
-const types = @import("../rendertypes.zig");
+const descs = @import("../resources/descs.zig");
 
 pub const Image = struct {
     handle: vk.Image = .null_handle,
@@ -26,7 +26,7 @@ pub const Image = struct {
         device: Device,
         format: vk.Format,
         aspect_mask: vk.ImageAspectFlags,
-        texture_type: types.TextureDesc.Type,
+        texture_type: descs.TextureDesc.Type,
     ) !void {
         const img_type: vk.ImageViewType = switch (texture_type) {
             .@"2d" => .@"2d",
@@ -62,7 +62,7 @@ pub const Image = struct {
         usage: vk.ImageUsageFlags,
         mem_flags: vk.MemoryPropertyFlags,
         aspect_mask: vk.ImageAspectFlags,
-        texture_type: types.TextureDesc.Type,
+        texture_type: descs.TextureDesc.Type,
     ) !Self {
         var self: Self = undefined;
 
@@ -124,7 +124,7 @@ pub const Image = struct {
         old_layout: vk.ImageLayout,
         new_layout: vk.ImageLayout,
         cmdbuf: CommandBuffer,
-        texture_type: types.TextureDesc.Type,
+        texture_type: descs.TextureDesc.Type,
     ) !void {
         var barrier = vk.ImageMemoryBarrier{
             .src_access_mask = .{},
@@ -183,7 +183,7 @@ pub const Image = struct {
         device: Device,
         buffer: Buffer,
         cmdbuf: CommandBuffer,
-        texture_type: types.TextureDesc.Type,
+        texture_type: descs.TextureDesc.Type,
         offset_x: u32,
         offset_y: u32,
         extent_x: u32,

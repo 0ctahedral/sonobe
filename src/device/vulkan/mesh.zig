@@ -25,7 +25,7 @@ pub fn getVertexInfo(comptime T: type) VertexInfo(T) {
 
     var info: VertexInfo(T) = undefined;
 
-    // print attribute types
+    // print attribute descs
     inline for (fields) |f, i| {
         switch (@typeInfo(f.field_type)) {
             .Pointer => |p| {

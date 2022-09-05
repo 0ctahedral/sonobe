@@ -1,6 +1,6 @@
 //! these buffers are used for sumitting instructions for rendering a scene
 const std = @import("std");
-const types = @import("rendertypes.zig");
+const descs = @import("resources/descs.zig");
 const Handle = @import("../sonobe.zig").Handle;
 
 const CmdBuf = @This();
@@ -15,11 +15,11 @@ const Command = enum {
 
 /// Desc that stores all the data related to the command
 const CommandDecl = union(Command) {
-    DrawIndexed: types.DrawIndexedDesc,
+    DrawIndexed: descs.DrawIndexedDesc,
     BeginRenderPass: Handle(null),
     EndRenderPass: Handle(null),
     BindPipeline: Handle(null),
-    PushConst: types.PushConstDesc,
+    PushConst: descs.PushConstDesc,
 };
 
 /// maximum number of commands that can be held by a buffer
@@ -47,7 +47,7 @@ pub fn pushConst(self: *CmdBuf, pipeline: Handle(null), pc: anytype) !void {
     const size = @sizeOf(@TypeOf(pc));
     if (size > 128) return error.ConstTooLarge;
 
-    var desc = types.PushConstDesc{
+    var desc = descs.PushConstDesc{
         .pipeline = pipeline,
         .size = size,
     };
@@ -66,7 +66,7 @@ pub fn drawIndexed(
     index_handle: Handle(null),
     index_offset: u64,
 ) !void {
-    var desc: types.DrawIndexedDesc = .{
+    var desc: descs.DrawIndexedDesc = .{
         .count = count,
         .vertex_handle = vertex_handle,
         .index_handle = index_handle,

@@ -1,7 +1,7 @@
 const std = @import("std");
 const vk = @import("vulkan");
-const types = @import("../rendertypes.zig");
-const SamplerDesc = @import("../rendertypes.zig").SamplerDesc;
+const descs = @import("../resources/descs.zig");
+const SamplerDesc = @import("../resources/descs.zig").SamplerDesc;
 const Device = @import("device.zig").Device;
 const Image = @import("image.zig").Image;
 const Buffer = @import("buffer.zig").Buffer;
@@ -76,13 +76,13 @@ pub const Sampler = struct {
 /// An image we read and write from
 pub const Texture = struct {
     image: Image = .{},
-    desc: types.TextureDesc,
+    desc: descs.TextureDesc,
 
     const Self = @This();
 
     pub fn init(
         device: Device,
-        desc: types.TextureDesc,
+        desc: descs.TextureDesc,
         data: []const u8,
     ) !Self {
         var self: Self = try initEmpty(device, desc);
@@ -92,7 +92,7 @@ pub const Texture = struct {
 
     pub fn initEmpty(
         device: Device,
-        desc: types.TextureDesc,
+        desc: descs.TextureDesc,
     ) !Self {
         var self: Self = undefined;
         self.desc = desc;

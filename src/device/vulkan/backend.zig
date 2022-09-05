@@ -2,10 +2,16 @@ const std = @import("std");
 const vk = @import("vulkan");
 const sonobe = @import("../../sonobe.zig");
 
-// TODO: get rid of this dependency if possible
 const platform = sonobe.platform;
+const resources = @import("../resources.zig");
 
-const types = @import("../rendertypes.zig");
+const math = sonobe.math;
+const Mat4 = math.Mat4;
+const Vec4 = math.Vec4;
+const Vec3 = math.Vec3;
+const Vec2 = math.Vec2;
+
+const descs = @import("../resources/descs.zig");
 const Handle = sonobe.Handle;
 const CmdBuf = @import("../cmdbuf.zig");
 
@@ -24,12 +30,6 @@ const Semaphore = @import("semaphore.zig").Semaphore;
 const Mesh = @import("mesh.zig").Mesh;
 const Texture = @import("texture.zig").Texture;
 const RenderTarget = @import("render_target.zig").RenderTarget;
-pub const resources = @import("resources.zig");
-const math = sonobe.math;
-const Mat4 = math.Mat4;
-const Vec4 = math.Vec4;
-const Vec3 = math.Vec3;
-const Vec2 = math.Vec2;
 
 // TODO: set this in a config
 const required_layers = [_][*:0]const u8{"VK_LAYER_KHRONOS_validation"};
@@ -286,7 +286,7 @@ pub fn submit(cmdbuf: CmdBuf) !void {
     try cb.end(device);
 }
 
-fn applyPushConst(cb: *CommandBuffer, desc: types.PushConstDesc) void {
+fn applyPushConst(cb: *CommandBuffer, desc: descs.PushConstDesc) void {
     const pl = resources.getPipeline(desc.pipeline);
     device.vkd.cmdPushConstants(
         cb.handle,
@@ -356,7 +356,7 @@ fn applyEndRenderPass(cb: *CommandBuffer, handle: Handle(null)) void {
     resources.getRenderPass(handle).end(device, cb);
 }
 
-fn applyDrawIndexed(cb: *CommandBuffer, desc: types.DrawIndexedDesc) void {
+fn applyDrawIndexed(cb: *CommandBuffer, desc: descs.DrawIndexedDesc) void {
     // const n_attr = @intCast(u32, @minimum(16, desc.vertex_offsets.len));
     var vertex_offsets = [_]vk.DeviceSize{0} ** 16;
     var buffers = [_]vk.Buffer{.null_handle} ** 16;
@@ -426,12 +426,12 @@ pub fn endFrame() !void {
 
 fn vk_debug(
     message_severity: vk.DebugUtilsMessageSeverityFlagsEXT.IntType,
-    message_types: vk.DebugUtilsMessageTypeFlagsEXT.IntType,
+    message_descs: vk.DebugUtilsMessageTypeFlagsEXT.IntType,
     p_callback_data: ?*const vk.DebugUtilsMessengerCallbackDataEXT,
     p_user_data: ?*anyopaque,
 ) callconv(vk.vulkan_call_conv) vk.Bool32 {
     _ = message_severity;
-    _ = message_types;
+    _ = message_descs;
     _ = p_callback_data;
     _ = p_user_data;
     std.log.info("{s}", .{p_callback_data.?.*.p_message});

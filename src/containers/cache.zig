@@ -1,7 +1,7 @@
 const std = @import("std");
 const Allocator = std.mem.Allocator;
 
-/// Caches types and stuff
+/// Caches descs and stuff
 pub fn Cache(
     /// info type for hash lookup and type creation
     comptime I: type,

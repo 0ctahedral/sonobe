@@ -150,7 +150,7 @@ pub const GraphicsContext = struct {
     }
 
     pub fn findMemoryTypeIndex(self: GraphicsContext, memory_type_bits: u32, flags: vk.MemoryPropertyFlags) !u32 {
-        for (self.mem_props.memory_types[0..self.mem_props.memory_type_count]) |mem_type, i| {
+        for (self.mem_props.memory_descs[0..self.mem_props.memory_type_count]) |mem_type, i| {
             if (memory_type_bits & (@as(u32, 1) << @truncate(u5, i)) != 0 and mem_type.property_flags.contains(flags)) {
                 return @truncate(u32, i);
             }

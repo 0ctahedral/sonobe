@@ -1,6 +1,6 @@
 const std = @import("std");
 const vk = @import("vulkan");
-const PipelineDesc = @import("../rendertypes.zig").PipelineDesc;
+const PipelineDesc = @import("../resources/descs.zig").PipelineDesc;
 const Device = @import("device.zig").Device;
 const RenderPass = @import("renderpass.zig").RenderPass;
 const CommandBuffer = @import("commandbuffer.zig").CommandBuffer;
