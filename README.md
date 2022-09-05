@@ -1,4 +1,4 @@
-# sonobe
+# ⚡️ sonobe ⚡️
 Zig game engine
 
 ## name
