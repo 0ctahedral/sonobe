@@ -1,24 +1,22 @@
-//! Renderer front end
+//! Device front end
 
 const sonobe = @import("sonobe.zig");
 // public declarations
 
-pub const CmdBuf = @import("renderer/cmdbuf.zig");
-pub const types = @import("renderer/rendertypes.zig");
-pub const Handle = sonobe.Handle;
+pub const CmdBuf = @import("device/cmdbuf.zig");
+pub const types = @import("device/rendertypes.zig");
 pub const BufferDesc = types.BufferDesc;
 pub const RenderPassDesc = types.RenderPassDesc;
 pub const PipelineDesc = types.PipelineDesc;
 pub const resources = backend.resources;
-pub const Camera = @import("renderer/camera.zig");
-pub const Skybox = @import("renderer/skybox.zig");
 
 // other stuff
 const std = @import("std");
 const Allocator = std.mem.Allocator;
 const RingBuffer = sonobe.containers.RingBuffer;
+const Handle = sonobe.Handle;
 const Transform = sonobe.math.Transform;
-const backend = @import("renderer/vulkan/renderer.zig");
+const backend = @import("device/vulkan/backend.zig");
 const platform = sonobe.platform;
 const events = sonobe.platform.events;
 
@@ -49,7 +47,7 @@ pub fn getCmdBuf() CmdBuf {
     return .{};
 }
 
-/// Submit a command buffer to be run by the renderer
+/// Submit a command buffer to be run by the device
 pub fn submit(cmdbuf: CmdBuf) !void {
     try submitted_cmds.push(cmdbuf);
 }

@@ -50,7 +50,7 @@ var frame_number: usize = 0;
 /// TODO: do we still need this?
 var image_index: usize = 0;
 
-/// Allocator used by the renderer
+/// Allocator used by the device
 var allocator: Allocator = undefined;
 
 // TODO: these will eventually not exist
@@ -82,7 +82,7 @@ var last_size_gen: usize = 0;
 
 // functions that are part of the api
 
-// initialize the renderer
+// initialize the device
 // TODO: should this take in a surface instead of a window?
 pub fn init(provided_allocator: Allocator, app_name: [*:0]const u8, window: platform.Window) !void {
     allocator = provided_allocator;
@@ -194,7 +194,7 @@ pub fn init(provided_allocator: Allocator, app_name: [*:0]const u8, window: plat
     }
 }
 
-// shutdown the renderer
+// shutdown the device
 pub fn deinit() void {
 
     // wait until rendering is done

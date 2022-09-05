@@ -3,10 +3,11 @@ const sonobe = @import("sonobe");
 const cube = sonobe.mesh.cube;
 const quad = sonobe.mesh.quad;
 
-const renderer = sonobe.renderer;
-const resources = sonobe.renderer.resources;
+const device = sonobe.device;
+const resources = sonobe.device.resources;
+const render = sonobe.render;
 const input = sonobe.input;
-const CmdBuf = renderer.CmdBuf;
+const CmdBuf = device.CmdBuf;
 
 const math = sonobe.math;
 const Vec4 = math.Vec4;
@@ -31,7 +32,7 @@ world_pass: sonobe.Handle(null) = .{},
 screen_dim: Vec2 = .{ .x = 800, .y = 600 },
 
 last_pos: Vec2 = .{},
-camera: renderer.Camera = .{
+camera: render.Camera = .{
     .pos = .{ .y = -10 },
     .fov = 60,
 },
@@ -43,7 +44,7 @@ line_mode: u8 = 2,
 
 pub fn init(app: *App) !void {
     try app.camera.init();
-    app.camera.aspect = @intToFloat(f32, renderer.w) / @intToFloat(f32, renderer.h);
+    app.camera.aspect = @intToFloat(f32, device.w) / @intToFloat(f32, device.h);
 
     app.world_pass = try resources.createRenderPass(.{
         .clear_color = sonobe.color.hexToVec4(0x8af587ff),
@@ -122,8 +123,8 @@ pub fn update(app: *App, dt: f64) !void {
     try app.camera.update();
 }
 
-pub fn render(app: *App) !void {
-    var cmd = renderer.getCmdBuf();
+pub fn draw(app: *App) !void {
+    var cmd = device.getCmdBuf();
 
     try cmd.beginRenderPass(app.world_pass);
 
@@ -132,7 +133,7 @@ pub fn render(app: *App) !void {
     //var vp = app.camera.view().mul(app.camera.proj());
     try app.lines.draw(&cmd, app.camera, @intToEnum(Lines.Type, app.line_mode));
 
-    try renderer.submit(cmd);
+    try device.submit(cmd);
 }
 
 pub fn deinit(app: *App) void {

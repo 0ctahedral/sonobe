@@ -3,7 +3,7 @@ const os = std.os;
 const xcb = @import("xcb_decls.zig").XCB;
 const Window = @import("window.zig");
 const vk = @import("vulkan");
-const InstanceDispatch = @import("../renderer/vulkan/dispatch_types.zig").InstanceDispatch;
+const InstanceDispatch = @import("../device/vulkan/dispatch_types.zig").InstanceDispatch;
 const Event = @import("events.zig").Event;
 
 var display: *xcb.Display = undefined;

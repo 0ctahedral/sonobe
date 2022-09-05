@@ -2,10 +2,11 @@ const std = @import("std");
 const sonobe = @import("sonobe");
 const cube = sonobe.mesh.cube;
 const quad = sonobe.mesh.quad;
-const renderer = sonobe.renderer;
+const device = sonobe.device;
+const render = sonobe.render;
 const Handle = sonobe.Handle;
-const CmdBuf = renderer.CmdBuf;
-const resources = sonobe.renderer.resources;
+const CmdBuf = device.CmdBuf;
+const resources = sonobe.device.resources;
 const math = sonobe.math;
 const Vec4 = math.Vec4;
 const Vec3 = math.Vec3;
@@ -138,7 +139,7 @@ pub fn init() !Self {
 }
 
 pub fn addLine(self: *Self, data: LineData) !void {
-    _ = try renderer.updateBuffer(
+    _ = try device.updateBuffer(
         self.line_buf,
         @sizeOf(LineData) * self.next_index,
         LineData,
@@ -151,7 +152,7 @@ pub fn addLine(self: *Self, data: LineData) !void {
         corner: u8,
     };
 
-    _ = try renderer.updateBuffer(self.index_buf, @sizeOf(u32) * self.next_index * 6, u32, &[_]u32{
+    _ = try device.updateBuffer(self.index_buf, @sizeOf(u32) * self.next_index * 6, u32, &[_]u32{
         @bitCast(u32, Index{
             .corner = 0,
             .index = @intCast(u24, self.next_index),
@@ -198,7 +199,7 @@ pub const Type = enum {
     anti_aliased,
 };
 
-pub fn draw(self: Self, cmd: *CmdBuf, camera: renderer.Camera, line_type: Type) !void {
+pub fn draw(self: Self, cmd: *CmdBuf, camera: render.Camera, line_type: Type) !void {
     try cmd.beginRenderPass(self.pass);
     const pipeline = switch (line_type) {
         .debug => self.debug_pipeline,

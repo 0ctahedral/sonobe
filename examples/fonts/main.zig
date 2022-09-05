@@ -3,10 +3,10 @@ const sonobe = @import("sonobe");
 const cube = sonobe.mesh.cube;
 const quad = sonobe.mesh.quad;
 
-const renderer = sonobe.renderer;
-const resources = sonobe.renderer.resources;
+const device = sonobe.device;
+const resources = sonobe.device.resources;
 const input = sonobe.input;
-const CmdBuf = renderer.CmdBuf;
+const CmdBuf = device.CmdBuf;
 
 const math = sonobe.math;
 const Vec4 = math.Vec4;
@@ -47,7 +47,7 @@ pub fn init(app: *App) !void {
 
     app.font_ren = try FontRen.init("./assets/fonts/scientifica-11.bdf", app.screen_pass, allocator);
     // update the buffer with our projection
-    _ = try renderer.updateBuffer(app.font_ren.buffer, 0, Mat4, &[_]Mat4{
+    _ = try device.updateBuffer(app.font_ren.buffer, 0, Mat4, &[_]Mat4{
         Mat4.ortho(0, app.screen_dim.x, 0, app.screen_dim.y, -100, 100),
     });
 
@@ -118,8 +118,8 @@ pub fn update(app: *App, _: f64) !void {
         app.glyph_debug_mode = .uv;
 }
 
-pub fn render(app: *App) !void {
-    var cmd = renderer.getCmdBuf();
+pub fn draw(app: *App) !void {
+    var cmd = device.getCmdBuf();
 
     try cmd.beginRenderPass(app.screen_pass);
 
@@ -137,7 +137,7 @@ pub fn render(app: *App) !void {
 
     try cmd.endRenderPass(app.screen_pass);
 
-    try renderer.submit(cmd);
+    try device.submit(cmd);
 }
 
 pub fn deinit(app: *App) void {
@@ -150,7 +150,7 @@ pub fn onResize(app: *App, w: u16, h: u16) void {
     app.screen_dim.y = @intToFloat(f32, h);
 
     //// update the buffer with our projection
-    _ = renderer.updateBuffer(app.font_ren.buffer, 0, Mat4, &[_]Mat4{
+    _ = device.updateBuffer(app.font_ren.buffer, 0, Mat4, &[_]Mat4{
         Mat4.ortho(0, app.screen_dim.x, 0, app.screen_dim.y, -100, 100),
     }) catch {
         std.log.warn("cound not update uniform buffer", .{});

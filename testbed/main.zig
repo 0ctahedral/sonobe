@@ -5,11 +5,12 @@ const cube = sonobe.mesh.cube;
 const quad = sonobe.mesh.quad;
 const mesh = sonobe.mesh;
 
-const renderer = sonobe.renderer;
-const resources = sonobe.renderer.resources;
+const device = sonobe.device;
+const render = sonobe.render;
+const resources = sonobe.device.resources;
 const input = sonobe.input;
 const jobs = sonobe.jobs;
-const CmdBuf = renderer.CmdBuf;
+const CmdBuf = device.CmdBuf;
 
 const math = sonobe.math;
 const Vec4 = math.Vec4;
@@ -19,8 +20,8 @@ const Quat = math.Quat;
 const Mat4 = math.Mat4;
 const Transform = math.Transform;
 
-const Skybox = renderer.Skybox;
-const Camera = renderer.Camera;
+const Skybox = render.Skybox;
+const Camera = render.Camera;
 
 // since this file is implicitly a struct we can store state in here
 // and use methods that we expect to be defined in the engine itself.
@@ -68,7 +69,7 @@ pub fn init(app: *App) !void {
 
     // setup the camera
     try app.camera.init();
-    app.camera.aspect = @intToFloat(f32, renderer.w) / @intToFloat(f32, renderer.h);
+    app.camera.aspect = @intToFloat(f32, device.w) / @intToFloat(f32, device.h);
 
     // setup the material
     app.material_group = try resources.createBindingGroup(&.{
@@ -83,7 +84,7 @@ pub fn init(app: *App) !void {
             .usage = .Uniform,
         },
     );
-    _ = try renderer.updateBuffer(app.material_buffer, 0, MaterialData, &[_]MaterialData{app.material_data});
+    _ = try device.updateBuffer(app.material_buffer, 0, MaterialData, &[_]MaterialData{app.material_data});
 
     const tex_dimension: u32 = 2;
     const channels: u32 = 4;
@@ -202,7 +203,7 @@ pub fn update(app: *App, dt: f64) !void {
     app.t.rot = app.t.rot
         .mul(Quat.fromAxisAngle(Vec3.FORWARD, math.util.rad(30) * @floatCast(f32, dt)))
         .mul(Quat.fromAxisAngle(Vec3.UP, math.util.rad(30) * @floatCast(f32, dt)));
-    app.t.pos = Vec3.UP.scale(2 + @sin(@intToFloat(f32, renderer.frame) * 0.03));
+    app.t.pos = Vec3.UP.scale(2 + @sin(@intToFloat(f32, device.frame) * 0.03));
 }
 
 const floor_mat = Mat4.scale(.{ .x = 100, .y = 100, .z = 100 })
@@ -213,8 +214,8 @@ const PushConst = struct {
     mode: u32 = 0,
 };
 
-pub fn render(app: *App) !void {
-    var cmd = renderer.getCmdBuf();
+pub fn draw(app: *App) !void {
+    var cmd = device.getCmdBuf();
 
     // render skybox
     try app.skybox.draw(&cmd);
@@ -224,7 +225,7 @@ pub fn render(app: *App) !void {
 
     try cmd.bindPipeline(app.simple_pipeline);
 
-    // draw the floor
+    // render the floor
     try cmd.pushConst(app.simple_pipeline, PushConst{ .model = floor_mat });
 
     // const quad_bufs = try quad.getBuffers();
@@ -235,7 +236,7 @@ pub fn render(app: *App) !void {
     //     .vertex_offsets = &.{ 0, 4 * @sizeOf(Vec3) },
     // });
 
-    // draw the magic cube
+    // render the magic cube
     try cmd.pushConst(app.simple_pipeline, PushConst{
         .model = app.t.mat(),
         .mode = 0,
@@ -261,7 +262,7 @@ pub fn render(app: *App) !void {
 
     try cmd.endRenderPass(app.world_pass);
 
-    try renderer.submit(cmd);
+    try device.submit(cmd);
 }
 
 pub fn deinit(app: *App) void {

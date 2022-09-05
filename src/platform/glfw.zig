@@ -2,7 +2,7 @@ const std = @import("std");
 const vk = @import("vulkan");
 const glfw = @import("glfw");
 // TODO: get rid of this dep
-const InstanceDispatch = @import("../renderer/vulkan/dispatch_types.zig").InstanceDispatch;
+const InstanceDispatch = @import("../device/vulkan/dispatch_types.zig").InstanceDispatch;
 const events = @import("events.zig");
 const Event = events.Event;
 const input = @import("input.zig");

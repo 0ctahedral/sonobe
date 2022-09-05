@@ -1,9 +1,9 @@
 const std = @import("std");
 const sonobe = @import("../sonobe.zig");
 const math = sonobe.math;
-const renderer = sonobe.renderer;
+const device = sonobe.device;
 const Handle = sonobe.Handle;
-const resources = renderer.resources;
+const resources = device.resources;
 const Vec3 = math.Vec3;
 const Vec2 = math.Vec2;
 const Allocator = std.mem.Allocator;
@@ -59,25 +59,25 @@ pub const Mesh = struct {
             ),
         };
 
-        _ = try renderer.updateBuffer(
+        _ = try device.updateBuffer(
             buffers.vertices,
             buffers.positions_offset,
             Vec3,
             self.positions.items,
         );
-        _ = try renderer.updateBuffer(
+        _ = try device.updateBuffer(
             buffers.vertices,
             buffers.normals_offset,
             Vec3,
             self.normals.items,
         );
-        _ = try renderer.updateBuffer(
+        _ = try device.updateBuffer(
             buffers.vertices,
             buffers.uv_offset,
             Vec2,
             self.uvs.items,
         );
-        _ = try renderer.updateBuffer(buffers.indices, 0, u32, self.indices.items);
+        _ = try device.updateBuffer(buffers.indices, 0, u32, self.indices.items);
 
         self.buffers = buffers;
 
@@ -120,9 +120,9 @@ pub const ConstMesh = struct {
             ),
         };
 
-        var offset = try renderer.updateBuffer(self.buffers.?.vertices, 0, Vec3, self.positions);
-        offset = try renderer.updateBuffer(self.buffers.?.vertices, offset, Vec2, self.uvs);
-        _ = try renderer.updateBuffer(self.buffers.?.indices, 0, u32, self.indices);
+        var offset = try device.updateBuffer(self.buffers.?.vertices, 0, Vec3, self.positions);
+        offset = try device.updateBuffer(self.buffers.?.vertices, offset, Vec2, self.uvs);
+        _ = try device.updateBuffer(self.buffers.?.indices, 0, u32, self.indices);
 
         return self.buffers.?;
     }

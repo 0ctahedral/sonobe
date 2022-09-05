@@ -1,7 +1,7 @@
 const std = @import("std");
 const sonobe = @import("../sonobe.zig");
-const renderer = sonobe.renderer;
-const resources = renderer.resources;
+const device = sonobe.device;
+const resources = device.resources;
 const color = @import("../color.zig");
 
 const Handle = sonobe.Handle;
@@ -9,7 +9,7 @@ const math = sonobe.math;
 const Vec4 = math.Vec4;
 const Vec3 = math.Vec3;
 const Vec2 = math.Vec2;
-const CmdBuf = renderer.CmdBuf;
+const CmdBuf = device.CmdBuf;
 const Camera = @import("camera.zig");
 const cube = sonobe.mesh.cube;
 
@@ -100,7 +100,7 @@ pub fn init(camera: Camera, procedural: bool) !Self {
             .usage = .Uniform,
         },
     );
-    _ = try renderer.updateBuffer(self.uniform_buffer, 0, Data, &[_]Data{self.data});
+    _ = try device.updateBuffer(self.uniform_buffer, 0, Data, &[_]Data{self.data});
 
     const group = try resources.createBindingGroup(&.{
         .{ .binding_type = .UniformBuffer },
@@ -117,7 +117,7 @@ pub fn init(camera: Camera, procedural: bool) !Self {
 
     // TODO: make this a specialization constant later
     // or two separate pipelines
-    const frag_stage: renderer.types.StageDesc =
+    const frag_stage: device.types.StageDesc =
         if (procedural)
     .{
         .bindpoint = .Fragment,
@@ -147,7 +147,7 @@ pub fn init(camera: Camera, procedural: bool) !Self {
 }
 
 pub fn update(self: Self) !void {
-    _ = try renderer.updateBuffer(self.uniform_buffer, 0, Data, &[_]Data{self.data});
+    _ = try device.updateBuffer(self.uniform_buffer, 0, Data, &[_]Data{self.data});
 }
 
 pub fn onFileChange(self: *Self, file: *std.fs.File) !void {

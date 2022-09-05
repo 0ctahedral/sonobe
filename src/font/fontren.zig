@@ -1,15 +1,15 @@
 const std = @import("std");
 const sonobe = @import("../sonobe.zig");
-const renderer = sonobe.renderer;
+const device = sonobe.device;
 const Handle = sonobe.Handle;
-const resources = renderer.resources;
+const resources = device.resources;
 const quad = sonobe.mesh.quad;
 const math = sonobe.math;
 const BDF = @import("bdf.zig");
 
 const Allocator = std.mem.Allocator;
 
-const CmdBuf = renderer.CmdBuf;
+const CmdBuf = device.CmdBuf;
 const Vec2 = math.Vec2;
 const Vec3 = math.Vec3;
 const Vec4 = math.Vec4;
@@ -87,7 +87,7 @@ pub fn init(path: []const u8, renderpass: Handle(null), allocator: Allocator) !S
             .usage = .Storage,
         },
     );
-    _ = try renderer.updateBuffer(
+    _ = try device.updateBuffer(
         self.buffer,
         @sizeOf(Mat4),
         Vec2,
@@ -276,7 +276,7 @@ pub fn addGlyph(
 
     const glyph = try self.bdf.getGlyph(codepoint);
 
-    _ = try renderer.updateBuffer(
+    _ = try device.updateBuffer(
         self.buffer,
         @sizeOf(Mat4) + (2 * @sizeOf(Vec2)) + (@sizeOf(GlyphData) * self.index_offset),
         GlyphData,
@@ -300,7 +300,7 @@ pub fn addGlyph(
         corner: u8,
     };
 
-    _ = try renderer.updateBuffer(self.inds, @sizeOf(u32) * self.index_offset * 6, u32, &[_]u32{
+    _ = try device.updateBuffer(self.inds, @sizeOf(u32) * self.index_offset * 6, u32, &[_]u32{
         @bitCast(u32, Index{
             .corner = 0,
             .index = @intCast(u24, self.index_offset),

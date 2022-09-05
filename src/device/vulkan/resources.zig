@@ -9,7 +9,7 @@ const RenderPass = @import("renderpass.zig").RenderPass;
 const Pipeline = @import("pipeline.zig").Pipeline;
 const Texture = @import("texture.zig").Texture;
 const Mesh = @import("mesh.zig").Mesh;
-const MAX_FRAMES = @import("renderer.zig").MAX_FRAMES;
+const MAX_FRAMES = @import("backend.zig").MAX_FRAMES;
 
 const types = @import("../rendertypes.zig");
 

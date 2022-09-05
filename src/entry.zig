@@ -4,7 +4,7 @@ const std = @import("std");
 const App = @import("app");
 const sonobe = @import("sonobe.zig");
 const platform = sonobe.platform;
-const renderer = sonobe.renderer;
+const device = sonobe.device;
 const events = platform.events;
 const input = platform.input;
 const jobs = sonobe.jobs;
@@ -33,10 +33,10 @@ fn loop() !void {
         {
             // update state
             try app.update(platform.dt());
-            try app.render();
+            try app.draw();
 
             // render frame
-            try renderer.drawFrame();
+            try device.drawFrame();
         }
 
         // reset the mouse
@@ -73,9 +73,9 @@ pub fn main() !void {
     // window = try platform.createWindow(App.name, 1920, 1080);
     window = try platform.createWindow(App.name, 800, 600);
 
-    //// setup renderer
-    try renderer.init(allocator, App.name, window);
-    defer renderer.deinit();
+    //// setup device
+    try device.init(allocator, App.name, window);
+    defer device.deinit();
 
     try app.init();
     defer app.deinit();

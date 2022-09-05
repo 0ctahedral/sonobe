@@ -1,7 +1,7 @@
 const std = @import("std");
 const builtin = @import("builtin");
 const vk = @import("vulkan");
-const InstanceDispatch = @import("renderer/vulkan/dispatch_types.zig").InstanceDispatch;
+const InstanceDispatch = @import("device/vulkan/dispatch_types.zig").InstanceDispatch;
 pub const events = @import("platform/events.zig");
 pub const input = @import("platform/input.zig");
 

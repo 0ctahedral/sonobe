@@ -6,7 +6,8 @@ pub const jobs = @import("jobs.zig");
 pub const math = @import("math.zig");
 pub const mesh = @import("mesh.zig");
 pub const platform = @import("platform.zig");
-pub const renderer = @import("renderer.zig");
+pub const device = @import("device.zig");
+pub const render = @import("render.zig");
 pub const containers = @import("containers.zig");
 
 const handle = @import("handle.zig");
