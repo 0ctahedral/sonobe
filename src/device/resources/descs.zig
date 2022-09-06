@@ -1,6 +1,6 @@
 const sonobe = @import("../../sonobe.zig");
 const Handle = sonobe.Handle;
-const math = sonobe.math;
+const math = @import("math");
 /// Identifier for a device resource
 /// the default values in the struct indicate a null handle
 /// TODO: use enums/descs to make this descsafe

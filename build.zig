@@ -4,9 +4,12 @@ const Builder = std.build.Builder;
 
 const vkgen = @import("deps/vulkan-zig/generator/index.zig");
 const zigvulkan = @import("deps/vulkan-zig/build.zig");
-const prefix = @import("src/platform.zig").vkprefix;
-
 const glfw = @import("deps/mach-glfw/build.zig");
+
+const math = @import("src/math/build.zig");
+const containers = @import("src/containers/build.zig");
+const platform = @import("src/platform/build.zig");
+const prefix = platform.vkprefix;
 
 pub fn build(b: *Builder) !void {
     const mode = b.standardReleaseOptions();
@@ -31,7 +34,6 @@ pub fn build(b: *Builder) !void {
 
     try compileShadersInDir(b, "assets/shaders/", exe);
     try compileShadersInDir(b, "testbed/assets", exe);
-    try compileShadersInDir(b, "examples/fonts/assets", fonts);
     try compileShadersInDir(b, "examples/lines/assets", lines);
 }
 
@@ -39,7 +41,36 @@ pub fn makeApp(b: *Builder, name: []const u8, path: ?[]const u8) !*std.build.Lib
     // start with the engine entrypoint
     const exe = b.addExecutable(name, "src/entry.zig");
 
-    linkEngineDeps(b, exe);
+    // add vulkan
+    const gen = vkgen.VkGenerateStep.init(b, "deps/vulkan-zig/examples/vk.xml", "vk.zig");
+    exe.addPackage(gen.package);
+    const glfw_pkg = .{
+        .name = "glfw",
+        .path = .{ .path = "deps/mach-glfw/src/main.zig" },
+    };
+    const platform_pkg = platform.getPkg(&.{
+        gen.package,
+        glfw_pkg,
+        math.pkg,
+        containers.pkg,
+    });
+    exe.addPackage(containers.pkg);
+    exe.addPackage(math.pkg);
+    exe.addPackage(platform_pkg);
+    exe.addPackage(glfw_pkg);
+    glfw.link(b, exe, .{});
+
+    // TODO: static linking
+
+    // add system dependencies
+    exe.linkLibC();
+    const lib_names = [_][]const u8{
+        "xcb",
+        "X11-xcb",
+    };
+    for (lib_names) |ln| {
+        exe.linkSystemLibrary(ln);
+    }
 
     const pkg_path = if (path) |_| b.fmt("{s}/main.zig", .{path}) else b.fmt("{s}/main.zig", .{name});
 
@@ -60,27 +91,6 @@ pub fn makeApp(b: *Builder, name: []const u8, path: ?[]const u8) !*std.build.Lib
     exe_step.dependOn(&exe.run().step);
 
     return exe;
-}
-
-fn linkEngineDeps(b: *Builder, step: *std.build.LibExeObjStep) void {
-    // add vulkan
-    const gen = vkgen.VkGenerateStep.init(b, "deps/vulkan-zig/examples/vk.xml", "vk.zig");
-    step.addPackage(gen.package);
-
-    step.addPackagePath("glfw", "deps/mach-glfw/src/main.zig");
-    glfw.link(b, step, .{});
-
-    // TODO: static linking
-
-    // add system dependencies
-    step.linkLibC();
-    const lib_names = [_][]const u8{
-        "xcb",
-        "X11-xcb",
-    };
-    for (lib_names) |ln| {
-        step.linkSystemLibrary(ln);
-    }
 }
 
 /// add this library package to the executable

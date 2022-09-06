@@ -4,7 +4,7 @@ const device = sonobe.device;
 const resources = device.resources;
 
 const Handle = sonobe.Handle;
-const math = sonobe.math;
+const math = @import("math");
 const Mat4 = math.Mat4;
 const Vec3 = math.Vec3;
 const Vec2 = math.Vec2;

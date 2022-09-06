@@ -2,7 +2,7 @@ const std = @import("std");
 const sonobe = @import("sonobe.zig");
 const device = sonobe.device;
 const resources = device.resources;
-const math = sonobe.math;
+const math = @import("math");
 const Vec3 = math.Vec3;
 const Vec2 = math.Vec2;
 

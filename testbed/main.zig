@@ -8,7 +8,7 @@ const mesh = sonobe.mesh;
 const device = sonobe.device;
 const render = sonobe.render;
 const resources = sonobe.device.resources;
-const input = sonobe.input;
+const input = sonobe.platform.input;
 const jobs = sonobe.jobs;
 const CmdBuf = device.CmdBuf;
 

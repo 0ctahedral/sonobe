@@ -5,7 +5,7 @@ const sonobe = @import("../../sonobe.zig");
 const platform = @import("platform");
 const resources = @import("../resources.zig");
 
-const math = sonobe.math;
+const math = @import("math");
 const Mat4 = math.Mat4;
 const Vec4 = math.Vec4;
 const Vec3 = math.Vec3;

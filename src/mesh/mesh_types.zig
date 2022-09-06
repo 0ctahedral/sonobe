@@ -1,6 +1,6 @@
 const std = @import("std");
 const sonobe = @import("../sonobe.zig");
-const math = sonobe.math;
+const math = @import("math");
 const device = sonobe.device;
 const resources = device.resources;
 const Handle = sonobe.Handle;

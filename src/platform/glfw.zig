@@ -8,9 +8,9 @@ const Event = events.Event;
 const input = @import("input.zig");
 const Key = input.Key;
 const Window = @import("window.zig");
-const sonobe = @import("../sonobe.zig");
-const RingBuffer = sonobe.containers.RingBuffer;
-const FreeList = sonobe.containers.FreeList;
+const containers = @import("containers");
+const RingBuffer = containers.RingBuffer;
+const FreeList = containers.FreeList;
 
 var windows: FreeList(glfw.Window) = undefined;
 var window_store: [10]glfw.Window = undefined;

@@ -4,7 +4,7 @@ const device = sonobe.device;
 const Handle = sonobe.Handle;
 const resources = device.resources;
 const quad = sonobe.mesh.quad;
-const math = sonobe.math;
+const math = @import("math");
 const BDF = @import("bdf.zig");
 
 const Allocator = std.mem.Allocator;

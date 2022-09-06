@@ -13,9 +13,9 @@ pub const resources = @import("device/resources.zig");
 // other stuff
 const std = @import("std");
 const Allocator = std.mem.Allocator;
-const RingBuffer = sonobe.containers.RingBuffer;
+const RingBuffer = @import("containers").RingBuffer;
 const Handle = sonobe.Handle;
-const Transform = sonobe.math.Transform;
+const Transform = @import("math").Transform;
 const backend = @import("device/vulkan/backend.zig");
 const platform = @import("platform");
 const events = platform.events;

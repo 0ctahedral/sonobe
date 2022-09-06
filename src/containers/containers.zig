@@ -2,7 +2,7 @@
 //! Will include hashmaps, arrays, and sets, and stuff
 //!
 
-pub const hash = @import("./containers/hash.zig");
-pub const RingBuffer = @import("./containers/ringbuffer.zig").RingBuffer;
-pub const FreeList = @import("./containers/freelist.zig").FreeList;
-pub const Cache = @import("./containers/cache.zig").Cache;
+pub const hash = @import("hash.zig");
+pub const RingBuffer = @import("ringbuffer.zig").RingBuffer;
+pub const FreeList = @import("freelist.zig").FreeList;
+pub const Cache = @import("cache.zig").Cache;
