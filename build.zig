@@ -6,22 +6,22 @@ const vkgen = @import("deps/vulkan-zig/generator/index.zig");
 const zigvulkan = @import("deps/vulkan-zig/build.zig");
 const glfw = @import("deps/mach-glfw/build.zig");
 
-const math = @import("src/math/build.zig");
-const containers = @import("src/containers/build.zig");
-const platform = @import("src/platform/build.zig");
-const device = @import("src/device/build.zig");
-const font = @import("src/font/build.zig");
-const mesh = @import("src/mesh/build.zig");
-const utils = @import("src/utils/build.zig");
-const jobs = @import("src/jobs/build.zig");
-const render = @import("src/render/build.zig");
+const math = @import("units/math/build.zig");
+const containers = @import("units/containers/build.zig");
+const platform = @import("units/platform/build.zig");
+const device = @import("units/device/build.zig");
+const font = @import("units/font/build.zig");
+const mesh = @import("units/mesh/build.zig");
+const utils = @import("units/utils/build.zig");
+const jobs = @import("units/jobs/build.zig");
+const render = @import("units/render/build.zig");
 const prefix = platform.vkprefix;
 
 pub fn build(b: *Builder) !void {
     const mode = b.standardReleaseOptions();
     const target = b.standardTargetOptions(.{});
 
-    var tests = b.addTest("src/sonobe.zig");
+    var tests = b.addTest("units/sonobe.zig");
     tests.setBuildMode(mode);
     tests.setTarget(target);
 
@@ -45,7 +45,7 @@ pub fn build(b: *Builder) !void {
 
 pub fn makeApp(b: *Builder, name: []const u8, path: ?[]const u8) !*std.build.LibExeObjStep {
     // start with the engine entrypoint
-    const exe = b.addExecutable(name, "src/entry.zig");
+    const exe = b.addExecutable(name, "units/entry.zig");
 
     // add vulkan
     const gen = vkgen.VkGenerateStep.init(b, "deps/vulkan-zig/examples/vk.xml", "vk.zig");
@@ -125,7 +125,7 @@ pub fn makeApp(b: *Builder, name: []const u8, path: ?[]const u8) !*std.build.Lib
         .dependencies = &[_]std.build.Pkg{
             .{
                 .name = "sonobe",
-                .path = .{ .path = "./src/sonobe.zig" },
+                .path = .{ .path = "./units/sonobe.zig" },
             },
         },
     });
@@ -144,7 +144,7 @@ fn link(b: *Builder, step: *std.build.LibExeObjStep) void {
     const gen = vkgen.VkGenerateStep.init(b, "deps/vulkan-zig/examples/vk.xml", "vk.zig");
     step.addPackage(.{
         .name = "sonobe",
-        .path = .{ .path = "./src/sonobe.zig" },
+        .path = .{ .path = "./units/sonobe.zig" },
         .dependencies = &[_]std.build.Pkg{gen.package},
     });
     // links / c stuff
@@ -154,7 +154,7 @@ fn link(b: *Builder, step: *std.build.LibExeObjStep) void {
     // add stuff for macos
     switch (builtin.target.os.tag) {
         .macos => {
-            // step.addCSourceFile("./src/platform/macos.m", &[_][]const u8{});
+            // step.addCSourceFile("./units/platform/macos.m", &[_][]const u8{});
             step.linkFramework("AppKit");
             step.linkFramework("QuartzCore");
         },
