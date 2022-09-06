@@ -1,17 +1,17 @@
 const std = @import("std");
-const sonobe = @import("../sonobe.zig");
 const device = @import("device");
-const resources = device.resources;
-const color = @import("utils").color;
-
-const Handle = @import("utils").Handle;
+const utils = @import("utils");
 const math = @import("math");
+const cube = @import("mesh").cube;
+
+const resources = device.resources;
+const color = utils.color;
+const Handle = utils.Handle;
 const Vec4 = math.Vec4;
 const Vec3 = math.Vec3;
 const Vec2 = math.Vec2;
 const CmdBuf = device.CmdBuf;
 const Camera = @import("camera.zig");
-const cube = sonobe.mesh.cube;
 
 const Self = @This();
 

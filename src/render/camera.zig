@@ -1,10 +1,9 @@
 const std = @import("std");
-const sonobe = @import("../sonobe.zig");
+const math = @import("math");
 const device = @import("device");
+const Handle = @import("utils").Handle;
 const resources = device.resources;
 
-const Handle = @import("utils").Handle;
-const math = @import("math");
 const Mat4 = math.Mat4;
 const Vec3 = math.Vec3;
 const Vec2 = math.Vec2;

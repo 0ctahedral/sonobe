@@ -14,6 +14,7 @@ const font = @import("src/font/build.zig");
 const mesh = @import("src/mesh/build.zig");
 const utils = @import("src/utils/build.zig");
 const jobs = @import("src/jobs/build.zig");
+const render = @import("src/render/build.zig");
 const prefix = platform.vkprefix;
 
 pub fn build(b: *Builder) !void {
@@ -83,12 +84,19 @@ pub fn makeApp(b: *Builder, name: []const u8, path: ?[]const u8) !*std.build.Lib
         utils_pkg,
         mesh_pkg,
     });
+    const render_pkg = render.getPkg(&.{
+        device_pkg,
+        utils_pkg,
+        mesh_pkg,
+        math.pkg,
+    });
 
     exe.addPackage(containers.pkg);
     exe.addPackage(font_pkg);
     exe.addPackage(jobs_pkg);
     exe.addPackage(mesh_pkg);
     exe.addPackage(utils_pkg);
+    exe.addPackage(render_pkg);
     exe.addPackage(math.pkg);
     exe.addPackage(platform_pkg);
     exe.addPackage(glfw_pkg);
