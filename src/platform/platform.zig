@@ -1,13 +1,13 @@
 const std = @import("std");
 const builtin = @import("builtin");
 const vk = @import("vulkan");
-const InstanceDispatch = @import("device/vulkan/dispatch_types.zig").InstanceDispatch;
-pub const events = @import("platform/events.zig");
-pub const input = @import("platform/input.zig");
+const InstanceDispatch = @import("../device/vulkan/dispatch_types.zig").InstanceDispatch;
+pub const events = @import("events.zig");
+pub const input = @import("input.zig");
 
-pub const Window = @import("platform/window.zig");
+pub const Window = @import("window.zig");
 
-const backend = @import("platform/glfw.zig");
+const backend = @import("glfw.zig");
 
 pub var is_running = true;
 
@@ -15,12 +15,6 @@ pub var is_running = true;
 var libvk: std.DynLib = undefined;
 /// function pointer to vulkan proc
 var vk_get_proc: vk.PfnGetInstanceProcAddr = undefined;
-
-pub const vkprefix = switch (builtin.target.os.tag) {
-    .macos => "./deps/vulkan/macos",
-    .linux => "./deps/vulkan/x86_64",
-    else => unreachable,
-};
 
 pub const vkdl = switch (builtin.target.os.tag) {
     .macos => "./deps/vulkan/macos/lib/libvulkan.dylib",

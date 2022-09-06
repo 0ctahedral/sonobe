@@ -2,7 +2,7 @@ const std = @import("std");
 const vk = @import("vulkan");
 const sonobe = @import("../../sonobe.zig");
 
-const platform = sonobe.platform;
+const platform = @import("platform");
 const resources = @import("../resources.zig");
 
 const math = sonobe.math;
@@ -111,8 +111,7 @@ pub fn init(provided_allocator: Allocator, app_name: [*:0]const u8, window: plat
     instance = try vkb.createInstance(&.{
         .flags = .{},
         .p_application_info = &app_info,
-        .enabled_layer_count = required_layers.len,
-        //.enabled_layer_count = 0,
+        .enabled_layer_count = 0,
         .pp_enabled_layer_names = &required_layers,
         .enabled_extension_count = @intCast(u32, platform.required_exts.len),
         .pp_enabled_extension_names = @ptrCast([*]const [*:0]const u8, &platform.required_exts),

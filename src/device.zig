@@ -17,8 +17,8 @@ const RingBuffer = sonobe.containers.RingBuffer;
 const Handle = sonobe.Handle;
 const Transform = sonobe.math.Transform;
 const backend = @import("device/vulkan/backend.zig");
-const platform = sonobe.platform;
-const events = sonobe.platform.events;
+const platform = @import("platform");
+const events = platform.events;
 
 /// the current frame
 pub var frame: usize = 0;
