@@ -1,6 +1,6 @@
 const std = @import("std");
 const expect = std.testing.expect;
-const containers = @import("../sonobe.zig").containers;
+const containers = @import("containers");
 const RingBuffer = containers.RingBuffer;
 const FreeList = containers.FreeList;
 
