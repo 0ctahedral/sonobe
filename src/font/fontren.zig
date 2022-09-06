@@ -1,10 +1,11 @@
 const std = @import("std");
-const sonobe = @import("../sonobe.zig");
 const device = @import("device");
-const Handle = @import("utils").Handle;
-const resources = device.resources;
-const quad = sonobe.mesh.quad;
 const math = @import("math");
+const Handle = @import("utils").Handle;
+const quad = @import("mesh").quad;
+
+const resources = device.resources;
+
 const BDF = @import("bdf.zig");
 
 const Allocator = std.mem.Allocator;

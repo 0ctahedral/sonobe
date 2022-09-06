@@ -10,6 +10,8 @@ const math = @import("src/math/build.zig");
 const containers = @import("src/containers/build.zig");
 const platform = @import("src/platform/build.zig");
 const device = @import("src/device/build.zig");
+const font = @import("src/font/build.zig");
+const mesh = @import("src/mesh/build.zig");
 const utils = @import("src/utils/build.zig");
 const prefix = platform.vkprefix;
 
@@ -66,7 +68,21 @@ pub fn makeApp(b: *Builder, name: []const u8, path: ?[]const u8) !*std.build.Lib
         platform_pkg,
         utils_pkg,
     });
+    const mesh_pkg = mesh.getPkg(&.{
+        device_pkg,
+        math.pkg,
+        utils_pkg,
+    });
+    const font_pkg = font.getPkg(&.{
+        device_pkg,
+        math.pkg,
+        utils_pkg,
+        mesh_pkg,
+    });
+
     exe.addPackage(containers.pkg);
+    exe.addPackage(font_pkg);
+    exe.addPackage(mesh_pkg);
     exe.addPackage(utils_pkg);
     exe.addPackage(math.pkg);
     exe.addPackage(platform_pkg);
