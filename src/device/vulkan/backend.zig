@@ -12,7 +12,7 @@ const Vec3 = math.Vec3;
 const Vec2 = math.Vec2;
 
 const descs = @import("../resources/descs.zig");
-const Handle = sonobe.Handle;
+const Handle = @import("utils").Handle;
 const CmdBuf = @import("../cmdbuf.zig");
 
 const dispatch_types = @import("dispatch_types.zig");

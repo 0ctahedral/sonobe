@@ -1,7 +1,7 @@
 //! these buffers are used for sumitting instructions for rendering a scene
 const std = @import("std");
 const descs = @import("resources/descs.zig");
-const Handle = @import("../sonobe.zig").Handle;
+const Handle = @import("utils").Handle;
 
 const CmdBuf = @This();
 /// Commands that are submitted with a command buffer

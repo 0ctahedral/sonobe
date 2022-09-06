@@ -1,22 +1,21 @@
 //! Device front end
 
-const sonobe = @import("sonobe.zig");
 // public declarations
 
-pub const CmdBuf = @import("device/cmdbuf.zig");
-pub const descs = @import("device/resources/descs.zig");
+pub const CmdBuf = @import("cmdbuf.zig");
+pub const descs = @import("resources/descs.zig");
 pub const BufferDesc = descs.BufferDesc;
 pub const RenderPassDesc = descs.RenderPassDesc;
 pub const PipelineDesc = descs.PipelineDesc;
-pub const resources = @import("device/resources.zig");
+pub const resources = @import("resources.zig");
 
 // other stuff
 const std = @import("std");
 const Allocator = std.mem.Allocator;
 const RingBuffer = @import("containers").RingBuffer;
-const Handle = sonobe.Handle;
+const Handle = @import("utils").Handle;
 const Transform = @import("math").Transform;
-const backend = @import("device/vulkan/backend.zig");
+const backend = @import("vulkan/backend.zig");
 const platform = @import("platform");
 const events = platform.events;
 

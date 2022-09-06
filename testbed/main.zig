@@ -1,6 +1,6 @@
 const std = @import("std");
 const sonobe = @import("sonobe");
-const Handle = sonobe.Handle;
+const Handle = sonobe.utils.Handle;
 const cube = sonobe.mesh.cube;
 const quad = sonobe.mesh.quad;
 const mesh = sonobe.mesh;
@@ -32,7 +32,7 @@ const App = @This();
 pub const name = "testbed";
 
 const MaterialData = struct {
-    albedo: Vec4 = sonobe.color.hexToVec4(0x70819BFF),
+    albedo: Vec4 = sonobe.utils.color.hexToVec4(0x70819BFF),
     tile: Vec2 = Vec2.new(10, 10),
 };
 

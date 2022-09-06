@@ -9,6 +9,8 @@ const glfw = @import("deps/mach-glfw/build.zig");
 const math = @import("src/math/build.zig");
 const containers = @import("src/containers/build.zig");
 const platform = @import("src/platform/build.zig");
+const device = @import("src/device/build.zig");
+const utils = @import("src/utils/build.zig");
 const prefix = platform.vkprefix;
 
 pub fn build(b: *Builder) !void {
@@ -48,16 +50,28 @@ pub fn makeApp(b: *Builder, name: []const u8, path: ?[]const u8) !*std.build.Lib
         .name = "glfw",
         .path = .{ .path = "deps/mach-glfw/src/main.zig" },
     };
+    const utils_pkg = utils.getPkg(&.{
+        math.pkg,
+    });
     const platform_pkg = platform.getPkg(&.{
         gen.package,
         glfw_pkg,
         math.pkg,
         containers.pkg,
     });
+    const device_pkg = device.getPkg(&.{
+        gen.package,
+        math.pkg,
+        containers.pkg,
+        platform_pkg,
+        utils_pkg,
+    });
     exe.addPackage(containers.pkg);
+    exe.addPackage(utils_pkg);
     exe.addPackage(math.pkg);
     exe.addPackage(platform_pkg);
     exe.addPackage(glfw_pkg);
+    exe.addPackage(device_pkg);
     glfw.link(b, exe, .{});
 
     // TODO: static linking

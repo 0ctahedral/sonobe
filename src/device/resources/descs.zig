@@ -1,5 +1,5 @@
 const sonobe = @import("../../sonobe.zig");
-const Handle = sonobe.Handle;
+const Handle = @import("utils").Handle;
 const math = @import("math");
 /// Identifier for a device resource
 /// the default values in the struct indicate a null handle

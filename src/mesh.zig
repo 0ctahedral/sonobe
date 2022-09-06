@@ -1,6 +1,6 @@
 const std = @import("std");
 const sonobe = @import("sonobe.zig");
-const device = sonobe.device;
+const device = @import("device");
 const resources = device.resources;
 const math = @import("math");
 const Vec3 = math.Vec3;

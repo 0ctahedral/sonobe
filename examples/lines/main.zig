@@ -6,8 +6,10 @@ const quad = sonobe.mesh.quad;
 const device = sonobe.device;
 const resources = sonobe.device.resources;
 const render = sonobe.render;
-const input = sonobe.input;
+const input = sonobe.platform.input;
 const CmdBuf = device.CmdBuf;
+
+const color = sonobe.utils.color;
 
 const math = sonobe.math;
 const Vec4 = math.Vec4;
@@ -27,7 +29,7 @@ pub const name = "lines";
 const allocator = std.testing.allocator;
 
 /// renderpass for drawing to the screen
-world_pass: sonobe.Handle(null) = .{},
+world_pass: sonobe.utils.Handle(null) = .{},
 
 screen_dim: Vec2 = .{ .x = 800, .y = 600 },
 
@@ -47,7 +49,7 @@ pub fn init(app: *App) !void {
     app.camera.aspect = @intToFloat(f32, device.w) / @intToFloat(f32, device.h);
 
     app.world_pass = try resources.createRenderPass(.{
-        .clear_color = sonobe.color.hexToVec4(0x8af587ff),
+        .clear_color = color.hexToVec4(0x8af587ff),
         .clear_depth = 1.0,
         .clear_stencil = 1.0,
         .clear_flags = .{ .color = true, .depth = true },

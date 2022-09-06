@@ -5,7 +5,7 @@ pub const descs = @import("resources/descs.zig");
 const MAX_FRAMES = @import("vulkan/backend.zig").MAX_FRAMES;
 
 const FreeList = @import("containers").FreeList;
-const Handle = sonobe.Handle;
+const Handle = @import("utils").Handle;
 
 const Device = @import("vulkan/device.zig").Device;
 const Buffer = @import("vulkan/buffer.zig").Buffer;
