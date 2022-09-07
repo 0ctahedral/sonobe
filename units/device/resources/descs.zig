@@ -1,4 +1,3 @@
-const sonobe = @import("../../sonobe.zig");
 const Handle = @import("utils").Handle;
 const math = @import("math");
 /// Identifier for a device resource

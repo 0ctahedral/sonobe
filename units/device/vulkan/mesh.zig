@@ -1,7 +1,7 @@
 const std = @import("std");
 const builtin = @import("builtin");
 const vk = @import("vulkan");
-const math = @import("../../sonobe.zig").math;
+const math = @import("math");
 const Vec3 = math.Vec3;
 const Vec2 = math.Vec2;
 

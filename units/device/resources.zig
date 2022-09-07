@@ -1,6 +1,5 @@
 const std = @import("std");
 const vk = @import("vulkan");
-const sonobe = @import("../sonobe.zig");
 pub const descs = @import("resources/descs.zig");
 const MAX_FRAMES = @import("vulkan/backend.zig").MAX_FRAMES;
 

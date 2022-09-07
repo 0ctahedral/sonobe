@@ -1,6 +1,5 @@
 const std = @import("std");
 const vk = @import("vulkan");
-const sonobe = @import("../../sonobe.zig");
 
 const platform = @import("platform");
 const resources = @import("../resources.zig");

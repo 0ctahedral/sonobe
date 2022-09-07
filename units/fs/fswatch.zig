@@ -1,5 +1,5 @@
 const std = @import("std");
-const Handle = @import("../sonobe.zig").Handle;
+const Handle = @import("utils").Handle;
 const os = std.os;
 const sys = std.os.system;
 const Allocator = std.mem.Allocator;
