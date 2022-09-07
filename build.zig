@@ -17,90 +17,96 @@ const jobs = @import("units/jobs/build.zig");
 const render = @import("units/render/build.zig");
 const prefix = platform.vkprefix;
 
+/// all the the available sonobe units, with dependencies sorted out 
+pub const units = struct {
+    pub const vulkan_pkg = .{
+        .name = "vulkan",
+        .path = .{ .path = "zig-cache/vk.zig" },
+    };
+    pub const glfw_pkg = .{
+        .name = "glfw",
+        .path = .{ .path = "deps/mach-glfw/src/main.zig" },
+    };
+
+    pub const containers_pkg = containers.pkg;
+
+    pub const math_pkg = math.pkg;
+
+    pub const utils_pkg = utils.getPkg(&.{
+        math_pkg,
+    });
+    pub const jobs_pkg = jobs.getPkg(&.{
+        containers_pkg,
+    });
+    pub const platform_pkg = platform.getPkg(&.{
+        vulkan_pkg,
+        glfw_pkg,
+        math_pkg,
+        containers_pkg,
+    });
+    pub const device_pkg = device.getPkg(&.{
+        vulkan_pkg,
+        math_pkg,
+        containers_pkg,
+        platform_pkg,
+        utils_pkg,
+    });
+    pub const mesh_pkg = mesh.getPkg(&.{
+        device_pkg,
+        math_pkg,
+        utils_pkg,
+    });
+    pub const font_pkg = font.getPkg(&.{
+        device_pkg,
+        math_pkg,
+        utils_pkg,
+        mesh_pkg,
+    });
+    pub const render_pkg = render.getPkg(&.{
+        device_pkg,
+        utils_pkg,
+        mesh_pkg,
+        math_pkg,
+    });
+};
+
 pub fn build(b: *Builder) !void {
-    const mode = b.standardReleaseOptions();
-    const target = b.standardTargetOptions(.{});
-
-    var tests = b.addTest("units/sonobe.zig");
-    tests.setBuildMode(mode);
-    tests.setTarget(target);
-
-    const test_step = b.step("test", "Run engine tests");
-    test_step.dependOn(&tests.step);
+    // const mode = b.standardReleaseOptions();
+    // const target = b.standardTargetOptions(.{});
 
     // make our testbed app
     const exe = try makeApp(b, "testbed", null);
     exe.install();
 
-    const fonts = try makeApp(b, "fonts", "examples/fonts");
-    fonts.install();
+    // const fonts = try makeApp(b, "fonts", "examples/fonts");
+    // fonts.install();
 
-    const lines = try makeApp(b, "lines", "examples/lines");
-    lines.install();
+    // const lines = try makeApp(b, "lines", "examples/lines");
+    // lines.install();
 
     try compileShadersInDir(b, "assets/shaders/", exe);
     try compileShadersInDir(b, "testbed/assets", exe);
-    try compileShadersInDir(b, "examples/lines/assets", lines);
+    // try compileShadersInDir(b, "examples/lines/assets", lines);
 }
 
 pub fn makeApp(b: *Builder, name: []const u8, path: ?[]const u8) !*std.build.LibExeObjStep {
+    _ = path;
+    const app_path = if (path) |_| b.fmt("{s}/main.zig", .{path}) else b.fmt("{s}/main.zig", .{name});
     // start with the engine entrypoint
-    const exe = b.addExecutable(name, "units/entry.zig");
+    const exe = b.addExecutable(name, app_path);
 
-    // add vulkan
-    const gen = vkgen.VkGenerateStep.init(b, "deps/vulkan-zig/examples/vk.xml", "vk.zig");
-    exe.addPackage(gen.package);
-    const glfw_pkg = .{
-        .name = "glfw",
-        .path = .{ .path = "deps/mach-glfw/src/main.zig" },
-    };
-    const utils_pkg = utils.getPkg(&.{
-        math.pkg,
-    });
-    const jobs_pkg = jobs.getPkg(&.{
-        containers.pkg,
-    });
-    const platform_pkg = platform.getPkg(&.{
-        gen.package,
-        glfw_pkg,
-        math.pkg,
-        containers.pkg,
-    });
-    const device_pkg = device.getPkg(&.{
-        gen.package,
-        math.pkg,
-        containers.pkg,
-        platform_pkg,
-        utils_pkg,
-    });
-    const mesh_pkg = mesh.getPkg(&.{
-        device_pkg,
-        math.pkg,
-        utils_pkg,
-    });
-    const font_pkg = font.getPkg(&.{
-        device_pkg,
-        math.pkg,
-        utils_pkg,
-        mesh_pkg,
-    });
-    const render_pkg = render.getPkg(&.{
-        device_pkg,
-        utils_pkg,
-        mesh_pkg,
-        math.pkg,
-    });
+    _ = vkgen.VkGenerateStep.init(b, "deps/vulkan-zig/examples/vk.xml", "vk.zig");
 
-    exe.addPackage(containers.pkg);
-    exe.addPackage(font_pkg);
-    exe.addPackage(jobs_pkg);
-    exe.addPackage(mesh_pkg);
-    exe.addPackage(utils_pkg);
-    exe.addPackage(render_pkg);
-    exe.addPackage(math.pkg);
-    exe.addPackage(platform_pkg);
-    exe.addPackage(glfw_pkg);
-    exe.addPackage(device_pkg);
+    exe.addPackage(units.containers_pkg);
+    exe.addPackage(units.font_pkg);
+    exe.addPackage(units.jobs_pkg);
+    exe.addPackage(units.mesh_pkg);
+    exe.addPackage(units.utils_pkg);
+    exe.addPackage(units.render_pkg);
+    exe.addPackage(units.math_pkg);
+    exe.addPackage(units.platform_pkg);
+    exe.addPackage(units.glfw_pkg);
+    exe.addPackage(units.device_pkg);
     glfw.link(b, exe, .{});
 
     // TODO: static linking
@@ -114,21 +120,6 @@ pub fn makeApp(b: *Builder, name: []const u8, path: ?[]const u8) !*std.build.Lib
     for (lib_names) |ln| {
         exe.linkSystemLibrary(ln);
     }
-
-    const pkg_path = if (path) |_| b.fmt("{s}/main.zig", .{path}) else b.fmt("{s}/main.zig", .{name});
-
-    // add package for the app contents
-    exe.addPackage(.{
-        .name = "app",
-        .path = .{ .path = pkg_path },
-        // depnd on the engine (of course)
-        .dependencies = &[_]std.build.Pkg{
-            .{
-                .name = "sonobe",
-                .path = .{ .path = "./units/sonobe.zig" },
-            },
-        },
-    });
 
     const exe_step = b.step(b.fmt("run_{s}", .{name}), b.fmt("build and run {s}", .{name}));
     exe_step.dependOn(&exe.run().step);
