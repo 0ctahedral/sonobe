@@ -260,6 +260,9 @@ pub fn beginFrame() !bool {
     };
 
     try getCurrentFrame().render_fence.reset(device);
+    var cb: *CommandBuffer = &getCurrentFrame().cmdbuf;
+    cb.reset();
+    try cb.begin(device, .{});
 
     return true;
 }
@@ -267,8 +270,6 @@ pub fn beginFrame() !bool {
 /// subit a command buffer
 pub fn submit(cmdbuf: CmdBuf) !void {
     var cb: *CommandBuffer = &getCurrentFrame().cmdbuf;
-    cb.reset();
-    try cb.begin(device, .{});
 
     var i: usize = 0;
     while (i < cmdbuf.idx) : (i += 1) {
@@ -280,8 +281,6 @@ pub fn submit(cmdbuf: CmdBuf) !void {
             .BindPipeline => |handle| try applyBindPipeline(cb, handle),
         }
     }
-
-    try cb.end(device);
 }
 
 fn applyPushConst(cb: *CommandBuffer, desc: descs.PushConstDesc) void {
@@ -387,6 +386,7 @@ fn applyDrawIndexed(cb: *CommandBuffer, desc: descs.DrawIndexedDesc) void {
 pub fn endFrame() !void {
     var cb: *CommandBuffer = &getCurrentFrame().cmdbuf;
 
+    try cb.end(device);
     // waits for the this stage to write
     const wait_stage = [_]vk.PipelineStageFlags{.{ .color_attachment_output_bit = true }};
 
@@ -406,7 +406,6 @@ pub fn endFrame() !void {
     }}, getCurrentFrame().render_fence.handle);
 
     cb.updateSubmitted();
-
     // present that shit
     swapchain.present(device, device.present.?, getCurrentFrame().render_finished, @intCast(u32, image_index)) catch |err| {
         switch (err) {
