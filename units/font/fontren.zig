@@ -340,16 +340,7 @@ pub fn addGlyph(
 
 /// draw the glyphs in the buffer
 pub fn drawGlyphs(self: Self, cmd: *CmdBuf) !void {
-    try cmd.bindPipeline(self.pipeline);
-
-    // TODO: this should be a shader variant with specialization const
-    try cmd.pushConst(self.pipeline, @as(u32, 0));
-    // draw the quads
-    try cmd.drawIndexed(.{
-        .count = self.index_offset * 6,
-        .vertex_handle = .{},
-        .index_handle = self.inds,
-    });
+    try self.drawGlyphsDebug(cmd, .normal);
 }
 
 pub const GlyphDebugMode = enum {

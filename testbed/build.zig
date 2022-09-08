@@ -13,6 +13,7 @@ pub fn build(b: *Builder) !void {
     exe.addPackage(sonobe.units.device);
     exe.addPackage(sonobe.units.utils);
     exe.addPackage(sonobe.units.mesh);
+    exe.addPackage(sonobe.units.font);
     exe.addPackage(sonobe.units.render);
 
     exe.install();

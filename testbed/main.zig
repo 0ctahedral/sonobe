@@ -16,9 +16,6 @@ fn onResize(ev: events.Event) bool {
 }
 
 fn loop() !void {
-    var last_fps_time: u64 = 0;
-    var buf: [80]u8 = undefined;
-
     while (platform.is_running) {
         platform.startFrame();
 
@@ -41,10 +38,6 @@ fn loop() !void {
         input.resetMouse();
         input.resetKeyboard();
 
-        if ((platform.curr_time - last_fps_time) > std.time.ns_per_s) {
-            last_fps_time = platform.curr_time;
-            try platform.setWindowTitle(window, try std.fmt.bufPrint(buf[0..], "testbed fps: {d:.2}\x00", .{platform.fps()}));
-        }
         // end frame
         platform.endFrame();
     }

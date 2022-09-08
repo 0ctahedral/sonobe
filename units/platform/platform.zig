@@ -33,8 +33,8 @@ pub const required_exts = [_][*:0]const u8{
 };
 
 var timer: std.time.Timer = undefined;
-pub var curr_time: u64 = 0;
 var delta: u64 = 0;
+pub var frame_number: u64 = 0;
 
 /// Initialize the platform layer
 pub fn init() !void {
@@ -108,14 +108,13 @@ pub fn getWindowSize(win: Window) !Window.Size {
 
 /// starts a frame: used for tracking delta time and stuff
 pub fn startFrame() void {
-    curr_time = timer.read();
+    timer.reset();
 }
 
 /// ends a frame: used for tracking delta time and stuff
 pub fn endFrame() void {
-    const new_time = timer.read();
-    delta = new_time - curr_time;
-    curr_time = new_time;
+    delta = timer.read();
+    frame_number +%= 1;
 }
 
 /// the delta time for the current frame in seconds

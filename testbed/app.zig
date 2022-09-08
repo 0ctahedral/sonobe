@@ -9,7 +9,9 @@ const quad = mesh.quad;
 const device = @import("device");
 const render = @import("render");
 const resources = @import("device").resources;
-const input = @import("platform").input;
+const platform = @import("platform");
+const input = platform.input;
+const FontRen = @import("font").FontRen;
 const CmdBuf = device.CmdBuf;
 
 const math = @import("math");
@@ -23,6 +25,7 @@ const Transform = math.Transform;
 const Skybox = render.Skybox;
 const Camera = render.Camera;
 
+const allocator = std.testing.allocator;
 // since this file is implicitly a struct we can store state in here
 // and use methods that we expect to be defined in the engine itself.
 // we can then make our app a package which is included by the engine
@@ -42,6 +45,8 @@ t: Transform = .{},
 
 world_pass: Handle(null) = .{},
 
+screen_pass: Handle(null) = .{},
+
 camera: Camera = .{
     .pos = .{ .y = -10, .z = 5 },
     .fov = 60,
@@ -58,6 +63,8 @@ simple_pipeline: Handle(null) = .{},
 last_pos: Vec2 = .{},
 
 skybox: Skybox = .{},
+
+font_ren: FontRen = undefined,
 
 octahedron: mesh.Mesh = undefined,
 seamus: mesh.Mesh = undefined,
@@ -122,6 +129,13 @@ pub fn init(app: *App) !void {
         .clear_flags = .{ .depth = true },
     });
 
+    app.screen_pass = try resources.createRenderPass(.{
+        .clear_color = Vec4.new(0.75, 0.49, 0.89, 1.0),
+        .clear_depth = 1.0,
+        .clear_stencil = 1.0,
+        .clear_flags = .{},
+    });
+
     // create our shader pipeline
     app.simple_pipeline = try resources.createPipeline(.{
         .stages = &.{
@@ -141,6 +155,11 @@ pub fn init(app: *App) !void {
         .push_const_size = @sizeOf(PushConst),
     });
 
+    app.font_ren = try FontRen.init("./assets/fonts/scientifica-11.bdf", app.screen_pass, allocator);
+    // update the buffer with our projection
+    _ = try resources.updateBufferTyped(app.font_ren.buffer, 0, Mat4, &[_]Mat4{
+        Mat4.ortho(0, 800, 0, 600, -100, 100),
+    });
     app.skybox = try Skybox.init(app.camera, true);
 
     app.octahedron = try mesh.gltf.MeshFromGltf("assets/models/octahedron.glb", std.testing.allocator);
@@ -204,6 +223,18 @@ pub fn update(app: *App, dt: f64) !void {
         .mul(Quat.fromAxisAngle(Vec3.FORWARD, math.util.rad(30) * @floatCast(f32, dt)))
         .mul(Quat.fromAxisAngle(Vec3.UP, math.util.rad(30) * @floatCast(f32, dt)));
     app.t.pos = Vec3.UP.scale(2 + @sin(@intToFloat(f32, device.frame) * 0.03));
+
+    // render the framerate
+    if (platform.frame_number % 10 == 0) {
+        var buf: [80]u8 = undefined;
+        app.font_ren.clear();
+        _ = try app.font_ren.addString(
+            try std.fmt.bufPrint(buf[0..], "fps: {d:.2}", .{platform.fps()}),
+            Vec2.new(0, 0),
+            16,
+            color.hexToVec4(0xffffffff),
+        );
+    }
 }
 
 const floor_mat = Mat4.scale(.{ .x = 100, .y = 100, .z = 100 })
@@ -261,6 +292,10 @@ pub fn draw(app: *App) !void {
     // });
 
     try cmd.endRenderPass(app.world_pass);
+
+    try cmd.beginRenderPass(app.screen_pass);
+    try app.font_ren.drawGlyphs(&cmd);
+    try cmd.endRenderPass(app.screen_pass);
 
     try device.submit(cmd);
 }
