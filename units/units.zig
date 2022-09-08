@@ -2,7 +2,7 @@
 
 pub const vulkan = .{
     .name = "vulkan",
-    .path = .{ .path = "zig-cache/vk.zig" },
+    .path = .{ .path = "deps/vk.zig" },
 };
 pub const glfw = .{
     .name = "glfw",

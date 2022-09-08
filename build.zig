@@ -4,11 +4,6 @@ const Builder = std.build.Builder;
 pub const units = @import("units/units.zig");
 
 const glfw = @import("deps/mach-glfw/build.zig");
-// TODO: these aren't currently used since we already have the
-// generated files
-// might want to just add generated files as dependency and use generator as separate tool
-const vkgen = @import("deps/vulkan-zig/generator/index.zig");
-const zigvulkan = @import("deps/vulkan-zig/build.zig");
 // TODO: get rid of this
 const prefix = @import("units/platform/build.zig").vkprefix;
 
