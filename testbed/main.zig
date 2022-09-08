@@ -6,7 +6,6 @@ const platform = @import("platform");
 const device = @import("device");
 const events = platform.events;
 const input = platform.input;
-const jobs = @import("jobs");
 
 var app: App = .{};
 var window: platform.Window = .{};
@@ -65,10 +64,6 @@ pub fn main() !void {
     defer platform.deinit();
     errdefer platform.deinit();
 
-    // setup the job system
-    // try jobs.init(allocator);
-    // defer jobs.deinit();
-
     window = try platform.createWindow(App.name, 800, 600);
 
     //// setup device
@@ -78,10 +73,7 @@ pub fn main() !void {
     try app.init();
     defer app.deinit();
 
-    // if (@hasDecl(App, "onResize")) {
-    //     std.log.info("app has resize", .{});
-    //     try events.register(events.EventType.WindowResize, onResize);
-    // }
+    try events.register(events.EventType.WindowResize, onResize);
 
     try loop();
 }
