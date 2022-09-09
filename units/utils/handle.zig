@@ -24,7 +24,7 @@ pub fn Handle(_: anytype) type {
         generation: I = 0,
 
         /// erase the type of this handle
-        pub fn erase(self: @This()) ErasedHandle {
+        pub inline fn erased(self: @This()) ErasedHandle {
             return .{
                 .id = self.id,
                 .generation = self.generation,
@@ -112,7 +112,7 @@ test "erase handle" {
     const b = Handle(.Bloopy){};
     // this should fail
     // takesErased(b);
-    takesErased(b.erase());
+    takesErased(b.erased());
 }
 
 test "alloc" {
