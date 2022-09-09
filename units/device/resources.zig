@@ -233,6 +233,42 @@ pub fn createBuffer(desc: descs.BufferDesc) !Handle(.Buffer) {
     return handle;
 }
 
+pub fn updateBuffer(
+    handle: Handle(.Buffer),
+    offset: usize,
+    data: [*]const u8,
+    size: usize,
+) !void {
+    // TODO: error if handle not found
+    const res = resources.get(handle.id).Buffer;
+
+    // TODO: make this use the appropriate load type
+    var buf = buffers[@enumToInt(res.desc.usage)].get(res.index);
+    try buf.stagedLoad(
+        device,
+        device.command_pool,
+        data,
+        offset,
+        size,
+    );
+}
+
+pub fn updateBufferTyped(
+    handle: Handle(.Buffer),
+    offset: usize,
+    comptime T: type,
+    data: []const T,
+) !usize {
+    const size = @sizeOf(T) * data.len;
+    try updateBuffer(
+        handle,
+        offset,
+        @ptrCast([*]const u8, data),
+        size,
+    );
+    return size + offset;
+}
+
 pub fn createPipeline(desc: descs.PipelineDesc) !Handle(.Pipeline) {
     const handle_idx = try resources.allocIndex();
     const pl_idx = try pipelines.allocIndex();
@@ -396,11 +432,11 @@ pub fn createBindGroup(binds: []const descs.BindingDesc) !Handle(.BindGroup) {
 }
 
 // TODO: does this need a different home?
-pub const BindingUpdate = struct {
+pub const BindGroupUpdate = struct {
     binding: u8,
     handle: Handle(null),
 };
-pub fn updateBindings(group: Handle(.BindGroup), updates: []const BindingUpdate) !void {
+pub fn updateBindGroup(group: Handle(.BindGroup), updates: []const BindGroupUpdate) !void {
     // get the group
     const bg: *BindGroup = bind_groups.get(resources.get(group.id).BindGroup.index);
 
@@ -492,43 +528,6 @@ pub fn updateBindings(group: Handle(.BindGroup), updates: []const BindingUpdate)
     }
     device.vkd.updateDescriptorSets(device.logical, @intCast(u32, updates.len * MAX_FRAMES), &writes, 0, undefined);
 }
-
-pub fn updateBuffer(
-    handle: Handle(.Buffer),
-    offset: usize,
-    data: [*]const u8,
-    size: usize,
-) !void {
-    // TODO: error if handle not found
-    const res = resources.get(handle.id).Buffer;
-
-    // TODO: make this use the appropriate load type
-    var buf = buffers[@enumToInt(res.desc.usage)].get(res.index);
-    try buf.stagedLoad(
-        device,
-        device.command_pool,
-        data,
-        offset,
-        size,
-    );
-}
-
-pub fn updateBufferTyped(
-    handle: Handle(.Buffer),
-    offset: usize,
-    comptime T: type,
-    data: []const T,
-) !usize {
-    const size = @sizeOf(T) * data.len;
-    try updateBuffer(
-        handle,
-        offset,
-        @ptrCast([*]const u8, data),
-        size,
-    );
-    return size + offset;
-}
-
 // TODO: put this somewhere
 pub fn flipData(width: usize, height: usize, data: []u8) void {
     var i: usize = 0;

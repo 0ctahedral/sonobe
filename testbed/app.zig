@@ -116,7 +116,7 @@ pub fn init(app: *App) !void {
         .compare = .greater,
     });
 
-    try resources.updateBindings(app.material_group, &[_]resources.BindingUpdate{
+    try resources.updateBindGroup(app.material_group, &[_]resources.BindGroupUpdate{
         .{ .binding = 0, .handle = app.material_buffer.erased() },
         .{ .binding = 1, .handle = app.default_texture.erased() },
         .{ .binding = 2, .handle = app.default_sampler.erased() },

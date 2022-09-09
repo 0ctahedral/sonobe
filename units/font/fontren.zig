@@ -118,7 +118,7 @@ pub fn init(path: []const u8, renderpass: Handle(.RenderPass), allocator: Alloca
         .compare = .greater,
     });
 
-    try resources.updateBindings(self.group, &[_]resources.BindingUpdate{
+    try resources.updateBindGroup(self.group, &[_]resources.BindGroupUpdate{
         .{ .binding = 0, .handle = self.buffer.erased() },
         .{ .binding = 1, .handle = self.texture.erased() },
         .{ .binding = 2, .handle = self.sampler.erased() },

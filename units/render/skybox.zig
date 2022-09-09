@@ -107,7 +107,7 @@ pub fn init(camera: Camera, procedural: bool) !Self {
         .{ .binding_type = .Texture },
         .{ .binding_type = .Sampler },
     });
-    try resources.updateBindings(group, &[_]resources.BindingUpdate{
+    try resources.updateBindGroup(group, &[_]resources.BindGroupUpdate{
         .{ .binding = 0, .handle = self.uniform_buffer.erased() },
         .{ .binding = 1, .handle = self.texture.erased() },
         .{ .binding = 2, .handle = self.sampler.erased() },

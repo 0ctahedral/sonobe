@@ -39,7 +39,7 @@ pub fn init(self: *Self) !void {
         .size = @sizeOf(Data),
         .usage = .Uniform,
     });
-    try resources.updateBindings(self.group, &[_]resources.BindingUpdate{
+    try resources.updateBindGroup(self.group, &[_]resources.BindGroupUpdate{
         .{ .binding = 0, .handle = self.buffer.erased() },
     });
 }
