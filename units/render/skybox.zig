@@ -15,12 +15,12 @@ const Camera = @import("camera.zig");
 
 const Self = @This();
 
-pass: Handle(null) = .{},
-pipeline: Handle(null) = .{},
-uniform_buffer: Handle(null) = .{},
+pass: Handle(.RenderPass) = .{},
+pipeline: Handle(.Pipeline) = .{},
+uniform_buffer: Handle(.Buffer) = .{},
 data: Data = .{},
-texture: Handle(null) = .{},
-sampler: Handle(null) = .{},
+texture: Handle(.Texture) = .{},
+sampler: Handle(.Sampler) = .{},
 
 pub const Data = struct {
     // sky_color: Vec3 = color.hexToVec3(0xbe7ce2),
@@ -102,15 +102,15 @@ pub fn init(camera: Camera, procedural: bool) !Self {
     );
     _ = try resources.updateBufferTyped(self.uniform_buffer, 0, Data, &[_]Data{self.data});
 
-    const group = try resources.createBindingGroup(&.{
+    const group = try resources.createBindGroup(&.{
         .{ .binding_type = .UniformBuffer },
         .{ .binding_type = .Texture },
         .{ .binding_type = .Sampler },
     });
     try resources.updateBindings(group, &[_]resources.BindingUpdate{
-        .{ .binding = 0, .handle = self.uniform_buffer },
-        .{ .binding = 1, .handle = self.texture },
-        .{ .binding = 2, .handle = self.sampler },
+        .{ .binding = 0, .handle = self.uniform_buffer.erased() },
+        .{ .binding = 1, .handle = self.texture.erased() },
+        .{ .binding = 2, .handle = self.sampler.erased() },
     });
 
     // create our shader pipeline
@@ -138,7 +138,7 @@ pub fn init(camera: Camera, procedural: bool) !Self {
     self.pipeline = try resources.createPipeline(.{
         .stages = &stages,
         // todo: add camera?
-        .binding_groups = &.{ group, camera.group },
+        .bind_groups = &.{ group, camera.group },
         .renderpass = self.pass,
         .cull_mode = .front,
     });

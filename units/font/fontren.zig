@@ -30,20 +30,20 @@ allocator: Allocator,
 
 bdf: BDF,
 /// bindgroup for the font
-group: Handle(null) = .{},
+group: Handle(.BindGroup) = .{},
 /// buffer containing the orthographic matrix?
 /// later it will contain the offsets of the glyphs
-buffer: Handle(null) = .{},
+buffer: Handle(.Buffer) = .{},
 /// quad for fonts
-inds: Handle(null) = .{},
+inds: Handle(.Buffer) = .{},
 /// texture containing all the glyphs
-texture: Handle(null) = .{},
+texture: Handle(.Texture) = .{},
 /// sampler for above texture
-sampler: Handle(null) = .{},
+sampler: Handle(.Sampler) = .{},
 /// pipeline for rendering fonts
-pipeline: Handle(null) = .{},
+pipeline: Handle(.Pipeline) = .{},
 /// pipeline for rendering fonts
-atlas_pipeline: Handle(null) = .{},
+atlas_pipeline: Handle(.Pipeline) = .{},
 
 /// offset into the index buffer
 index_offset: u32 = 0,
@@ -58,7 +58,7 @@ const Cache = struct {
     map: std.AutoHashMap(u32, Vec4),
     next_index: u32 = 0,
 };
-pub fn init(path: []const u8, renderpass: Handle(null), allocator: Allocator) !Self {
+pub fn init(path: []const u8, renderpass: Handle(.RenderPass), allocator: Allocator) !Self {
     var self = Self{
         .allocator = allocator,
         .bdf = try BDF.init(path, allocator),
@@ -76,7 +76,7 @@ pub fn init(path: []const u8, renderpass: Handle(null), allocator: Allocator) !S
         },
     );
 
-    self.group = try resources.createBindingGroup(&.{
+    self.group = try resources.createBindGroup(&.{
         .{ .binding_type = .StorageBuffer },
         .{ .binding_type = .Texture },
         .{ .binding_type = .Sampler },
@@ -119,9 +119,9 @@ pub fn init(path: []const u8, renderpass: Handle(null), allocator: Allocator) !S
     });
 
     try resources.updateBindings(self.group, &[_]resources.BindingUpdate{
-        .{ .binding = 0, .handle = self.buffer },
-        .{ .binding = 1, .handle = self.texture },
-        .{ .binding = 2, .handle = self.sampler },
+        .{ .binding = 0, .handle = self.buffer.erased() },
+        .{ .binding = 1, .handle = self.texture.erased() },
+        .{ .binding = 2, .handle = self.sampler.erased() },
     });
     // create our shader pipeline
     self.pipeline = try resources.createPipeline(.{
@@ -135,7 +135,7 @@ pub fn init(path: []const u8, renderpass: Handle(null), allocator: Allocator) !S
                 .path = "assets/shaders/font.frag.spv",
             },
         },
-        .binding_groups = &.{self.group},
+        .bind_groups = &.{self.group},
         .renderpass = renderpass,
         .cull_mode = .back,
         .push_const_size = @sizeOf(u32),
@@ -151,7 +151,7 @@ pub fn init(path: []const u8, renderpass: Handle(null), allocator: Allocator) !S
                 .path = "assets/shaders/atlas.frag.spv",
             },
         },
-        .binding_groups = &.{self.group},
+        .bind_groups = &.{self.group},
         .renderpass = renderpass,
         .cull_mode = .none,
         .vertex_inputs = &.{ .Vec3, .Vec2 },

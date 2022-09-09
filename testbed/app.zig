@@ -43,22 +43,22 @@ const MaterialData = struct {
 /// transform of the quad
 t: Transform = .{},
 
-world_pass: Handle(null) = .{},
+world_pass: Handle(.RenderPass) = .{},
 
-screen_pass: Handle(null) = .{},
+screen_pass: Handle(.RenderPass) = .{},
 
 camera: Camera = .{
     .pos = .{ .y = -10, .z = 5 },
     .fov = 60,
 },
 
-material_group: Handle(null) = .{},
-material_buffer: Handle(null) = .{},
+material_group: Handle(.BindGroup) = .{},
+material_buffer: Handle(.Buffer) = .{},
 material_data: MaterialData = .{},
-default_texture: Handle(null) = .{},
-default_sampler: Handle(null) = .{},
+default_texture: Handle(.Texture) = .{},
+default_sampler: Handle(.Sampler) = .{},
 
-simple_pipeline: Handle(null) = .{},
+simple_pipeline: Handle(.Pipeline) = .{},
 
 last_pos: Vec2 = .{},
 
@@ -79,7 +79,7 @@ pub fn init(app: *App) !void {
     app.camera.aspect = @intToFloat(f32, device.w) / @intToFloat(f32, device.h);
 
     // setup the material
-    app.material_group = try resources.createBindingGroup(&.{
+    app.material_group = try resources.createBindGroup(&.{
         .{ .binding_type = .UniformBuffer },
         .{ .binding_type = .Texture },
         .{ .binding_type = .Sampler },
@@ -117,9 +117,9 @@ pub fn init(app: *App) !void {
     });
 
     try resources.updateBindings(app.material_group, &[_]resources.BindingUpdate{
-        .{ .binding = 0, .handle = app.material_buffer },
-        .{ .binding = 1, .handle = app.default_texture },
-        .{ .binding = 2, .handle = app.default_sampler },
+        .{ .binding = 0, .handle = app.material_buffer.erased() },
+        .{ .binding = 1, .handle = app.default_texture.erased() },
+        .{ .binding = 2, .handle = app.default_sampler.erased() },
     });
 
     app.world_pass = try resources.createRenderPass(.{
@@ -148,7 +148,7 @@ pub fn init(app: *App) !void {
                 .path = "testbed/assets/default.frag.spv",
             },
         },
-        .binding_groups = &.{ app.camera.group, app.material_group },
+        .bind_groups = &.{ app.camera.group, app.material_group },
         .renderpass = app.world_pass,
         .cull_mode = .back,
         .vertex_inputs = &.{ .Vec3, .Vec2 },

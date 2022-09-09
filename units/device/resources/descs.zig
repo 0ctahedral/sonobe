@@ -10,12 +10,12 @@ pub const DrawIndexedDesc = struct {
     /// number of indices to draw
     count: u32,
     /// handle for the buffer we are drawing from
-    vertex_handle: Handle(null) = .{},
+    vertex_handle: Handle(.Buffer) = .{},
     /// offsets into the vertex buffer for different attributes
     vertex_offsets: [8]u64 = [_]u64{0} ** 8,
     n_vertex_offsets: u8,
     /// handle for the index buffer we are drawing from
-    index_handle: Handle(null),
+    index_handle: Handle(.Buffer),
     /// offset into the index buffer in bytes
     index_offset: u64 = 0,
 };
@@ -144,14 +144,14 @@ pub const PipelineDesc = struct {
         both,
     };
     /// render pass this pipeline is going to draw with
-    // render_pass: Handle(null),
+    // render_pass: Handle(.RenderPass),
     stages: []const StageDesc = undefined,
 
     /// groups of bindings we want to access from the shader
-    binding_groups: []const Handle(null) = &.{},
+    bind_groups: []const Handle(.BindGroup) = &.{},
 
     /// the renderpass that we will use this shader in
-    renderpass: Handle(null),
+    renderpass: Handle(.RenderPass),
 
     /// which faces should we cull?
     cull_mode: CullMode = .back,
@@ -168,7 +168,7 @@ pub const PipelineDesc = struct {
 };
 
 pub const PushConstDesc = struct {
-    pipeline: Handle(null),
+    pipeline: Handle(.Pipeline),
     size: u8,
     data: [128]u8 = [_]u8{0} ** 128,
 };

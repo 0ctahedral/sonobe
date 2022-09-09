@@ -54,7 +54,7 @@ var allocator: Allocator = undefined;
 
 // TODO: these will eventually not exist
 
-var default_renderpass: Handle(null) = .{};
+var default_renderpass: Handle(.RenderPass) = .{};
 
 /// current dimesnsions of the framebuffer
 var fb_width: u32 = 0;
@@ -295,7 +295,7 @@ fn applyPushConst(cb: *CommandBuffer, desc: descs.PushConstDesc) void {
     );
 }
 
-fn applyBindPipeline(cb: *CommandBuffer, handle: Handle(null)) !void {
+fn applyBindPipeline(cb: *CommandBuffer, handle: Handle(.Pipeline)) !void {
     const pl = resources.getPipeline(handle);
     device.vkd.cmdBindPipeline(cb.handle, .graphics, pl.handle);
 
@@ -319,7 +319,7 @@ fn applyBindPipeline(cb: *CommandBuffer, handle: Handle(null)) !void {
     );
 }
 
-fn applyBeginRenderPass(cb: *CommandBuffer, handle: Handle(null)) void {
+fn applyBeginRenderPass(cb: *CommandBuffer, handle: Handle(.RenderPass)) void {
     // set the viewport
     const viewport = vk.Viewport{
         .x = 0,
@@ -348,7 +348,7 @@ fn applyBeginRenderPass(cb: *CommandBuffer, handle: Handle(null)) void {
     } });
 }
 
-fn applyEndRenderPass(cb: *CommandBuffer, handle: Handle(null)) void {
+fn applyEndRenderPass(cb: *CommandBuffer, handle: Handle(.RenderPass)) void {
     _ = handle;
     resources.getRenderPass(handle).end(device, cb);
 }

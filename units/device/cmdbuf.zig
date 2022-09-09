@@ -16,9 +16,9 @@ const Command = enum {
 /// Desc that stores all the data related to the command
 const CommandDecl = union(Command) {
     DrawIndexed: descs.DrawIndexedDesc,
-    BeginRenderPass: Handle(null),
-    EndRenderPass: Handle(null),
-    BindPipeline: Handle(null),
+    BeginRenderPass: Handle(.RenderPass),
+    EndRenderPass: Handle(.RenderPass),
+    BindPipeline: Handle(.Pipeline),
     PushConst: descs.PushConstDesc,
 };
 
@@ -42,7 +42,7 @@ inline fn getNextIdx(self: *CmdBuf) !usize {
     return ret;
 }
 
-pub fn pushConst(self: *CmdBuf, pipeline: Handle(null), pc: anytype) !void {
+pub fn pushConst(self: *CmdBuf, pipeline: Handle(.Pipeline), pc: anytype) !void {
     // make sure that this will actually fit
     const size = @sizeOf(@TypeOf(pc));
     if (size > 128) return error.ConstTooLarge;
@@ -61,9 +61,9 @@ pub fn pushConst(self: *CmdBuf, pipeline: Handle(null), pc: anytype) !void {
 pub fn drawIndexed(
     self: *CmdBuf,
     count: u32,
-    vertex_handle: Handle(null),
+    vertex_handle: Handle(.Buffer),
     vertex_offsets: []const u64,
-    index_handle: Handle(null),
+    index_handle: Handle(.Buffer),
     index_offset: u64,
 ) !void {
     var desc: descs.DrawIndexedDesc = .{
@@ -83,19 +83,19 @@ pub fn drawIndexed(
 }
 
 /// begin a renderpass by description
-pub fn beginRenderPass(self: *CmdBuf, handle: Handle(null)) !void {
+pub fn beginRenderPass(self: *CmdBuf, handle: Handle(.RenderPass)) !void {
     const idx = try self.getNextIdx();
     self.commands[idx] = .{ .BeginRenderPass = handle };
 }
 
 /// end a renderpass by description
-pub fn endRenderPass(self: *CmdBuf, handle: Handle(null)) !void {
+pub fn endRenderPass(self: *CmdBuf, handle: Handle(.RenderPass)) !void {
     const idx = try self.getNextIdx();
     self.commands[idx] = .{ .EndRenderPass = handle };
 }
 
 /// binds a shader pipeline by handle
-pub fn bindPipeline(self: *CmdBuf, handle: Handle(null)) !void {
+pub fn bindPipeline(self: *CmdBuf, handle: Handle(.Pipeline)) !void {
     const idx = try self.getNextIdx();
     self.commands[idx] = .{ .BindPipeline = handle };
 }

@@ -27,12 +27,12 @@ aspect: f32 = 800.0 / 600.0,
 
 drag_scale: f32 = (-1 / 400.0),
 
-group: Handle(null) = .{},
+group: Handle(.BindGroup) = .{},
 /// the buffer with data about this camera
-buffer: Handle(null) = .{},
+buffer: Handle(.Buffer) = .{},
 
 pub fn init(self: *Self) !void {
-    self.group = try resources.createBindingGroup(&.{
+    self.group = try resources.createBindGroup(&.{
         .{ .binding_type = .UniformBuffer },
     });
     self.buffer = try resources.createBuffer(.{
@@ -40,7 +40,7 @@ pub fn init(self: *Self) !void {
         .usage = .Uniform,
     });
     try resources.updateBindings(self.group, &[_]resources.BindingUpdate{
-        .{ .binding = 0, .handle = self.buffer },
+        .{ .binding = 0, .handle = self.buffer.erased() },
     });
 }
 

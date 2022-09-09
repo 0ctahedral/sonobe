@@ -128,8 +128,8 @@ pub const ConstMesh = struct {
 };
 
 pub const Buffers = struct {
-    vertices: Handle(null) = .{},
-    indices: Handle(null) = .{},
+    vertices: Handle(.Buffer) = .{},
+    indices: Handle(.Buffer) = .{},
     uv_offset: usize,
     normals_offset: usize,
     positions_offset: usize,
