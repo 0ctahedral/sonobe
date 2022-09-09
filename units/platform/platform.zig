@@ -32,8 +32,13 @@ pub const required_exts = [_][*:0]const u8{
     },
 };
 
-var timer: std.time.Timer = undefined;
-var delta: u64 = 0;
+const frame_time = struct {
+    var timer: std.time.Timer = undefined;
+    var delta: f32 = 0;
+    var prev_ns: u64 = 0;
+    var fps: f32 = 0;
+};
+
 pub var frame_number: u64 = 0;
 
 /// Initialize the platform layer
@@ -47,7 +52,7 @@ pub fn init() !void {
     }
 
     // start the timer
-    timer = try std.time.Timer.start();
+    frame_time.timer = try std.time.Timer.start();
 
     // initialize the events
     try events.register(.Quit, handle_event);
@@ -108,21 +113,27 @@ pub fn getWindowSize(win: Window) !Window.Size {
 
 /// starts a frame: used for tracking delta time and stuff
 pub fn startFrame() void {
-    timer.reset();
+    const now = frame_time.timer.read();
+
+    frame_time.delta = @intToFloat(f32, now - frame_time.prev_ns) / std.time.ns_per_s;
+
+    frame_time.prev_ns = now;
+
+    const t = @intToFloat(f32, now) / std.time.ns_per_s;
+    frame_time.fps = @intToFloat(f32, frame_number) / t;
 }
 
 /// ends a frame: used for tracking delta time and stuff
 pub fn endFrame() void {
-    delta = timer.read();
-    frame_number +%= 1;
+    frame_number += 1;
 }
 
 /// the delta time for the current frame in seconds
-pub inline fn dt() f64 {
-    return @intToFloat(f64, delta) / std.time.ns_per_s;
+pub inline fn dt() f32 {
+    return frame_time.delta;
 }
 
 /// the fps based on delta time for current frame
-pub inline fn fps() f64 {
-    return std.time.ns_per_s / @intToFloat(f64, delta);
+pub inline fn fps() f32 {
+    return frame_time.fps;
 }

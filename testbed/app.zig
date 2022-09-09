@@ -229,9 +229,9 @@ pub fn update(app: *App, dt: f64) !void {
         var buf: [80]u8 = undefined;
         app.font_ren.clear();
         _ = try app.font_ren.addString(
-            try std.fmt.bufPrint(buf[0..], "fps: {d:.2}", .{platform.fps()}),
+            try std.fmt.bufPrint(buf[0..], "dt: {d:.2} fps: {d:.2}", .{ platform.dt() * 1000.0, platform.fps() }),
             Vec2.new(0, 0),
-            16,
+            12,
             color.hexToVec4(0xffffffff),
         );
     }
