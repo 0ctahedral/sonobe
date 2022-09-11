@@ -64,7 +64,7 @@ pub const KQWatcher = struct {
         return changed;
     }
 
-    pub fn processEvents(self: *Self, events: []os.Kevent) !void {
+    fn processEvents(self: *Self, events: []os.Kevent) !void {
         for (events) |ev| {
             const idx: usize = @intCast(usize, ev.udata);
             self.mutex.lock();

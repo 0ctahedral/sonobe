@@ -16,6 +16,9 @@ pub const math = @import("math/build.zig").pkg;
 pub const utils = @import("utils/build.zig").getPkg(&.{
     math,
 });
+pub const fs = @import("fs/build.zig").getPkg(&.{
+    utils,
+});
 pub const jobs = @import("jobs/build.zig").getPkg(&.{
     containers,
 });

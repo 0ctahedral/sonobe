@@ -11,6 +11,11 @@ pub fn build(b: *Builder) !void {
     // build all the projects
     const testbed = @import("testbed/build.zig");
     try testbed.build(b);
+
+    const fs_tests = b.addTest("units/fs/test.zig");
+    fs_tests.addPackage(units.fs);
+    const test_step = b.step("test", "run fs tests");
+    test_step.dependOn(&fs_tests.step);
 }
 
 pub fn linkDeps(b: *Builder, exe: *std.build.LibExeObjStep) !void {
