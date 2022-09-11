@@ -20,6 +20,7 @@ pub const jobs = @import("jobs/build.zig").getPkg(&.{
     containers,
 });
 pub const platform = @import("platform/build.zig").getPkg(&.{
+    utils,
     vulkan,
     glfw,
     math,

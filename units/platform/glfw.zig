@@ -1,5 +1,6 @@
 const std = @import("std");
 const vk = @import("vulkan");
+const Handle = @import("utils").Handle;
 const glfw = @import("glfw");
 // TODO: get rid of this dep
 const InstanceDispatch = @import("../device/vulkan/dispatch_types.zig").InstanceDispatch;
@@ -40,16 +41,16 @@ pub fn createWindow(title: []const u8, w: u32, h: u32) !Window {
 
     n_alive += 1;
 
-    return Window{ .handle = @intToEnum(Window.Handle, id) };
+    return Window{ .handle = Handle(.Window){ .id = id } };
 }
 
 pub fn setWindowTitle(win: Window, title: []const u8) !void {
-    const window = window_store[@enumToInt(win.handle)];
+    const window = window_store[@as(usize, win.handle)];
     try window.setTitle(@ptrCast([*:0]const u8, title.ptr));
 }
 
 pub fn getWindowSize(win: Window) !Window.Size {
-    const window = window_store[@enumToInt(win.handle)];
+    const window = window_store[@as(usize, win.handle.id)];
     const size = try window.getSize();
     return Window.Size{ .w = size.width, .h = size.height };
 }
@@ -135,7 +136,7 @@ fn onKey(
 fn onResize(win: glfw.Window, ww: i32, wh: i32) void {
     if (getWindowIndex(win)) |wid| {
         events.enqueue(Event{ .WindowResize = .{
-            .handle = @intToEnum(Window.Handle, wid),
+            .handle = Handle(.Window){ .id = wid },
             .w = @intCast(u16, ww),
             .h = @intCast(u16, wh),
         } });
@@ -144,7 +145,9 @@ fn onResize(win: glfw.Window, ww: i32, wh: i32) void {
 
 fn onClose(win: glfw.Window) void {
     if (getWindowIndex(win)) |wid| {
-        events.enqueue(Event{ .WindowClose = @intToEnum(Window.Handle, wid) });
+        events.enqueue(Event{
+            .WindowClose = Handle(.Window){ .id = wid },
+        });
     }
 
     n_alive -= 1;
@@ -159,7 +162,7 @@ pub fn flush() void {
 
 pub fn createWindowSurface(vki: InstanceDispatch, instance: vk.Instance, win: Window) !vk.SurfaceKHR {
     _ = vki;
-    const idx = @enumToInt(win.handle);
+    const idx = @as(usize, win.handle.id);
 
     var surface: vk.SurfaceKHR = undefined;
     if ((try glfw.createWindowSurface(instance, window_store[idx], null, &surface)) != @enumToInt(vk.Result.success)) {

@@ -3,6 +3,7 @@ const os = std.os;
 const xcb = @import("xcb_decls.zig").XCB;
 const Window = @import("window.zig");
 const vk = @import("vulkan");
+const Handle = @import("utils").Handle;
 const InstanceDispatch = @import("../device/vulkan/dispatch_types.zig").InstanceDispatch;
 const Event = @import("events.zig").Event;
 
@@ -76,7 +77,7 @@ pub fn nextEvent() ?Event {
                         if (windows.num_living == 0) {
                             return Event{ .Quit = .{} };
                         }
-                        return Event{ .WindowClose = @intToEnum(Window.Handle, i) };
+                        return Event{ .WindowClose = @intToEnum(Handle(.Window), i) };
                     }
                 }
             },
@@ -172,7 +173,7 @@ pub fn createWindow(title: []const u8, w: u32, h: u32) !Window {
     windows.num_living += 1;
 
     return Window{
-        .handle = @intToEnum(Window.Handle, windows.idx),
+        .handle = Handle(.Window){ .id = windows.idx },
     };
 }
 

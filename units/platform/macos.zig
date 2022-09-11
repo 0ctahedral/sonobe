@@ -1,5 +1,6 @@
 const std = @import("std");
 const vk = @import("vulkan");
+const Handle = @import("utils").Handle;
 const InstanceDispatch = @import("../device/vulkan/dispatch_types.zig").InstanceDispatch;
 const Event = @import("events.zig").Event;
 const Window = @import("window.zig");
@@ -80,7 +81,7 @@ pub fn createWindow(title: []const u8, w: u32, h: u32) !Window {
     num_living += 1;
 
     return Window{
-        .handle = @intToEnum(Window.Handle, id),
+        .handle = @intToEnum(Handle(.Window), id),
     };
 }
 
