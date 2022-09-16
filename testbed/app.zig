@@ -283,13 +283,14 @@ pub fn draw(app: *App) !void {
         0,
     );
 
-    // const seamus_bufs = try app.seamus.getBuffers();
-    // try cmd.drawIndexed(.{
-    //     .count = @intCast(u32, app.seamus.indices.items.len),
-    //     .vertex_handle = seamus_bufs.vertices,
-    //     .index_handle = seamus_bufs.indices,
-    //     .vertex_offsets = &.{ 0, 8 * @sizeOf(Vec3) },
-    // });
+    const seamus_bufs = try app.seamus.getBuffers();
+    try cmd.drawIndexed(
+        @intCast(u32, app.seamus.indices.items.len),
+        seamus_bufs.vertices,
+        &.{ 0, 8 * @sizeOf(Vec3) },
+        seamus_bufs.indices,
+        0,
+    );
 
     try cmd.endRenderPass(app.world_pass);
 

@@ -1,7 +1,7 @@
 //! Entrypoint for an app built with the engine!
 
 const std = @import("std");
-const App = @import("app.zig");
+const App = @import("ui_app.zig");
 const platform = @import("platform");
 const device = @import("device");
 const events = platform.events;
@@ -68,5 +68,8 @@ pub fn main() !void {
 
     try events.register(events.EventType.WindowResize, onResize);
 
-    try loop();
+    loop() catch |e| {
+        std.log.err("got error: {s}", .{@errorName(e)});
+        @panic("oops");
+    };
 }
