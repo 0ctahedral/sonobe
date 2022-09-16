@@ -5,7 +5,7 @@ const util = @import("util.zig");
 // im being lazy so this will all be in f32 and can be changed later
 // TODO: swizzel?
 
-pub const Vec4 = struct {
+pub const Vec4 = packed struct {
     x: f32 = 0,
     y: f32 = 0,
     z: f32 = 0,

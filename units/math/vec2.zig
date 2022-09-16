@@ -4,7 +4,7 @@ const math = std.math;
 const util = @import("util.zig");
 // im being lazy so this will all be in f32 and can be changed later
 
-pub const Vec2 = struct {
+pub const Vec2 = packed struct {
     x: f32 = 0,
     y: f32 = 0,
 

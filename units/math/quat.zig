@@ -13,7 +13,7 @@ const Vec3 = @import("vec3.zig").Vec3;
 const Mat4 = @import("mat4.zig").Mat4;
 const util = @import("util.zig");
 
-pub const Quat = struct {
+pub const Quat = packed struct {
     w: f32 = 1,
     x: f32 = 0,
     y: f32 = 0,
