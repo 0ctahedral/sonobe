@@ -20,6 +20,11 @@ pub fn build(b: *Builder) !void {
 
     const exe_step = b.step("run", "run the testbed");
     exe_step.dependOn(&exe.run().step);
+
+    const debug_cmd = b.addSystemCommand(&[_][]const u8{"gdb"});
+    debug_cmd.addArtifactArg(exe);
+    const debug_step = b.step("debug", "debug the testbed");
+    debug_step.dependOn(&debug_cmd.step);
 }
 
 inline fn thisDir() []const u8 {

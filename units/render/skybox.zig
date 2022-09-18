@@ -5,6 +5,7 @@ const math = @import("math");
 const cube = @import("mesh").cube;
 
 const resources = device.resources;
+const descs = device.resources.descs;
 const color = utils.color;
 const Handle = utils.Handle;
 const Vec4 = math.Vec4;
@@ -32,7 +33,7 @@ pub const Data = struct {
     sun_size: f32 = 0.3,
 };
 
-pub fn init(camera: Camera, procedural: bool) !Self {
+pub fn init(camera: Camera, procedural: bool, allocator: std.mem.Allocator) !Self {
     var self = Self{};
 
     // skybox stuff
@@ -117,31 +118,42 @@ pub fn init(camera: Camera, procedural: bool) !Self {
 
     // TODO: make this a specialization constant later
     // or two separate pipelines
-    const frag_stage: device.descs.StageDesc =
-        if (procedural)
-    .{
-        .bindpoint = .Fragment,
-        .path = "assets/shaders/procedural_skybox.frag.spv",
-    } else .{
-        .bindpoint = .Fragment,
-        .path = "assets/shaders/skybox.frag.spv",
-    };
 
-    const stages = .{
-        .{
-            .bindpoint = .Vertex,
-            .path = "assets/shaders/skybox.vert.spv",
-        },
-        frag_stage,
-    };
+    const vert_file = try std.fs.cwd().openFile("assets/shaders/skybox.vert.spv", .{ .read = true });
+    defer vert_file.close();
 
-    self.pipeline = try resources.createPipeline(.{
-        .stages = &stages,
+    const frag_path = if (procedural)
+        "assets/shaders/procedural_skybox.frag.spv"
+    else
+        "assets/shaders/skybox.frag.spv";
+
+    const frag_file = try std.fs.cwd().openFile(frag_path, .{ .read = true });
+    defer frag_file.close();
+
+    const vert_data = try allocator.alloc(u8, (try vert_file.stat()).size);
+    _ = try vert_file.readAll(vert_data);
+    defer allocator.free(vert_data);
+    const frag_data = try allocator.alloc(u8, (try frag_file.stat()).size);
+    _ = try frag_file.readAll(frag_data);
+    defer allocator.free(frag_data);
+
+    var pl_desc = descs.PipelineDesc{
         // todo: add camera?
         .bind_groups = &.{ group, camera.group },
         .renderpass = self.pass,
         .cull_mode = .front,
-    });
+    };
+
+    pl_desc.stages[1] = .{
+        .bindpoint = .Fragment,
+        .data = frag_data,
+    };
+    pl_desc.stages[0] = .{
+        .bindpoint = .Vertex,
+        .data = vert_data,
+    };
+
+    self.pipeline = try resources.createPipeline(pl_desc);
 
     return self;
 }

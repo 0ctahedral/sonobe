@@ -6,6 +6,7 @@ const mesh = @import("mesh");
 const quad = mesh.quad;
 
 const device = @import("device");
+const descs = device.resources.descs;
 const render = @import("render");
 const resources = @import("device").resources;
 const platform = @import("platform");
@@ -95,22 +96,35 @@ pub fn init(app: *App) !void {
     });
 
     // create our shader pipeline
-    app.ui_pipeline = try resources.createPipeline(.{
-        .stages = &.{
-            .{
-                .bindpoint = .Vertex,
-                .path = "testbed/assets/ui.vert.spv",
-            },
-            .{
-                .bindpoint = .Fragment,
-                .path = "testbed/assets/ui.frag.spv",
-            },
-        },
+
+    const vert_file = try std.fs.cwd().openFile("testbed/assets/ui.vert.spv", .{ .read = true });
+    defer vert_file.close();
+    const frag_file = try std.fs.cwd().openFile("testbed/assets/ui.frag.spv", .{ .read = true });
+    defer frag_file.close();
+
+    const vert_data = try allocator.alloc(u8, (try vert_file.stat()).size);
+    _ = try vert_file.readAll(vert_data);
+    defer allocator.free(vert_data);
+    const frag_data = try allocator.alloc(u8, (try frag_file.stat()).size);
+    _ = try frag_file.readAll(frag_data);
+    defer allocator.free(frag_data);
+
+    var pl_desc = descs.PipelineDesc{
         .bind_groups = &.{app.ui_group},
         .renderpass = app.screen_pass,
         .cull_mode = .back,
         .vertex_inputs = &.{},
-    });
+    };
+    pl_desc.stages[0] = .{
+        .bindpoint = .Vertex,
+        .data = vert_data,
+    };
+    pl_desc.stages[1] = .{
+        .bindpoint = .Fragment,
+        .data = frag_data,
+    };
+
+    app.ui_pipeline = try resources.createPipeline(pl_desc);
 
     app.font_ren = try FontRen.init("./assets/fonts/scientifica-11.bdf", app.screen_pass, allocator);
     // update the buffer with our projection
@@ -120,6 +134,8 @@ pub fn init(app: *App) !void {
 }
 
 pub fn update(app: *App, dt: f64) !void {
+    _ = app;
+    _ = dt;
     app.font_ren.clear();
     var buf: [80]u8 = undefined;
     _ = try app.font_ren.addString(

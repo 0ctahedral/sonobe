@@ -8,6 +8,7 @@ const quad = mesh.quad;
 
 const device = @import("device");
 const render = @import("render");
+const descs = device.resources.descs;
 const resources = @import("device").resources;
 const platform = @import("platform");
 const input = platform.input;
@@ -136,31 +137,44 @@ pub fn init(app: *App) !void {
         .clear_flags = .{},
     });
 
-    // create our shader pipeline
-    app.simple_pipeline = try resources.createPipeline(.{
-        .stages = &.{
-            .{
-                .bindpoint = .Vertex,
-                .path = "testbed/assets/default.vert.spv",
-            },
-            .{
-                .bindpoint = .Fragment,
-                .path = "testbed/assets/default.frag.spv",
-            },
-        },
+    var pl_desc = descs.PipelineDesc{
         .bind_groups = &.{ app.camera.group, app.material_group },
         .renderpass = app.world_pass,
         .cull_mode = .back,
         .vertex_inputs = &.{ .Vec3, .Vec2 },
         .push_const_size = @sizeOf(PushConst),
-    });
+    };
+
+    const vert_file = try std.fs.cwd().openFile("testbed/assets/default.vert.spv", .{ .read = true });
+    defer vert_file.close();
+    const frag_file = try std.fs.cwd().openFile("testbed/assets/default.frag.spv", .{ .read = true });
+    defer frag_file.close();
+
+    const vert_data = try allocator.alloc(u8, (try vert_file.stat()).size);
+    _ = try vert_file.readAll(vert_data);
+    defer allocator.free(vert_data);
+    const frag_data = try allocator.alloc(u8, (try frag_file.stat()).size);
+    _ = try frag_file.readAll(frag_data);
+    defer allocator.free(frag_data);
+
+    pl_desc.stages[0] = .{
+        .bindpoint = .Vertex,
+        .data = vert_data,
+    };
+    pl_desc.stages[1] = .{
+        .bindpoint = .Fragment,
+        .data = frag_data,
+    };
+
+    // create our shader pipeline
+    app.simple_pipeline = try resources.createPipeline(pl_desc);
 
     app.font_ren = try FontRen.init("./assets/fonts/scientifica-11.bdf", app.screen_pass, allocator);
     // update the buffer with our projection
     _ = try resources.updateBufferTyped(app.font_ren.buffer, 0, Mat4, &[_]Mat4{
         Mat4.ortho(0, 800, 0, 600, -100, 100),
     });
-    app.skybox = try Skybox.init(app.camera, true);
+    app.skybox = try Skybox.init(app.camera, true, allocator);
 
     app.octahedron = try mesh.gltf.MeshFromGltf("assets/models/octahedron.glb", std.testing.allocator);
     app.seamus = try mesh.gltf.MeshFromGltf("assets/models/seamus.glb", std.testing.allocator);

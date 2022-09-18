@@ -1,5 +1,6 @@
 const std = @import("std");
 const device = @import("device");
+const descs = device.resources.descs;
 const math = @import("math");
 const Handle = @import("utils").Handle;
 const quad = @import("mesh").quad;
@@ -123,41 +124,67 @@ pub fn init(path: []const u8, renderpass: Handle(.RenderPass), allocator: Alloca
         .{ .binding = 1, .handle = self.texture.erased() },
         .{ .binding = 2, .handle = self.sampler.erased() },
     });
-    // create our shader pipeline
-    self.pipeline = try resources.createPipeline(.{
-        .stages = &.{
-            .{
-                .bindpoint = .Vertex,
-                .path = "assets/shaders/font.vert.spv",
-            },
-            .{
-                .bindpoint = .Fragment,
-                .path = "assets/shaders/font.frag.spv",
-            },
-        },
-        .bind_groups = &.{self.group},
-        .renderpass = renderpass,
-        .cull_mode = .back,
-        .push_const_size = @sizeOf(u32),
-    });
-    self.atlas_pipeline = try resources.createPipeline(.{
-        .stages = &.{
-            .{
-                .bindpoint = .Vertex,
-                .path = "assets/shaders/atlas.vert.spv",
-            },
-            .{
-                .bindpoint = .Fragment,
-                .path = "assets/shaders/atlas.frag.spv",
-            },
-        },
-        .bind_groups = &.{self.group},
-        .renderpass = renderpass,
-        .cull_mode = .none,
-        .vertex_inputs = &.{ .Vec3, .Vec2 },
-        .push_const_size = @sizeOf(Mat4),
-    });
+    // create our shader pipelines
+    {
+        const vert_file = try std.fs.cwd().openFile("assets/shaders/font.vert.spv", .{ .read = true });
+        defer vert_file.close();
+        const frag_file = try std.fs.cwd().openFile("assets/shaders/font.frag.spv", .{ .read = true });
+        defer frag_file.close();
 
+        const vert_data = try allocator.alloc(u8, (try vert_file.stat()).size);
+        _ = try vert_file.readAll(vert_data);
+        defer allocator.free(vert_data);
+        const frag_data = try allocator.alloc(u8, (try frag_file.stat()).size);
+        _ = try frag_file.readAll(frag_data);
+        defer allocator.free(frag_data);
+
+        var pl_desc = descs.PipelineDesc{
+            .bind_groups = &.{self.group},
+            .renderpass = renderpass,
+            .cull_mode = .back,
+            .push_const_size = @sizeOf(u32),
+        };
+        pl_desc.stages[0] = .{
+            .bindpoint = .Vertex,
+            .data = vert_data,
+        };
+        pl_desc.stages[1] = .{
+            .bindpoint = .Fragment,
+            .data = frag_data,
+        };
+        self.pipeline = try resources.createPipeline(pl_desc);
+    }
+
+    {
+        const vert_file = try std.fs.cwd().openFile("assets/shaders/atlas.vert.spv", .{ .read = true });
+        defer vert_file.close();
+        const frag_file = try std.fs.cwd().openFile("assets/shaders/atlas.frag.spv", .{ .read = true });
+        defer frag_file.close();
+
+        const vert_data = try allocator.alloc(u8, (try vert_file.stat()).size);
+        _ = try vert_file.readAll(vert_data);
+        defer allocator.free(vert_data);
+        const frag_data = try allocator.alloc(u8, (try frag_file.stat()).size);
+        _ = try frag_file.readAll(frag_data);
+        defer allocator.free(frag_data);
+
+        var pl_desc = descs.PipelineDesc{
+            .bind_groups = &.{self.group},
+            .renderpass = renderpass,
+            .cull_mode = .none,
+            .vertex_inputs = &.{ .Vec3, .Vec2 },
+            .push_const_size = @sizeOf(Mat4),
+        };
+        pl_desc.stages[0] = .{
+            .bindpoint = .Vertex,
+            .data = vert_data,
+        };
+        pl_desc.stages[1] = .{
+            .bindpoint = .Fragment,
+            .data = frag_data,
+        };
+        self.atlas_pipeline = try resources.createPipeline(pl_desc);
+    }
     return self;
 }
 

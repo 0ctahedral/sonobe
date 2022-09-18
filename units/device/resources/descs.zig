@@ -110,7 +110,7 @@ pub const StageDesc = struct {
         Vertex,
         Fragment,
     },
-    path: []const u8,
+    data: []const u8,
 };
 
 /// A reference to a resource to be used in a pipeline
@@ -128,7 +128,7 @@ pub const BindingDesc = struct {
 
 /// A full pipeline for drawing!
 pub const PipelineDesc = struct {
-    const InputType = enum {
+    pub const InputType = enum {
         Vec3,
         Vec2,
         f32,
@@ -137,18 +137,22 @@ pub const PipelineDesc = struct {
         u32,
         u64,
     };
-    const CullMode = enum {
+    pub const CullMode = enum {
         none,
         front,
         back,
         both,
     };
-    /// render pass this pipeline is going to draw with
-    // render_pass: Handle(.RenderPass),
-    stages: []const StageDesc = undefined,
+
+    pub const MAX_STAGES = 3;
+    // TODO: max stages
+    stages: [MAX_STAGES]?StageDesc = [_]?StageDesc{null} ** MAX_STAGES,
 
     /// groups of bindings we want to access from the shader
     bind_groups: []const Handle(.BindGroup) = &.{},
+
+    /// render pass this pipeline is going to draw with
+    // render_pass: Handle(.RenderPass),
 
     /// the renderpass that we will use this shader in
     renderpass: Handle(.RenderPass),

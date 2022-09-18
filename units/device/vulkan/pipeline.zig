@@ -29,11 +29,8 @@ pub const Pipeline = struct {
         vertex_attrs: []const vk.VertexInputAttributeDescription,
         allocator: std.mem.Allocator,
     ) !Self {
+        _ = allocator;
         var self: Self = .{};
-
-        if (desc.stages.len > MAX_STAGES) {
-            return error.TooManyShaderStages;
-        }
 
         // TODO: should these really be 1 since they are null?
         const viewport_state = vk.PipelineViewportStateCreateInfo{
@@ -143,34 +140,38 @@ pub const Pipeline = struct {
 
         // setup the stages
         var stage_infos: [MAX_STAGES]vk.PipelineShaderStageCreateInfo = undefined;
-        for (desc.stages) |sd, i| {
-            const stage_type: vk.ShaderStageFlags = switch (sd.bindpoint) {
-                .Vertex => .{ .vertex_bit = true },
-                .Fragment => .{ .fragment_bit = true },
-            };
+        var n_stage_desc: usize = 0;
+        for (desc.stages) |stage_desc| {
+            if (stage_desc) |sd| {
+                const stage_type: vk.ShaderStageFlags = switch (sd.bindpoint) {
+                    .Vertex => .{ .vertex_bit = true },
+                    .Fragment => .{ .fragment_bit = true },
+                };
 
-            const data = try loadShader(sd.path, allocator);
+                // const data = try loadShader(sd.path, allocator);
+                // defer allocator.free(data);
 
-            self.modules[i] = try device.vkd.createShaderModule(device.logical, &.{
-                .flags = .{},
-                .code_size = data.len,
-                .p_code = @ptrCast([*]const u32, @alignCast(4, data)),
-            }, null);
+                self.modules[n_stage_desc] = try device.vkd.createShaderModule(device.logical, &.{
+                    .flags = .{},
+                    .code_size = sd.data.len,
+                    .p_code = @ptrCast([*]const u32, @alignCast(4, sd.data)),
+                }, null);
 
-            stage_infos[i] = .{
-                .flags = .{},
-                .stage = stage_type,
-                .module = self.modules[i],
-                .p_name = "main",
-                .p_specialization_info = null,
-            };
+                stage_infos[n_stage_desc] = .{
+                    .flags = .{},
+                    .stage = stage_type,
+                    .module = self.modules[n_stage_desc],
+                    .p_name = "main",
+                    .p_specialization_info = null,
+                };
 
-            allocator.free(data);
+                n_stage_desc += 1;
+            }
         }
 
         const gpci = vk.GraphicsPipelineCreateInfo{
             .flags = .{},
-            .stage_count = @intCast(u32, desc.stages.len),
+            .stage_count = @intCast(u32, n_stage_desc),
             .p_stages = &stage_infos,
             .p_vertex_input_state = &vertex_input_ci,
             .p_input_assembly_state = &input_assembly,
