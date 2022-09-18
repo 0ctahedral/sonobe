@@ -139,10 +139,12 @@ pub fn init(camera: Camera, procedural: bool, allocator: std.mem.Allocator) !Sel
 
     var pl_desc = descs.PipelineDesc{
         // todo: add camera?
-        .bind_groups = &.{ group, camera.group },
         .renderpass = self.pass,
         .cull_mode = .front,
     };
+
+    pl_desc.bind_groups[0] = group;
+    pl_desc.bind_groups[1] = camera.group;
 
     pl_desc.stages[1] = .{
         .bindpoint = .Fragment,

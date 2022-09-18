@@ -12,6 +12,8 @@ const MAX_WATCHES = 64;
 
 const WATCH_FLAGS = sys.IN.ALL_EVENTS;
 
+const BLOCK_TIME = 16;
+
 /// Data about the file we are watching
 const FileWatch = struct {
     /// inotify file descriptor
@@ -115,7 +117,7 @@ pub fn loop(self: *Self) !void {
             .fd = self.wd,
             .events = sys.POLL.IN,
             .revents = 0,
-        }}, std.time.ms_per_s)) == 0) {
+        }}, BLOCK_TIME)) == 0) {
             continue;
         }
 

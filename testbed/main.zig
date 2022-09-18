@@ -56,7 +56,6 @@ pub fn main() !void {
     // open the window
     try platform.init();
     defer platform.deinit();
-    errdefer platform.deinit();
 
     window = try platform.createWindow(App.name, 800, 600);
 

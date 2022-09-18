@@ -15,6 +15,8 @@ const input = platform.input;
 const FontRen = @import("font").FontRen;
 const CmdBuf = device.CmdBuf;
 
+const material = @import("material.zig");
+
 const math = @import("math");
 const Vec4 = math.Vec4;
 const Vec3 = math.Vec3;
@@ -53,13 +55,13 @@ camera: Camera = .{
     .fov = 60,
 },
 
+default_material: Handle(.Material) = .{},
 material_group: Handle(.BindGroup) = .{},
 material_buffer: Handle(.Buffer) = .{},
 material_data: MaterialData = .{},
+
 default_texture: Handle(.Texture) = .{},
 default_sampler: Handle(.Sampler) = .{},
-
-simple_pipeline: Handle(.Pipeline) = .{},
 
 last_pos: Vec2 = .{},
 
@@ -71,6 +73,7 @@ octahedron: mesh.Mesh = undefined,
 seamus: mesh.Mesh = undefined,
 
 camera_move_speed: f32 = 5.0,
+
 pub fn init(app: *App) !void {
     app.t.pos = .{ .x = 0, .y = 1, .z = 0 };
     app.t.scale = .{ .x = 1, .y = 1, .z = 1 };
@@ -137,38 +140,6 @@ pub fn init(app: *App) !void {
         .clear_flags = .{},
     });
 
-    var pl_desc = descs.PipelineDesc{
-        .bind_groups = &.{ app.camera.group, app.material_group },
-        .renderpass = app.world_pass,
-        .cull_mode = .back,
-        .vertex_inputs = &.{ .Vec3, .Vec2 },
-        .push_const_size = @sizeOf(PushConst),
-    };
-
-    const vert_file = try std.fs.cwd().openFile("testbed/assets/default.vert.spv", .{ .read = true });
-    defer vert_file.close();
-    const frag_file = try std.fs.cwd().openFile("testbed/assets/default.frag.spv", .{ .read = true });
-    defer frag_file.close();
-
-    const vert_data = try allocator.alloc(u8, (try vert_file.stat()).size);
-    _ = try vert_file.readAll(vert_data);
-    defer allocator.free(vert_data);
-    const frag_data = try allocator.alloc(u8, (try frag_file.stat()).size);
-    _ = try frag_file.readAll(frag_data);
-    defer allocator.free(frag_data);
-
-    pl_desc.stages[0] = .{
-        .bindpoint = .Vertex,
-        .data = vert_data,
-    };
-    pl_desc.stages[1] = .{
-        .bindpoint = .Fragment,
-        .data = frag_data,
-    };
-
-    // create our shader pipeline
-    app.simple_pipeline = try resources.createPipeline(pl_desc);
-
     app.font_ren = try FontRen.init("./assets/fonts/scientifica-11.bdf", app.screen_pass, allocator);
     // update the buffer with our projection
     _ = try resources.updateBufferTyped(app.font_ren.buffer, 0, Mat4, &[_]Mat4{
@@ -178,6 +149,22 @@ pub fn init(app: *App) !void {
 
     app.octahedron = try mesh.gltf.MeshFromGltf("assets/models/octahedron.glb", std.testing.allocator);
     app.seamus = try mesh.gltf.MeshFromGltf("assets/models/seamus.glb", std.testing.allocator);
+
+    try material.init(allocator);
+
+    var desc = descs.PipelineDesc{
+        .renderpass = app.world_pass,
+        .cull_mode = .back,
+        .push_const_size = @sizeOf(PushConst),
+    };
+    desc.bind_groups[0] = app.camera.group;
+    desc.bind_groups[1] = app.material_group;
+    desc.vertex_inputs[0] = .Vec3;
+    desc.vertex_inputs[1] = .Vec2;
+    app.default_material = try material.createMaterial(desc, &[_][]const u8{
+        "testbed/assets/default.vert.spv",
+        "testbed/assets/default.frag.spv",
+    });
 }
 
 pub fn update(app: *App, dt: f64) !void {
@@ -249,6 +236,8 @@ pub fn update(app: *App, dt: f64) !void {
             color.hexToVec4(0xffffffff),
         );
     }
+
+    try material.update();
 }
 
 const floor_mat = Mat4.scale(.{ .x = 100, .y = 100, .z = 100 })
@@ -268,21 +257,23 @@ pub fn draw(app: *App) !void {
 
     try cmd.beginRenderPass(app.world_pass);
 
-    try cmd.bindPipeline(app.simple_pipeline);
+    const pl = material.getPipeline(app.default_material);
+    try cmd.bindPipeline(pl);
 
     // render the floor
-    try cmd.pushConst(app.simple_pipeline, PushConst{ .model = floor_mat });
+    try cmd.pushConst(pl, PushConst{ .model = floor_mat });
 
-    // const quad_bufs = try quad.getBuffers();
-    // try cmd.drawIndexed(.{
-    //     .count = @intCast(u32, quad.indices.len),
-    //     .vertex_handle = quad_bufs.vertices,
-    //     .index_handle = quad_bufs.indices,
-    //     .vertex_offsets = &.{ 0, 4 * @sizeOf(Vec3) },
-    // });
+    const quad_bufs = try quad.getBuffers();
+    try cmd.drawIndexed(
+        @intCast(u32, quad.indices.len),
+        quad_bufs.vertices,
+        &.{ 0, 4 * @sizeOf(Vec3) },
+        quad_bufs.indices,
+        0,
+    );
 
     // render the magic cube
-    try cmd.pushConst(app.simple_pipeline, PushConst{
+    try cmd.pushConst(pl, PushConst{
         .model = app.t.mat(),
         .mode = 0,
     });
@@ -317,6 +308,8 @@ pub fn draw(app: *App) !void {
 
 pub fn deinit(app: *App) void {
     app.octahedron.deinit();
+
+    material.deinit();
     std.log.info("{s}: deinitialized", .{App.name});
 }
 

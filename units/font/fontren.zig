@@ -139,11 +139,12 @@ pub fn init(path: []const u8, renderpass: Handle(.RenderPass), allocator: Alloca
         defer allocator.free(frag_data);
 
         var pl_desc = descs.PipelineDesc{
-            .bind_groups = &.{self.group},
             .renderpass = renderpass,
             .cull_mode = .back,
             .push_const_size = @sizeOf(u32),
         };
+
+        pl_desc.bind_groups[0] = self.group;
         pl_desc.stages[0] = .{
             .bindpoint = .Vertex,
             .data = vert_data,
@@ -169,12 +170,14 @@ pub fn init(path: []const u8, renderpass: Handle(.RenderPass), allocator: Alloca
         defer allocator.free(frag_data);
 
         var pl_desc = descs.PipelineDesc{
-            .bind_groups = &.{self.group},
             .renderpass = renderpass,
             .cull_mode = .none,
-            .vertex_inputs = &.{ .Vec3, .Vec2 },
             .push_const_size = @sizeOf(Mat4),
         };
+
+        pl_desc.bind_groups[0] = self.group;
+        pl_desc.vertex_inputs[0] = .Vec3;
+        pl_desc.vertex_inputs[1] = .Vec2;
         pl_desc.stages[0] = .{
             .bindpoint = .Vertex,
             .data = vert_data,

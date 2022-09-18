@@ -273,48 +273,46 @@ pub fn createPipeline(desc: descs.PipelineDesc) !Handle(.Pipeline) {
     const handle_idx = try resources.allocIndex();
     const pl_idx = try pipelines.allocIndex();
 
-    var dsl: [16]vk.DescriptorSetLayout = undefined;
-    if (desc.bind_groups.len > dsl.len) {
-        return error.TooManyBindGroups;
-    }
-    for (desc.bind_groups) |bgh, i| {
-        dsl[i] = getBindGroup(bgh).layout;
-    }
-
     var input_bindings: [16]vk.VertexInputBindingDescription = undefined;
     var input_attrs: [16]vk.VertexInputAttributeDescription = undefined;
     if (desc.vertex_inputs.len > input_bindings.len) {
         return error.TooManyVertexInputs;
     }
 
-    for (desc.vertex_inputs) |it, i| {
-        input_bindings[i] = .{
-            .binding = @intCast(u32, i),
-            .stride = switch (it) {
-                .Vec3 => @sizeOf(f32) * 3,
-                .Vec2 => @sizeOf(f32) * 2,
-                .f32 => @sizeOf(f32),
-                .u8 => @sizeOf(u8),
-                .u16 => @sizeOf(u16),
-                .u32 => @sizeOf(u32),
-                .u64 => @sizeOf(u64),
-            },
-            .input_rate = .vertex,
-        };
-        input_attrs[i] = .{
-            .binding = @intCast(u32, i),
-            .location = @intCast(u32, i),
-            .format = switch (it) {
-                .Vec3 => .r32g32b32_sfloat,
-                .Vec2 => .r32g32_sfloat,
-                .f32 => .r32_sfloat,
-                .u8 => .r8_uint,
-                .u16 => .r16_uint,
-                .u32 => .r32_uint,
-                .u64 => .r64_uint,
-            },
-            .offset = 0,
-        };
+    // vertex input
+    var n_inputs: usize = 0;
+    for (desc.vertex_inputs) |input| {
+        if (input) |it| {
+            input_bindings[n_inputs] = .{
+                .binding = @intCast(u32, n_inputs),
+                .stride = switch (it) {
+                    .Vec3 => @sizeOf(f32) * 3,
+                    .Vec2 => @sizeOf(f32) * 2,
+                    .f32 => @sizeOf(f32),
+                    .u8 => @sizeOf(u8),
+                    .u16 => @sizeOf(u16),
+                    .u32 => @sizeOf(u32),
+                    .u64 => @sizeOf(u64),
+                },
+                .input_rate = .vertex,
+            };
+            input_attrs[n_inputs] = .{
+                .binding = @intCast(u32, n_inputs),
+                .location = @intCast(u32, n_inputs),
+                .format = switch (it) {
+                    .Vec3 => .r32g32b32_sfloat,
+                    .Vec2 => .r32g32_sfloat,
+                    .f32 => .r32_sfloat,
+                    .u8 => .r8_uint,
+                    .u16 => .r16_uint,
+                    .u32 => .r32_uint,
+                    .u64 => .r64_uint,
+                },
+                .offset = 0,
+            };
+
+            n_inputs += 1;
+        }
     }
 
     const pcr = if (desc.push_const_size == 0) &[_]vk.PushConstantRange{} else &[_]vk.PushConstantRange{.{
@@ -323,28 +321,36 @@ pub fn createPipeline(desc: descs.PipelineDesc) !Handle(.Pipeline) {
         .size = @as(u32, desc.push_const_size),
     }};
 
+    var dsl: [16]vk.DescriptorSetLayout = undefined;
+    var n_bind_groups: usize = 0;
+
+    var bgs = [_]Handle(.BindGroup){.{}} ** 8;
+
+    for (desc.bind_groups) |bind_group| {
+        if (bind_group) |bgh| {
+            dsl[n_bind_groups] = getBindGroup(bgh).layout;
+            bgs[n_bind_groups] = bgh;
+            n_bind_groups += 1;
+        }
+    }
+
     pipelines.set(pl_idx, try Pipeline.init(
         device,
         desc,
         getRenderPass(desc.renderpass).handle,
-        dsl[0..desc.bind_groups.len],
+        dsl[0..n_bind_groups],
         pcr,
         desc.wireframe,
-        input_bindings[0..desc.vertex_inputs.len],
-        input_attrs[0..desc.vertex_inputs.len],
+        input_bindings[0..n_inputs],
+        input_attrs[0..n_inputs],
         allocator,
     ));
-
-    var bgs = [_]Handle(.BindGroup){.{}} ** 8;
-    for (desc.bind_groups) |h, i| {
-        bgs[i] = h;
-    }
 
     resources.set(
         handle_idx,
         .{ .Pipeline = .{
             .index = pl_idx,
-            .n_bind_groups = @intCast(u8, desc.bind_groups.len),
+            .n_bind_groups = @intCast(u8, n_bind_groups),
             .bind_groups = bgs,
         } },
     );
@@ -608,6 +614,13 @@ pub inline fn destroy(handle: Handle(null)) void {
     resources.freeIndex(handle.id);
 }
 
+fn validateHandle(handle: anytype) void {
+    if (handle.id == 0) {
+        std.debug.print("invalid handle: {}!\n", .{handle.id});
+        @breakpoint();
+    }
+}
+
 // TODO: should these go somewhere else? it kinda breaks the abstraction
 
 /// helper to get the buffer based on handle
@@ -638,6 +651,7 @@ pub fn getRenderPass(handle: Handle(.RenderPass)) *RenderPass {
 }
 
 pub fn getPipeline(handle: Handle(.Pipeline)) *Pipeline {
+    validateHandle(handle);
     const res = resources.get(handle.id).Pipeline;
     return pipelines.get(res.index);
 }

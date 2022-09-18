@@ -145,11 +145,13 @@ pub const PipelineDesc = struct {
     };
 
     pub const MAX_STAGES = 3;
+    pub const MAX_INPUTS = 8;
+    pub const MAX_BINDGROUPS = 8;
     // TODO: max stages
     stages: [MAX_STAGES]?StageDesc = [_]?StageDesc{null} ** MAX_STAGES,
 
     /// groups of bindings we want to access from the shader
-    bind_groups: []const Handle(.BindGroup) = &.{},
+    bind_groups: [MAX_BINDGROUPS]?Handle(.BindGroup) = [_]?Handle(.BindGroup){null} ** MAX_BINDGROUPS,
 
     /// render pass this pipeline is going to draw with
     // render_pass: Handle(.RenderPass),
@@ -164,7 +166,7 @@ pub const PipelineDesc = struct {
     wireframe: bool = false,
 
     /// inputs for each vertex in the vertex stage
-    vertex_inputs: []const InputType = &.{},
+    vertex_inputs: [MAX_INPUTS]?InputType = [_]?InputType{null} ** MAX_INPUTS,
 
     /// space to reserve in shader for push constants
     /// maximum is 128 bytes
