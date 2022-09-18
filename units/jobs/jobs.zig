@@ -112,7 +112,7 @@ pub fn deinit() void {
 /// wait for a counter to reach a value
 pub fn wait(counter: *Counter, value: usize) void {
     suspend {
-        instance.?.wait_queue.push(.{
+        _ = instance.?.wait_queue.push(.{
             .frame = @frame(),
             .condition = .{ .Counter = .{
                 .counter = counter,
@@ -125,7 +125,7 @@ pub fn wait(counter: *Counter, value: usize) void {
 /// sleep for a number of nanoseconds
 pub fn sleep(ns: u64) void {
     suspend {
-        instance.?.wait_queue.push(.{
+        _ = instance.?.wait_queue.push(.{
             .frame = @frame(),
             .condition = .{ .Sleep = .{
                 .start = instance.?.timer.read(),
@@ -144,7 +144,7 @@ pub fn run(comptime func: anytype, args: anytype, counter: ?*Counter) !void {
                 if (c != null) {
                     c.?.inc();
                 }
-                instance.?.frame_queue.push(@frame()) catch unreachable;
+                _ = instance.?.frame_queue.push(@frame()) catch unreachable;
             }
 
             @call(.{}, func, fnargs);
@@ -175,13 +175,13 @@ fn loop(self: *Jobs, thread_number: u32) void {
             switch (w.condition) {
                 .Counter => |c| {
                     if (c.counter.val() == c.value) {
-                        self.frame_queue.push(w.frame) catch unreachable;
+                        _ = self.frame_queue.push(w.frame) catch unreachable;
                         continue;
                     }
                 },
                 .Sleep => |s| {
                     if (self.timer.read() >= s.start + s.duration) {
-                        self.frame_queue.push(w.frame) catch unreachable;
+                        _ = self.frame_queue.push(w.frame) catch unreachable;
                         continue;
                     }
                 },
@@ -189,14 +189,14 @@ fn loop(self: *Jobs, thread_number: u32) void {
 
             // condition not met, push to the temporary queue
             tmp_queue.push(w) catch {
-                instance.?.wait_queue.push(w) catch unreachable;
+                _ = instance.?.wait_queue.push(w) catch unreachable;
                 break;
             };
         }
 
         // put them back
         while (tmp_queue.pop()) |j| {
-            self.wait_queue.push(j) catch unreachable;
+            _ = self.wait_queue.push(j) catch unreachable;
         }
 
         // resume from a frame

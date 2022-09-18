@@ -90,7 +90,7 @@ pub fn deinit() void {
 
 /// add an event to the appropriate queue
 pub fn enqueue(event: Event) void {
-    event_queue[@enumToInt(event)].push(event) catch |err| {
+    _ = event_queue[@enumToInt(event)].push(event) catch |err| {
         switch (err) {
             error.BufferFull => std.log.warn("unable to add event: {}", .{event}),
             else => unreachable,

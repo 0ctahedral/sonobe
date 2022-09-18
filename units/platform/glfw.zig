@@ -10,7 +10,6 @@ const input = @import("input.zig");
 const Key = input.Key;
 const Window = @import("window.zig");
 const containers = @import("containers");
-const RingBuffer = containers.RingBuffer;
 const FreeList = containers.FreeList;
 
 var windows: FreeList(glfw.Window) = undefined;

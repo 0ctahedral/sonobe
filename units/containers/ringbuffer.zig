@@ -40,7 +40,7 @@ pub fn RingBuffer(
         }
 
         /// add a new item to the ringbuffer
-        pub fn push(self: *Self, item: T) !void {
+        pub fn push(self: *Self, item: T) !usize {
             self.mutex.lock();
             defer self.mutex.unlock();
 
@@ -48,13 +48,16 @@ pub fn RingBuffer(
                 return error.BufferFull;
 
             // add the item at the correct index
-            self.buffer[self.head] = item;
+            const idx = self.head;
+            self.buffer[idx] = item;
             // increase the index and wrap
-            self.head += 1;
+            self.head = idx + 1;
             if (self.head >= self.capacity)
                 self.head = 0;
             // increase the len
             self.len += 1;
+
+            return idx;
         }
 
         /// remove an item from the ringbuffer
@@ -124,14 +127,15 @@ test "push pop" {
     try testing.expect(rb.empty());
     try testing.expect(rb.pop() == null);
 
-    try rb.push(5);
+    var idx = try rb.push(5);
+    try testing.expect(idx == 0);
     try testing.expect(rb.len == 1);
     try testing.expect(rb.pop().? == 5);
     try testing.expect(rb.len == 0);
 
     var i: u8 = 0;
     while (i < rb.capacity) : (i += 1) {
-        try rb.push(i);
+        _ = try rb.push(i);
     }
 
     try testing.expect(rb.head == rb.tail);
@@ -145,7 +149,7 @@ test "push pop" {
     try testing.expect(rb.pop() == null);
 
     while (i < rb.capacity) : (i += 1) {
-        try rb.push(i);
+        _ = try rb.push(i);
     }
     rb.clear();
     try testing.expect(rb.empty());
@@ -156,8 +160,8 @@ test "different descs" {
 
     var rb = RingBuffer(vec, 10).init();
 
-    try rb.push(.{});
-    try rb.push(.{ .x = 10 });
+    _ = try rb.push(.{});
+    _ = try rb.push(.{ .x = 10 });
 
     try testing.expect(rb.pop().?.x == 0);
     try testing.expect(rb.pop().?.x == 10);
@@ -167,10 +171,10 @@ test "push pop order" {
     var rb = RingBuffer(u8, 10).init();
     defer rb.deinit();
 
-    try rb.push(0);
-    try rb.push(1);
-    try rb.push(2);
-    try rb.push(3);
+    _ = try rb.push(0);
+    _ = try rb.push(1);
+    _ = try rb.push(2);
+    _ = try rb.push(3);
 
     try testing.expect(rb.pop().? == 0);
     try testing.expect(rb.pop().? == 1);

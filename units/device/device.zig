@@ -48,7 +48,7 @@ pub fn getCmdBuf() CmdBuf {
 
 /// Submit a command buffer to be run by the device
 pub fn submit(cmdbuf: CmdBuf) !void {
-    try submitted_cmds.push(cmdbuf);
+    _ = try submitted_cmds.push(cmdbuf);
 }
 
 pub fn drawFrame() !void {
