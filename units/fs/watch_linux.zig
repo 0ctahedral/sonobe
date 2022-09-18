@@ -32,26 +32,30 @@ watches: FreeList(FileWatch),
 thread: std.Thread = undefined,
 
 pub fn init(allocator: Allocator) !Self {
+    // const flags: u32 = os.linux.IN.NONBLOCK | os.linux.IN.CLOEXEC;
     const flags: u32 = 0;
-    return Self{
+    var self = Self{
         // open the inotify file
         .wd = try os.inotify_init1(flags),
         .watches = try FreeList(FileWatch).init(allocator, MAX_WATCHES),
     };
+
+    return self;
 }
 
 pub fn deinit(self: *Self) void {
-    self.running = false;
     self.watches.deinit();
     os.close(self.wd);
 }
 
 pub fn start(self: *Self) !void {
+    if (self.running) return;
     self.running = true;
     self.thread = try std.Thread.spawn(.{}, loop, .{self});
 }
 
 pub fn stop(self: *Self) void {
+    if (!self.running) return;
     self.running = false;
     self.thread.join();
 }
@@ -74,14 +78,37 @@ pub fn addFile(self: *Self, path: []const u8) !Handle(.File) {
 /// if it is then return true and reset file
 pub fn modified(self: *Self, handle: Handle(.File)) bool {
     var fw = self.watches.get(handle.id);
-    return @atomicRmw(bool, &fw.modified, .Xchg, false, .SeqCst);
+    return @atomicRmw(bool, &fw.modified, .Xchg, false, .Acquire);
+}
+
+/// fills the handles slice with the modified handles
+pub fn getModified(self: *Self, handles: []Handle(.File)) usize {
+    var iter = self.watches.iter();
+    var idx: usize = 0;
+    while (iter.next()) |fw| {
+        const handle = Handle(.File){
+            .id = self.watches.getIndex(fw),
+        };
+        if (self.modified(handle)) {
+            handles[idx] = handle;
+
+            if (handles.len == idx) {
+                return idx;
+            }
+
+            idx += 1;
+        }
+    }
+
+    return idx;
 }
 
 /// the main loop of the watcher
 pub fn loop(self: *Self) !void {
+    var event_buf: [4096]u8 align(@alignOf(os.linux.inotify_event)) = undefined;
+
     // big ol buffer for reading events
     while (self.running) {
-        var event_buf: [4096]u8 align(@alignOf(os.linux.inotify_event)) = undefined;
 
         // blocks for one second, then does the loop again
         if ((try os.poll(&[_]os.pollfd{.{
@@ -92,7 +119,12 @@ pub fn loop(self: *Self) !void {
             continue;
         }
 
-        const bytes_read = os.read(self.wd, &event_buf) catch unreachable;
+        const bytes_read = os.read(self.wd, &event_buf) catch |err| switch (err) {
+            error.WouldBlock => {
+                continue;
+            },
+            else => return err,
+        };
         // TODO: multiple events
         var ptr: [*]u8 = &event_buf;
         var end_ptr: [*]u8 = ptr + bytes_read;
@@ -104,9 +136,8 @@ pub fn loop(self: *Self) !void {
                 debugEventMask(ev.mask);
                 continue;
             };
-            // debugEventMask(ev.mask);
             if (ev.mask & sys.IN.MODIFY != 0 or ev.mask & sys.IN.ATTRIB != 0) {
-                fw.*.modified = true;
+                @atomicStore(bool, &fw.*.modified, true, .Release);
             }
 
             if (ev.mask & sys.IN.IGNORED != 0) {
