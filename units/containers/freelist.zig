@@ -87,7 +87,6 @@ pub fn FreeList(
                 return slot;
             }
 
-            // TODO: resize?
             return error.OutOfMemory;
         }
 

@@ -14,6 +14,7 @@ pub fn build(b: *Builder) !void {
 
     const fs_tests = b.addTest("units/fs/test.zig");
     fs_tests.addPackage(units.fs);
+    fs_tests.addPackage(units.utils);
     const test_step = b.step("test", "run fs tests");
     test_step.dependOn(&fs_tests.step);
 }

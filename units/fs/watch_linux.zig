@@ -1,5 +1,6 @@
 const std = @import("std");
 const Handle = @import("utils").Handle;
+const FreeList = @import("containers").FreeList;
 const os = std.os;
 const sys = std.os.linux;
 const Allocator = std.mem.Allocator;
@@ -7,29 +8,62 @@ const Allocator = std.mem.Allocator;
 /// api for for file system watching
 const Self = @This();
 
+const MAX_WATCHES = 64;
+
+const WATCH_FLAGS = sys.IN.ALL_EVENTS;
+
+/// Data about the file we are watching
+const FileWatch = struct {
+    /// inotify file descriptor
+    wd: i32,
+    /// path to the file we are watching
+    path: []const u8,
+    /// has this file been modified
+    modified: bool = false,
+};
+
 /// file descriptor for the watcher
 wd: i32,
 
-running: bool = true,
+running: bool = false,
+
+watches: FreeList(FileWatch),
+
+thread: std.Thread = undefined,
 
 pub fn init(allocator: Allocator) !Self {
-    _ = allocator;
     const flags: u32 = 0;
     return Self{
         // open the inotify file
         .wd = try os.inotify_init1(flags),
+        .watches = try FreeList(FileWatch).init(allocator, MAX_WATCHES),
     };
 }
 
 pub fn deinit(self: *Self) void {
     self.running = false;
+    self.watches.deinit();
     os.close(self.wd);
 }
 
+pub fn start(self: *Self) !void {
+    self.running = true;
+    self.thread = try std.Thread.spawn(.{}, loop, .{self});
+}
+
+pub fn stop(self: *Self) void {
+    self.running = false;
+    self.thread.join();
+}
+
 pub fn addFile(self: *Self, path: []const u8) !Handle(.File) {
-    // const flags: u32 = sys.IN.MODIFY;
-    const flags: u32 = sys.IN.ALL_EVENTS;
-    const id = try os.inotify_add_watch(self.wd, path, flags);
+    const wd = try os.inotify_add_watch(self.wd, path, WATCH_FLAGS);
+    const id = try self.watches.allocIndex();
+
+    self.watches.set(id, .{
+        .wd = wd,
+        .path = path,
+    });
 
     return Handle(.File){
         .id = @intCast(u32, id),
@@ -38,17 +72,26 @@ pub fn addFile(self: *Self, path: []const u8) !Handle(.File) {
 
 /// checks if a file is changed
 /// if it is then return true and reset file
-pub fn checkChanged(self: *Self, handle: Handle(.File)) bool {
-    _ = self;
-    _ = handle;
-
-    return true;
+pub fn modified(self: *Self, handle: Handle(.File)) bool {
+    var fw = self.watches.get(handle.id);
+    return @atomicRmw(bool, &fw.modified, .Xchg, false, .SeqCst);
 }
 
-pub fn run(self: *Self) !void {
+/// the main loop of the watcher
+pub fn loop(self: *Self) !void {
     // big ol buffer for reading events
     while (self.running) {
         var event_buf: [4096]u8 align(@alignOf(os.linux.inotify_event)) = undefined;
+
+        // blocks for one second, then does the loop again
+        if ((try os.poll(&[_]os.pollfd{.{
+            .fd = self.wd,
+            .events = sys.POLL.IN,
+            .revents = 0,
+        }}, std.time.ms_per_s)) == 0) {
+            continue;
+        }
+
         const bytes_read = os.read(self.wd, &event_buf) catch unreachable;
         // TODO: multiple events
         var ptr: [*]u8 = &event_buf;
@@ -56,23 +99,44 @@ pub fn run(self: *Self) !void {
 
         while (@ptrToInt(ptr) < @ptrToInt(end_ptr)) {
             const ev = @ptrCast(*const os.linux.inotify_event, ptr);
-            std.debug.print("ev: {}\n", .{ev});
-
-            inline for (@typeInfo(sys.IN).Struct.decls) |f| {
-                // std.debug.print("field: {s} {x}\n", .{ f.name,  });
-                const m = @field(sys.IN, f.name);
-                if (m & ev.mask != 0) {
-                    std.debug.print("file {s}\n", .{f.name});
-                }
+            ptr = @alignCast(@alignOf(os.linux.inotify_event), ptr + @sizeOf(os.linux.inotify_event) + ev.len);
+            const fw = self.getFileWatch(ev.wd) orelse {
+                debugEventMask(ev.mask);
+                continue;
+            };
+            // debugEventMask(ev.mask);
+            if (ev.mask & sys.IN.MODIFY != 0 or ev.mask & sys.IN.ATTRIB != 0) {
+                fw.*.modified = true;
             }
 
-            // if (ev.mask & sys.IN.MODIFY != 0) {
-            //     std.debug.print("file {}: modified\n", .{
-            //         ev.cookie,
-            //     });
-            // }
+            if (ev.mask & sys.IN.IGNORED != 0) {
+                // remove from notify
+                const wd = try os.inotify_add_watch(self.wd, fw.path, WATCH_FLAGS);
+                fw.*.wd = wd;
+            }
+        }
+    }
+}
 
-            ptr = @alignCast(@alignOf(os.linux.inotify_event), ptr + @sizeOf(os.linux.inotify_event) + ev.len);
+fn getFileWatch(self: *Self, wd: i32) ?*FileWatch {
+    // TODO: this kinda sucks since it is o(n) every event
+    // make a spare set type that fixes this
+    // This makes sense too since we are getting the file more often
+    // than the handle so this should be best case for both
+    var iter = self.watches.iter();
+    while (iter.next()) |fw| {
+        if (fw.wd == wd) {
+            return fw;
+        }
+    }
+    return null;
+}
+
+fn debugEventMask(mask: u32) void {
+    inline for (@typeInfo(sys.IN).Struct.decls) |f| {
+        const m = @field(sys.IN, f.name);
+        if (m & mask != 0 and m != sys.IN.ALL_EVENTS) {
+            std.debug.print("file {s}\n", .{f.name});
         }
     }
 }
