@@ -52,10 +52,11 @@ test "watch_get_modified" {
 
     var modified = [_]Handle(.File){ .{}, .{} };
     const n = w.getModified(&modified);
-    std.debug.print("n modified {}\n", .{n});
     try std.testing.expect(n == 2);
 
+    std.debug.print("waiting for watcher to stop\n", .{});
     w.stop();
+    std.debug.print("watcher to stoped\n", .{});
 
     for (paths) |path| {
         try std.fs.cwd().deleteFile(path);
@@ -69,39 +70,35 @@ test "interactive_watch" {
     try w.start();
 
     // create and add files
-    // const contents =
-    //     \\line 1
-    //     \\line 2
-    // ;
-    // var paths = [_][]const u8{ "./test.txt", "./test1.txt", "./test2.txt", "testbed/assets/default.frag.spv" };
-    var paths = [_][]const u8{"testbed/assets/default.frag.spv"};
+    const contents =
+        \\line 1
+        \\line 2
+    ;
+    var paths = [_][]const u8{ "./test.txt", "./test1.txt", "./test2.txt" };
     var handles: [paths.len]Handle(.File) = undefined;
 
-    // try std.fs.cwd().writeFile(paths[2], contents);
     for (paths) |path, i| {
-        // try std.fs.cwd().writeFile(path, contents);
+        try std.fs.cwd().writeFile(path, contents);
         handles[i] = try w.addFile(path);
     }
 
     var cthread = try std.Thread.spawn(.{}, changedloop, .{ &w, &handles, &paths });
 
-    // handles[2] = try w.addFile(paths[2]);
+    const new_contents =
+        \\beepy
+        \\baba
+    ;
 
-    // const new_contents =
-    //     \\beepy
-    //     \\baba
-    // ;
-
-    // try std.fs.cwd().writeFile(paths[0], new_contents);
+    try std.fs.cwd().writeFile(paths[0], new_contents);
 
     cthread.join();
     std.debug.print("joined the change loop\n", .{});
     w.stop();
 
     // clean up the files
-    // for (paths) |path| {
-    //     std.fs.cwd().deleteFile(path) catch {
-    //         std.debug.print("cant find {s}\n", .{path});
-    //     };
-    // }
+    for (paths) |path| {
+        std.fs.cwd().deleteFile(path) catch {
+            std.debug.print("cant find {s}\n", .{path});
+        };
+    }
 }
