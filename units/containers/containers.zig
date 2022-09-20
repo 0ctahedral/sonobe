@@ -3,6 +3,7 @@
 //!
 
 pub const hash = @import("hash.zig");
-pub const RingBuffer = @import("ringbuffer.zig").RingBuffer;
+pub const RingBuffer = @import("ring_buffer.zig").RingBuffer;
 pub const FreeList = @import("freelist.zig").FreeList;
 pub const Cache = @import("cache.zig").Cache;
+pub const SparseSet = @import("./sparse_set.zig").SparseSet;
