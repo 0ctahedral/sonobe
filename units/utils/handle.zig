@@ -1,4 +1,5 @@
 const std = @import("std");
+const utils = @import("./utils.zig");
 const testing = @import("std").testing;
 
 /// indexing type for handles
@@ -105,7 +106,7 @@ test "create one" {
 }
 
 fn takesErased(h: ErasedHandle) void {
-    std.debug.print("oopsies {}", .{h});
+    utils.log.debug("oopsies {}", .{h});
 }
 
 test "erase handle" {

@@ -1,5 +1,6 @@
 const std = @import("std");
-const Handle = @import("utils").Handle;
+const utils = @import("utils");
+const Handle = utils.Handle;
 const FreeList = @import("containers").FreeList;
 const os = std.os;
 const sys = std.os.linux;
@@ -169,7 +170,7 @@ fn debugEventMask(mask: u32) void {
     inline for (@typeInfo(sys.IN).Struct.decls) |f| {
         const m = @field(sys.IN, f.name);
         if (m & mask != 0 and m != sys.IN.ALL_EVENTS) {
-            std.debug.print("file {s}\n", .{f.name});
+            utils.log.debug("file {s}\n", .{f.name});
         }
     }
 }

@@ -1,4 +1,5 @@
 const std = @import("std");
+const utils = @import("utils");
 const Allocator = std.mem.Allocator;
 const ArrayList = std.ArrayList;
 const math = @import("math");
@@ -63,7 +64,7 @@ const JsonChunk = struct {
         var mesh_listes = tree.root.Object.get("meshes").?.Array;
 
         for (mesh_listes.items) |m, i| {
-            std.debug.print("\nmesh_list[{}]\n", .{i});
+            utils.log.debug("\nmesh_list[{}]\n", .{i});
             var prims = m.Object.get("primitives").?.Array;
             for (prims.items) |p, j| {
                 // ASSUME THE MODE IS ALWAYS TRIANGLES
@@ -79,7 +80,7 @@ const JsonChunk = struct {
                     .norm = @intCast(usize, attrs.get("NORMAL").?.Integer),
                 };
 
-                std.debug.print("primitive[{}] = {}\n", .{ j, self.primitive });
+                utils.log.debug("primitive[{}] = {}\n", .{ j, self.primitive });
             }
         }
 
@@ -91,7 +92,7 @@ const JsonChunk = struct {
                 .count = @intCast(usize, obj.get("count").?.Integer),
             };
             try self.accessors.append(acc);
-            std.debug.print("accessor {}: {}\n", .{ i, acc });
+            utils.log.debug("accessor {}: {}\n", .{ i, acc });
         }
 
         for (tree.root.Object.get("bufferViews").?.Array.items) |v, i| {
@@ -103,12 +104,12 @@ const JsonChunk = struct {
                 .stride = if (obj.get("byteStride")) |s| @intCast(usize, s.Integer) else null,
             };
             try self.bufviews.append(bv);
-            std.debug.print("bv[{}]: {}\n", .{ i, bv });
+            utils.log.debug("bv[{}]: {}\n", .{ i, bv });
         }
 
         var buffers = tree.root.Object.get("buffers").?.Array;
         for (buffers.items) |b, i| {
-            std.debug.print("buf[{}] len = {}\n", .{ i, b.Object.get("byteLength").?.Integer });
+            utils.log.debug("buf[{}] len = {}\n", .{ i, b.Object.get("byteLength").?.Integer });
         }
         return self;
     }
@@ -213,9 +214,9 @@ pub fn MeshFromGltf(
 //
 //    const mesh = try MeshFromGltf(path, allocator);
 //    defer mesh.deinit();
-//    std.debug.print("inds: {any}\n", .{mesh.indices.items});
+//    utils.log.debug("inds: {any}\n", .{mesh.indices.items});
 //    for (mesh.positions.items) |p| {
-//        std.debug.print("pos: {d:.2}, {d:.2}, {d:.2}\n", .{ p.x, p.y, p.z });
+//        utils.log.debug("pos: {d:.2}, {d:.2}, {d:.2}\n", .{ p.x, p.y, p.z });
 //    }
 //}
 
@@ -225,9 +226,9 @@ test "octahedron_binary_gltf" {
 
     const mesh = try MeshFromGltf(path, allocator);
     defer mesh.deinit();
-    std.debug.print("inds: {any}\n", .{mesh.indices.items});
+    utils.log.debug("inds: {any}\n", .{mesh.indices.items});
     for (mesh.positions.items) |p| {
-        std.debug.print("pos: {d:.2}, {d:.2}, {d:.2}\n", .{ p.x, p.y, p.z });
+        utils.log.debug("pos: {d:.2}, {d:.2}, {d:.2}\n", .{ p.x, p.y, p.z });
     }
 }
 
@@ -236,8 +237,8 @@ test "seamus_binary_gltf" {
     const path = "assets/models/seamus.glb";
     const mesh = try MeshFromGltf(path, allocator);
     defer mesh.deinit();
-    std.debug.print("inds: {any}\n", .{mesh.indices.items});
+    utils.log.debug("inds: {any}\n", .{mesh.indices.items});
     for (mesh.positions.items) |p| {
-        std.debug.print("pos: {d:.2}, {d:.2}, {d:.2}\n", .{ p.x, p.y, p.z });
+        utils.log.debug("pos: {d:.2}, {d:.2}, {d:.2}\n", .{ p.x, p.y, p.z });
     }
 }

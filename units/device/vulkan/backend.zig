@@ -11,7 +11,8 @@ const Vec3 = math.Vec3;
 const Vec2 = math.Vec2;
 
 const descs = @import("../resources/descs.zig");
-const Handle = @import("utils").Handle;
+const utils = @import("utils");
+const Handle = utils.Handle;
 const CmdBuf = @import("../cmdbuf.zig");
 
 const dispatch_types = @import("dispatch_types.zig");
@@ -180,7 +181,7 @@ pub fn init(provided_allocator: Allocator, app_name: [*:0]const u8, window: plat
     );
 
     // create framebuffers
-    std.log.info("fbw: {} fbh: {}", .{ fb_width, fb_width });
+    utils.log.info("fbw: {} fbh: {}", .{ fb_width, fb_width });
     swapchain_render_targets = try allocator.alloc(RenderTarget, swapchain.img_count);
     for (swapchain_render_targets) |*rt| {
         rt.framebuffer = .null_handle;
@@ -222,14 +223,14 @@ pub fn deinit() void {
 
 pub fn onResize(w: u32, h: u32) void {
     size_gen += 1;
-    std.log.warn("resize triggered: {}x{}, gen: {}", .{ w, h, size_gen });
+    utils.log.warn("resize triggered: {}x{}, gen: {}", .{ w, h, size_gen });
     fb_width = w;
     fb_height = h;
 }
 
 pub fn beginFrame() !bool {
     if (recreating_swapchain) {
-        std.log.info("waiting for swapchain", .{});
+        utils.log.info("waiting for swapchain", .{});
         try device.vkd.deviceWaitIdle(device.logical);
         return false;
     }
@@ -241,18 +242,18 @@ pub fn beginFrame() !bool {
             return false;
         }
 
-        std.log.info("resized, booting frame", .{});
+        utils.log.info("resized, booting frame", .{});
         return false;
     }
 
     // wait for current frame
-    //std.log.info("waiting for render fence: {}", .{getCurrentFrame().render_fence.handle});
+    //utils.log.info("waiting for render fence: {}", .{getCurrentFrame().render_fence.handle});
     try getCurrentFrame().render_fence.wait(device, std.math.maxInt(u64));
 
     image_index = swapchain.acquireNext(device, getCurrentFrame().image_available, Fence{}) catch |err| {
         switch (err) {
             error.OutOfDateKHR => {
-                std.log.warn("failed to aquire, booting", .{});
+                utils.log.warn("failed to aquire, booting", .{});
                 return false;
             },
             else => |narrow| return narrow,
@@ -410,7 +411,7 @@ pub fn endFrame() !void {
     swapchain.present(device, device.present.?, getCurrentFrame().render_finished, @intCast(u32, image_index)) catch |err| {
         switch (err) {
             error.OutOfDateKHR => {
-                std.log.warn("swapchain out of date in end frame", .{});
+                utils.log.warn("swapchain out of date in end frame", .{});
             },
             else => |narrow| return narrow,
         }
@@ -431,12 +432,12 @@ fn vk_debug(
     _ = message_descs;
     _ = p_callback_data;
     _ = p_user_data;
-    std.log.info("{s}", .{p_callback_data.?.*.p_message});
+    utils.log.info("{s}", .{p_callback_data.?.*.p_message});
     return vk.FALSE;
 }
 
 pub fn recreateRenderTargets() !void {
-    std.log.info("fbw: {} fbh: {}", .{ fb_width, fb_height });
+    utils.log.info("fbw: {} fbh: {}", .{ fb_width, fb_height });
     for (swapchain.render_textures) |tex, i| {
         const attachments = [_]Texture{ tex, swapchain.depth_texture };
 
@@ -455,20 +456,20 @@ pub fn recreateRenderTargets() !void {
 
 fn recreateSwapchain() !bool {
     if (recreating_swapchain) {
-        std.log.warn("already recreating", .{});
+        utils.log.warn("already recreating", .{});
         return false;
     }
 
     if (fb_width == 0 or fb_height == 0) {
-        std.log.info("dimesnsion is zero so, no", .{});
+        utils.log.info("dimesnsion is zero so, no", .{});
         return false;
     }
 
     recreating_swapchain = true;
-    std.log.info("recreating swapchain", .{});
+    utils.log.info("recreating swapchain", .{});
 
     try device.vkd.deviceWaitIdle(device.logical);
-    std.log.info("device done waiting", .{});
+    utils.log.info("device done waiting", .{});
 
     try swapchain.recreate(vki, device, surface, fb_width, fb_height, allocator);
 
@@ -490,7 +491,7 @@ fn recreateSwapchain() !bool {
     }
 
     recreating_swapchain = false;
-    std.log.info("done recreating swapchain", .{});
+    utils.log.info("done recreating swapchain", .{});
 
     return true;
 }

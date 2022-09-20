@@ -239,9 +239,9 @@ fn addGlyphToTexture(
     self.bb_cache.next_index += 1;
 
     //for (pixels) |b, i| {
-    //    std.debug.print("{d}, ", .{b});
+    //    utils.log.debug("{d}, ", .{b});
     //    if ((i + 1) % 16 == 0) {
-    //        std.debug.print("//\n", .{});
+    //        utils.log.debug("//\n", .{});
     //    }
     //}
     return bb;

@@ -1,4 +1,5 @@
 const std = @import("std");
+const utils = @import("utils");
 const builtin = @import("builtin");
 const vk = @import("vulkan");
 const InstanceDispatch = @import("../device/vulkan/dispatch_types.zig").InstanceDispatch;
@@ -74,9 +75,9 @@ pub fn handle_event(ev: events.Event) bool {
             // nobody else really needs this event
             return false;
         },
-        .WindowClose => |id| std.log.info("window {} closed", .{id}),
+        .WindowClose => |id| utils.log.info("window {} closed", .{id}),
         .WindowResize => |r| {
-            std.log.debug("event: {}", .{r});
+            utils.log.debug("event: {}", .{r});
         },
         else => {},
     }

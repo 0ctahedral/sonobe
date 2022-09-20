@@ -4,7 +4,8 @@ pub const descs = @import("resources/descs.zig");
 const MAX_FRAMES = @import("vulkan/backend.zig").MAX_FRAMES;
 
 const FreeList = @import("containers").FreeList;
-const Handle = @import("utils").Handle;
+const utils = @import("utils");
+const Handle = utils.Handle;
 
 const Device = @import("vulkan/device.zig").Device;
 const Buffer = @import("vulkan/buffer.zig").Buffer;
@@ -616,7 +617,7 @@ pub inline fn destroy(handle: Handle(null)) void {
 
 fn validateHandle(handle: anytype) void {
     if (handle.id == 0) {
-        std.debug.print("invalid handle: {}!\n", .{handle.id});
+        utils.log.debug("invalid handle: {}!\n", .{handle.id});
         @breakpoint();
     }
 }

@@ -1,5 +1,6 @@
 const std = @import("std");
 const vk = @import("vulkan");
+const utils = @import("utils");
 const dispatch_types = @import("dispatch_types.zig");
 const DeviceDispatch = dispatch_types.DeviceDispatch;
 const InstanceDispatch = dispatch_types.InstanceDispatch;
@@ -73,19 +74,19 @@ pub const Device = struct {
 
         if (self.graphics) |q| {
             indices[q.idx] += 1;
-            std.log.info("graphics idx: {}", .{q.idx});
+            utils.log.info("graphics idx: {}", .{q.idx});
         }
         if (self.compute) |q| {
             indices[q.idx] += 1;
-            std.log.info("compute idx: {}", .{q.idx});
+            utils.log.info("compute idx: {}", .{q.idx});
         }
         if (self.transfer) |q| {
             indices[q.idx] += 1;
-            std.log.info("transfer idx: {}", .{q.idx});
+            utils.log.info("transfer idx: {}", .{q.idx});
         }
         if (self.present) |q| {
             indices[q.idx] += 1;
-            std.log.info("present idx: {}", .{q.idx});
+            utils.log.info("present idx: {}", .{q.idx});
         }
 
         const priority = [_]f32{1};
@@ -176,10 +177,10 @@ pub const Device = struct {
             const mem = vki.getPhysicalDeviceMemoryProperties(pdev);
             const features = vki.getPhysicalDeviceFeatures(pdev);
 
-            std.log.info("looking at device: {s}", .{props.device_name});
+            utils.log.info("looking at device: {s}", .{props.device_name});
 
             if (reqs.discrete and !(props.device_type == vk.PhysicalDeviceType.discrete_gpu)) {
-                std.log.warn("device {s} does not meet requirement of discrete gpu", .{props.device_name});
+                utils.log.warn("device {s} does not meet requirement of discrete gpu", .{props.device_name});
                 continue;
             }
 
@@ -203,7 +204,7 @@ pub const Device = struct {
                             break;
                         }
                     } else {
-                        std.log.warn("device {s} does not have required extension {s}", .{ props.device_name, ext });
+                        utils.log.warn("device {s} does not have required extension {s}", .{ props.device_name, ext });
                         break :blk false;
                     }
                 }
@@ -260,19 +261,19 @@ pub const Device = struct {
             }
 
             if (ret.graphics == null and reqs.graphics) {
-                std.log.warn("device {s} does not meet requirement of graphics queue", .{props.device_name});
+                utils.log.warn("device {s} does not meet requirement of graphics queue", .{props.device_name});
                 continue;
             }
             if (ret.present == null and reqs.present) {
-                std.log.warn("device {s} does not meet requirement of present queue", .{props.device_name});
+                utils.log.warn("device {s} does not meet requirement of present queue", .{props.device_name});
                 continue;
             }
             if (ret.compute == null and reqs.compute) {
-                std.log.warn("device {s} does not meet requirement of compute queue", .{props.device_name});
+                utils.log.warn("device {s} does not meet requirement of compute queue", .{props.device_name});
                 continue;
             }
             if (ret.transfer == null and reqs.transfer) {
-                std.log.warn("device {s} does not meet requirement of transfer queue", .{props.device_name});
+                utils.log.warn("device {s} does not meet requirement of transfer queue", .{props.device_name});
                 continue;
             }
 
@@ -284,12 +285,12 @@ pub const Device = struct {
             _ = try vki.getPhysicalDeviceSurfacePresentModesKHR(pdev, surface, &present_mode_count, null);
 
             if (format_count == 0) {
-                std.log.warn("device {s} does not meet requirement of surface formats", .{props.device_name});
+                utils.log.warn("device {s} does not meet requirement of surface formats", .{props.device_name});
                 continue;
             }
 
             if (present_mode_count == 0) {
-                std.log.warn("device {s} does not meet requirement of surface present modes", .{props.device_name});
+                utils.log.warn("device {s} does not meet requirement of surface present modes", .{props.device_name});
                 continue;
             }
 
@@ -298,7 +299,7 @@ pub const Device = struct {
             ret.features = features;
             ret.physical = pdev;
 
-            std.log.info("device {s} meets requirements", .{props.device_name});
+            utils.log.info("device {s} meets requirements", .{props.device_name});
             return ret;
         }
 
@@ -312,7 +313,7 @@ pub const Device = struct {
             }
         }
 
-        std.log.err("cannot find mem index type: {} flags: {}", .{ type_bits, flags });
+        utils.log.err("cannot find mem index type: {} flags: {}", .{ type_bits, flags });
 
         return error.CannotFindMemoryIndex;
     }

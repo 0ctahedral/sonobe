@@ -216,10 +216,10 @@ test "no funcs called" {
 // TESTS AND STUFF
 fn onesuspend(a: *u32, c: *Counter) void {
     a.* += 1;
-    // std.debug.print("added 1\n", .{});
+    // utils.log.debug("added 1\n", .{});
     wait(c, 0);
     a.* += 1;
-    // std.debug.print("added 1 again\n", .{});
+    // utils.log.debug("added 1 again\n", .{});
 }
 
 test "function with single suspend" {
@@ -251,17 +251,17 @@ test "function with single suspend" {
 
 fn spawner(i: *u32) void {
     var c = Counter{};
-    // std.debug.print("spanwing other job\n", .{});
+    // utils.log.debug("spanwing other job\n", .{});
     i.* += 1;
     run(other, .{i}, &c) catch unreachable;
-    // std.debug.print("waiting for other job\n", .{});
+    // utils.log.debug("waiting for other job\n", .{});
     wait(&c, 0);
-    // std.debug.print("spawn done\n", .{});
+    // utils.log.debug("spawn done\n", .{});
 }
 
 fn other(i: *u32) void {
     i.* += 1;
-    // std.debug.print("hello from other job\n", .{});
+    // utils.log.debug("hello from other job\n", .{});
 }
 
 test "job spawns job" {
@@ -334,7 +334,7 @@ pub fn checkQueueMask(kq: i32, kev: os.Kevent, mask: u32) void {
     while (true) {
         // oof kinda gnarly
         while (os.kevent(kq, &monitor, &event_data, &std.os.timespec{ .tv_sec = 0, .tv_nsec = 0 }) catch |err| {
-            std.debug.print("kevent error: {s}", .{@errorName(err)});
+            utils.log.debug("kevent error: {s}", .{@errorName(err)});
             return;
         } > 0) {
             if ((event_data[0].fflags & mask) != 0) {
@@ -351,10 +351,10 @@ pub fn checkQueue(kq: i32, kev: os.Kevent) void {
     while (true) {
         // oof kinda gnarly
         while (os.kevent(kq, &monitor, &event_data, &std.os.timespec{ .tv_sec = 0, .tv_nsec = 0 }) catch |err| {
-            std.debug.print("kevent error: {s}", .{@errorName(err)});
+            utils.log.debug("kevent error: {s}", .{@errorName(err)});
             return;
         } > 0) {
-            std.debug.print("kevent: {}", .{event_data[0]});
+            utils.log.debug("kevent: {}", .{event_data[0]});
             return;
         }
         sleep(std.time.ns_per_s);
@@ -394,16 +394,16 @@ test "file watch" {
 
     while (true) {
         if (file_del.val() == 0) {
-            std.debug.print("\nfile deleted\n", .{});
+            utils.log.debug("\nfile deleted\n", .{});
             break;
         }
     }
 
-    std.debug.print("\nclosing file\n", .{});
+    utils.log.debug("\nclosing file\n", .{});
     os.close(fd);
 
     const fd2 = try os.open(file_path, os.O.EVTONLY, 0);
-    std.debug.print("\nreopening file\n", .{});
+    utils.log.debug("\nreopening file\n", .{});
 
     const kev2 = os.Kevent{
         .ident = @intCast(usize, fd2),
@@ -415,13 +415,13 @@ test "file watch" {
         .udata = @ptrToInt(file_path.ptr),
     };
 
-    std.debug.print("\nstarting new job\n", .{});
+    utils.log.debug("\nstarting new job\n", .{});
     // try run(checkQueueMask, .{ kq, kev, sys.NOTE_ATTRIB }, &file_chng);
     try run(checkQueue, .{ kq, kev2 }, &file_chng);
 
     while (true) {
         if (file_chng.val() == 0) {
-            std.debug.print("\nfile changed\n", .{});
+            utils.log.debug("\nfile changed\n", .{});
             break;
         }
     }
@@ -448,11 +448,11 @@ test "file watch" {
 //    // read contents of file and print them
 //    const reader = file.reader();
 //    var buf = reader.readAllAlloc(allocator, 1024) catch {
-//        std.debug.print("could not read\n", .{});
+//        utils.log.debug("could not read\n", .{});
 //        return;
 //    };
 //    defer allocator.free(buf);
-//    std.debug.print("contents: {s}\n", .{buf});
+//    utils.log.debug("contents: {s}\n", .{buf});
 //}
 //
 //const test_tmp_dir = "tmp_test";
@@ -526,7 +526,7 @@ test "file watch" {
 //    var n: u8 = 0;
 //    while (true) {
 //        if (file_c.val() == 0) {
-//            std.debug.print("\nfile changed\n", .{});
+//            utils.log.debug("\nfile changed\n", .{});
 //            if (n == 3) {
 //                break;
 //            }

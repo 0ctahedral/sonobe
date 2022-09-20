@@ -1,5 +1,6 @@
 const std = @import("std");
-const Handle = @import("utils").Handle;
+const utils = @import("utils");
+const Handle = utils.Handle;
 const os = std.os;
 const sys = std.os.system;
 const Allocator = std.mem.Allocator;
@@ -109,7 +110,7 @@ fn processEvents(self: *Self, events: []os.Kevent) !void {
             os.close(d.fd);
             d.*.fd = try os.open(d.path, os.O.EVTONLY, 0);
         } else {
-            std.log.warn("unknown event: {}\n", .{ev});
+            utils.log.warn("unknown event: {}\n", .{ev});
         }
     }
 }

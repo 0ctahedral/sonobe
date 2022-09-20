@@ -7,7 +7,8 @@
 const std = @import("std");
 const Window = @import("window.zig");
 const RingBuffer = @import("containers").RingBuffer;
-const Handle = @import("utils").Handle;
+const utils = @import("utils");
+const Handle = utils.Handle;
 const input = @import("input.zig");
 const Key = input.Key;
 const Vec2 = @import("math").Vec2;
@@ -92,7 +93,7 @@ pub fn deinit() void {
 pub fn enqueue(event: Event) void {
     _ = event_queue[@enumToInt(event)].push(event) catch |err| {
         switch (err) {
-            error.BufferFull => std.log.warn("unable to add event: {}", .{event}),
+            error.BufferFull => utils.log.warn("unable to add event: {}", .{event}),
             else => unreachable,
         }
     };
@@ -157,7 +158,7 @@ pub fn register(event: EventType, func: anytype) !void {
     //    return error.NotInitialized;
     //}
 
-    std.log.info("registering event: {}", .{event});
+    utils.log.info("registering event: {}", .{event});
 
     if (firstNull(event)) |idx| {
         callbacks[@enumToInt(event)][idx] = Callback{

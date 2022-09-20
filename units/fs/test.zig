@@ -8,7 +8,7 @@ fn changedloop(w: *fs.Watch, handles: []Handle(.File), paths: [][]const u8) void
     while (true) {
         for (handles) |h, i| {
             if (w.modified(h)) {
-                std.debug.print("n = {}, {s} modified!\n", .{ n, paths[i] });
+                utils.log.debug("n = {}, {s} modified!\n", .{ n, paths[i] });
                 n += 1;
             }
         }
@@ -36,7 +36,7 @@ test "watch_get_modified" {
     for (paths) |path, i| {
         try std.fs.cwd().writeFile(path, contents);
         handles[i] = try w.addFile(path);
-        std.debug.print("file[{}]: {s}\n", .{ handles[i].id, path });
+        utils.log.debug("file[{}]: {s}\n", .{ handles[i].id, path });
     }
 
     try w.start();
@@ -54,9 +54,9 @@ test "watch_get_modified" {
     const n = w.getModified(&modified);
     try std.testing.expect(n == 2);
 
-    std.debug.print("waiting for watcher to stop\n", .{});
+    utils.log.debug("waiting for watcher to stop\n", .{});
     w.stop();
-    std.debug.print("watcher to stoped\n", .{});
+    utils.log.debug("watcher to stoped\n", .{});
 
     for (paths) |path| {
         try std.fs.cwd().deleteFile(path);
@@ -92,13 +92,13 @@ test "interactive_watch" {
     try std.fs.cwd().writeFile(paths[0], new_contents);
 
     cthread.join();
-    std.debug.print("joined the change loop\n", .{});
+    utils.log.debug("joined the change loop\n", .{});
     w.stop();
 
     // clean up the files
     for (paths) |path| {
         std.fs.cwd().deleteFile(path) catch {
-            std.debug.print("cant find {s}\n", .{path});
+            utils.log.debug("cant find {s}\n", .{path});
         };
     }
 }
