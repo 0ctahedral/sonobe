@@ -15,22 +15,6 @@ const Level = enum {
     warn,
     info,
     debug,
-
-    pub fn toSring(comptime self: @This()) switch (self) {
-        .fatal => @TypeOf("fatal"),
-        .err => @TypeOf("error"),
-        .warn => @TypeOf("warn"),
-        .info => @TypeOf("info"),
-        .debug => @TypeOf("debug"),
-    } {
-        return switch (self) {
-            .fatal => "fatal",
-            .err => "error",
-            .warn => "warn",
-            .info => "info",
-            .debug => "debug",
-        };
-    }
 };
 
 const color_prefix = "\x1b[";
@@ -72,14 +56,12 @@ pub fn logLevel(
 ) void {
     const color = color_prefix ++ TERM_COLORS[@enumToInt(level)] ++ color_suffix;
     const stderr = std.io.getStdErr().writer();
-    const prefix = "[" ++ comptime level.toSring() ++ "] ";
+    const prefix = "[" ++ @tagName(level) ++ "] ";
     stderr.print(color ++ prefix ++ fmt ++ color_clear ++ "\n", args) catch return;
 }
 
 test "log colors" {
     inline for (@typeInfo(Level).Enum.fields) |f| {
         logLevel(@field(Level, f.name), "{s}: bloopy", .{f.name});
-
-        //printf("\033[%sm%s\033[0m", colour_strings[colour], message);
     }
 }
