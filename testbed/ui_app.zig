@@ -35,11 +35,12 @@ const App = @This();
 // color pallet namespace
 const pallet = struct {
     pub const bg = Color.fromHex(0x190933);
-    pub const bg_alt = Color.fromHex(0x665687);
+    pub const bg_alt = Color.fromHex(0x40305D);
+
+    pub const purple = Color.fromHex(0x665687);
+    pub const active = Color.fromHex(0xB084CC);
+
     pub const fg = Color.fromHex(0xCDF3EE);
-    pub const teal = Color.fromHex(0x85EBCD);
-    pub const light_teal = Color.fromHex(0xACFCD9);
-    pub const violet = Color.fromHex(0xB084CC);
 };
 
 /// The name of this app (required)
@@ -63,15 +64,9 @@ button: UI.Id = 1,
 show_text: bool = false,
 
 const buttonStyle = .{
-    .rect = .{
-        .x = 10,
-        .y = 20,
-        .w = 200,
-        .h = 100,
-    },
-    .color = pallet.light_teal.toLinear(),
-    .hover_color = pallet.teal.toLinear(),
-    .active_color = pallet.violet.toLinear(),
+    .color = pallet.purple.toLinear(),
+    .hover_color = pallet.bg_alt.toLinear(),
+    .active_color = pallet.active.toLinear(),
 };
 
 pub fn init(app: *App) !void {
@@ -104,21 +99,29 @@ pub fn update(app: *App, dt: f64) !void {
         try std.fmt.bufPrint(buf[0..], "dt: {d:.2} fps: {d:.2}", .{ dt * 1000.0, platform.fps() }),
         Vec2.new(0, 0),
         24,
-        pallet.bg_alt.toLinear(),
+        pallet.purple.toLinear(),
     );
 
-    if (app.show_text) {
-        _ = try app.font_ren.addString(
-            "you clicked!",
-            Vec2.new(200, 60),
-            16,
-            pallet.fg.toLinear(),
-        );
-    }
-
-    if (app.ui.button(&app.button, buttonStyle)) {
+    const rect = .{
+        .x = @intToFloat(f32, device.w) - 110,
+        .y = 10,
+        .w = 100,
+        .h = 50,
+    };
+    if (app.ui.button(&app.button, rect, buttonStyle)) {
         app.show_text = !app.show_text;
     }
+
+    var text: []const u8 = "click me";
+    if (app.show_text) {
+        text = "thank you";
+    }
+    _ = try app.font_ren.addString(
+        text,
+        Vec2.new(rect.x + 5, rect.y + 5),
+        16,
+        pallet.fg.toLinear(),
+    );
 
     try app.ui.update();
 }

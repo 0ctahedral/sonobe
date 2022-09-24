@@ -37,8 +37,8 @@ const RectData = packed struct {
     color: Color,
 };
 
-const MAX_QUADS = 1024;
-const BUF_SIZE = @sizeOf(Mat4) + MAX_QUADS * @sizeOf(RectData);
+const MAX_RECTS = 1024;
+const BUF_SIZE = @sizeOf(Mat4) + MAX_RECTS * @sizeOf(RectData);
 
 // way of identifying the item
 pub const Id = u32;
@@ -85,7 +85,7 @@ pub fn init(
 
     self.idx_buffer = try resources.createBuffer(
         .{
-            .size = MAX_QUADS * 6 * @sizeOf(u32),
+            .size = MAX_RECTS * 6 * @sizeOf(u32),
             .usage = .Index,
         },
     );
@@ -106,7 +106,10 @@ pub fn init(
     var pl_desc = descs.PipelineDesc{
         .renderpass = screen_pass,
         .cull_mode = .back,
-        .depth_stencil_flags = .{ .depth_write_enable = false },
+        .depth_stencil_flags = .{
+            .depth_write_enable = false,
+            .depth_test_enable = false,
+        },
     };
     pl_desc.bind_groups[0] = self.group;
     pl_desc.stages[0] = .{
@@ -159,7 +162,8 @@ pub fn draw(self: *Self, cmd: *CmdBuf) !void {
 
 // helpers
 
-fn addRect(
+/// just adds a rectangle to the buffer of geometry to draw
+pub fn addRect(
     self: *Self,
     rect: Rect,
     color: Color,
@@ -244,18 +248,22 @@ fn reset(self: *Self) void {
 
 // widgets
 
-pub const ButtonDesc = struct {
-    rect: Rect,
+pub const ButtonStyle = struct {
     color: Color,
     hover_color: Color,
     active_color: Color,
 };
 
-pub fn button(self: *Self, id: *Id, desc: ButtonDesc) bool {
+pub fn button(
+    self: *Self,
+    id: *Id,
+    rect: Rect,
+    style: ButtonStyle,
+) bool {
     const mouse = input.getMouse();
 
     var result = false;
-    var color = desc.color;
+    var color = style.color;
 
     if (id.* == 0) {
         // id.* = self.getId();
@@ -264,7 +272,7 @@ pub fn button(self: *Self, id: *Id, desc: ButtonDesc) bool {
 
     // check if the cursor intersects this button
     // if it does then set to hover
-    if (desc.rect.intersects(mouse.pos)) {
+    if (rect.intersects(mouse.pos)) {
         self.setHover(id.*);
     }
 
@@ -277,9 +285,9 @@ pub fn button(self: *Self, id: *Id, desc: ButtonDesc) bool {
             }
             self.reset();
         }
-        color = desc.active_color;
+        color = style.active_color;
     } else if (self.isHover(id.*)) {
-        color = desc.hover_color;
+        color = style.hover_color;
         // if the mouse is down and was already hovering over this
         // then we are not active
         if (mouse.getButton(.left).action == .press) {
@@ -287,7 +295,7 @@ pub fn button(self: *Self, id: *Id, desc: ButtonDesc) bool {
         }
     }
 
-    self.addRect(desc.rect, color);
+    self.addRect(rect, color);
 
     return result;
 }
