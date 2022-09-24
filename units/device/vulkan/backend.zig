@@ -12,6 +12,7 @@ const Vec2 = math.Vec2;
 
 const descs = @import("../resources/descs.zig");
 const utils = @import("utils");
+const Color = utils.Color;
 const Handle = utils.Handle;
 const CmdBuf = @import("../cmdbuf.zig");
 
@@ -174,7 +175,7 @@ pub fn init(provided_allocator: Allocator, app_name: [*:0]const u8, window: plat
                 .depth = true,
                 .stencil = true,
             },
-            .clear_color = Vec4.new(0, 0, 0.1, 1),
+            .clear_color = Color.rgba(0, 0, 0.1, 1),
             .clear_depth = 1.0,
             .clear_stencil = 0,
         },

@@ -7,6 +7,7 @@ const cube = @import("mesh").cube;
 const resources = device.resources;
 const descs = device.resources.descs;
 const color = utils.color;
+const Color = utils.Color;
 const Handle = utils.Handle;
 const Vec4 = math.Vec4;
 const Vec3 = math.Vec3;
@@ -39,7 +40,7 @@ pub fn init(camera: Camera, procedural: bool, allocator: std.mem.Allocator) !Sel
     // skybox stuff
     // setup the texture
     self.pass = try resources.createRenderPass(.{
-        .clear_color = Vec4{ .w = 1.0 },
+        .clear_color = Color{},
         .clear_depth = 1.0,
         .clear_stencil = 1.0,
         .clear_flags = .{ .color = true, .depth = true },

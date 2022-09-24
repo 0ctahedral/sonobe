@@ -1,5 +1,6 @@
-const Handle = @import("utils").Handle;
-const math = @import("math");
+const utils = @import("utils");
+const Handle = utils.Handle;
+const Color = utils.Color;
 /// Identifier for a device resource
 /// the default values in the struct indicate a null handle
 /// TODO: use enums/descs to make this descsafe
@@ -95,7 +96,7 @@ pub const RenderPassDesc = struct {
         stencil: bool = false,
     };
     /// color this renderpass should clear the rendertarget to
-    clear_color: math.Vec4,
+    clear_color: Color,
     /// value the renderpass should clear the rendertarget depth bufffer to
     clear_depth: f32,
     /// value the renderpass should clear the rendertarget stencil buffer to

@@ -1,8 +1,8 @@
 //! Entrypoint for an app built with the engine!
 
 const std = @import("std");
-// const App = @import("ui_app.zig");
-const App = @import("app.zig");
+const App = @import("ui_app.zig");
+// const App = @import("app.zig");
 const platform = @import("platform");
 const device = @import("device");
 const events = platform.events;

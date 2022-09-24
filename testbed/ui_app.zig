@@ -1,7 +1,7 @@
 const std = @import("std");
 const utils = @import("utils");
 const Handle = utils.Handle;
-const color = utils.color;
+const Color = utils.Color;
 const mesh = @import("mesh");
 const quad = mesh.quad;
 
@@ -30,6 +30,16 @@ const allocator = std.testing.allocator;
 // we can then make our app a package which is included by the engine
 const App = @This();
 
+// color pallet namespace
+const pallet = struct {
+    pub const bg = Color.fromHex(0x190933);
+    pub const bg_alt = Color.fromHex(0x665687);
+    pub const fg = Color.fromHex(0xCDF3EE);
+    pub const teal = Color.fromHex(0x85EBCD);
+    pub const light_teal = Color.fromHex(0xACFCD9);
+    pub const violet = Color.fromHex(0xB084CC);
+};
+
 /// The name of this app (required)
 pub const name = "testbed";
 
@@ -51,7 +61,7 @@ font_ren: FontRen = undefined,
 
 const UIData = packed struct {
     rect: Vec4,
-    color: Vec4,
+    color: Color,
 };
 
 const MAX_QUADS = 1024;
@@ -89,7 +99,7 @@ pub fn init(app: *App) !void {
     });
 
     app.screen_pass = try resources.createRenderPass(.{
-        .clear_color = Vec4.new(0.75, 0.49, 0.89, 1.0),
+        .clear_color = pallet.bg.toLinear(),
         .clear_depth = 1.0,
         .clear_stencil = 1.0,
         .clear_flags = .{ .color = true, .depth = true },
@@ -110,11 +120,10 @@ pub fn init(app: *App) !void {
     defer allocator.free(frag_data);
 
     var pl_desc = descs.PipelineDesc{
-        .bind_groups = &.{app.ui_group},
         .renderpass = app.screen_pass,
         .cull_mode = .back,
-        .vertex_inputs = &.{},
     };
+    pl_desc.bind_groups[0] = app.ui_group;
     pl_desc.stages[0] = .{
         .bindpoint = .Vertex,
         .data = vert_data,
@@ -142,7 +151,7 @@ pub fn update(app: *App, dt: f64) !void {
         try std.fmt.bufPrint(buf[0..], "dt: {d:.2} fps: {d:.2}", .{ dt * 1000.0, platform.fps() }),
         Vec2.new(0, 0),
         12,
-        color.hexToVec4(0xffffffff),
+        pallet.fg.toLinear(),
     );
 }
 

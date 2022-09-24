@@ -2,7 +2,9 @@ const std = @import("std");
 const device = @import("device");
 const descs = device.resources.descs;
 const math = @import("math");
-const Handle = @import("utils").Handle;
+const utils = @import("utils");
+const Handle = utils.Handle;
+const Color = utils.Color;
 const quad = @import("mesh").quad;
 
 const resources = device.resources;
@@ -22,7 +24,7 @@ const Self = @This();
 const GlyphData = struct {
     rect: Vec4,
     bb: Vec4,
-    color: Vec4,
+    color: Color,
 };
 
 const MAX_GLYPHS = 1024;
@@ -258,7 +260,7 @@ pub fn addString(
     /// font height in pixels 
     height: f32,
     /// the color of this string
-    color: Vec4,
+    color: Color,
 ) !Vec2 {
     var offset = Vec2{};
     var max_y = height;
@@ -290,7 +292,7 @@ pub fn addGlyph(
     /// font height in pixels 
     height: f32,
     /// the color of this glyph
-    color: Vec4,
+    color: Color,
 ) !Vec2 {
     // convert from points to pixels
     // assumes a ppi of 96

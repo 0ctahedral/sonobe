@@ -12,11 +12,18 @@ pub fn build(b: *Builder) !void {
     const testbed = @import("testbed/build.zig");
     try testbed.build(b);
 
-    const fs_tests = b.addTest("units/fs/test.zig");
-    fs_tests.addPackage(units.fs);
-    fs_tests.addPackage(units.utils);
     const test_step = b.step("test", "run fs tests");
-    test_step.dependOn(&fs_tests.step);
+
+    // const fs_tests = b.addTest("units/fs/test.zig");
+    // fs_tests.addPackage(units.fs);
+    // fs_tests.addPackage(units.utils);
+    // test_step.dependOn(&fs_tests.step);
+
+    const utils_tests = b.addTest("units/utils/color.zig");
+    for (units.utils.dependencies.?) |d| {
+        utils_tests.addPackage(d);
+    }
+    test_step.dependOn(&utils_tests.step);
 }
 
 pub fn linkDeps(b: *Builder, exe: *std.build.LibExeObjStep) !void {

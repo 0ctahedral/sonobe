@@ -1,7 +1,7 @@
 const std = @import("std");
 const utils = @import("utils");
 const Handle = utils.Handle;
-const color = utils.color;
+const Color = utils.Color;
 const mesh = @import("mesh");
 const cube = mesh.cube;
 const quad = mesh.quad;
@@ -38,7 +38,7 @@ const App = @This();
 pub const name = "testbed";
 
 const MaterialData = struct {
-    albedo: Vec4 = color.hexToVec4(0x70819BFF),
+    albedo: Color = Color.fromHex(0x70819B),
     tile: Vec2 = Vec2.new(10, 10),
 };
 
@@ -127,14 +127,14 @@ pub fn init(app: *App) !void {
     });
 
     app.world_pass = try resources.createRenderPass(.{
-        .clear_color = Vec4.new(0.75, 0.49, 0.89, 1.0),
+        .clear_color = Color.rgba(0.75, 0.49, 0.89, 1.0),
         .clear_depth = 1.0,
         .clear_stencil = 1.0,
         .clear_flags = .{ .depth = true },
     });
 
     app.screen_pass = try resources.createRenderPass(.{
-        .clear_color = Vec4.new(0.75, 0.49, 0.89, 1.0),
+        .clear_color = Color.rgba(0.75, 0.49, 0.89, 1.0),
         .clear_depth = 1.0,
         .clear_stencil = 1.0,
         .clear_flags = .{},
@@ -233,7 +233,7 @@ pub fn update(app: *App, dt: f64) !void {
             try std.fmt.bufPrint(buf[0..], "dt: {d:.2} fps: {d:.2}", .{ platform.dt() * 1000.0, platform.fps() }),
             Vec2.new(0, 0),
             12,
-            color.hexToVec4(0xffffffff),
+            Color{},
         );
     }
 
