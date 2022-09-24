@@ -1,16 +1,18 @@
 const std = @import("std");
 const utils = @import("utils");
+const log = utils.log;
 const Handle = utils.Handle;
 const Color = utils.Color;
 const mesh = @import("mesh");
 const quad = mesh.quad;
+
+const UI = @import("ui.zig");
 
 const device = @import("device");
 const descs = device.resources.descs;
 const render = @import("render");
 const resources = @import("device").resources;
 const platform = @import("platform");
-const input = platform.input;
 const FontRen = @import("font").FontRen;
 const CmdBuf = device.CmdBuf;
 
@@ -50,22 +52,13 @@ camera: Camera = .{
     .fov = 60,
 },
 
-ui_group: Handle(.BindGroup) = .{},
-ui_pipeline: Handle(.Pipeline) = .{},
-ui_data_buffer: Handle(.Buffer) = .{},
-ui_idx_buffer: Handle(.Buffer) = .{},
-
 last_pos: Vec2 = .{},
 
 font_ren: FontRen = undefined,
 
-const UIData = packed struct {
-    rect: Vec4,
-    color: Color,
-};
+ui: UI = .{},
 
-const MAX_QUADS = 1024;
-const BUF_SIZE = @sizeOf(Mat4) + MAX_QUADS * @sizeOf(UIData);
+button: UI.Id = 1,
 
 pub fn init(app: *App) !void {
     // setup the camera
@@ -73,30 +66,6 @@ pub fn init(app: *App) !void {
     app.camera.aspect = @intToFloat(f32, device.w) / @intToFloat(f32, device.h);
 
     // setup the material
-    app.ui_group = try resources.createBindGroup(&.{
-        .{ .binding_type = .StorageBuffer },
-    });
-
-    app.ui_data_buffer = try resources.createBuffer(
-        .{
-            .size = BUF_SIZE,
-            .usage = .Storage,
-        },
-    );
-    _ = try resources.updateBufferTyped(app.ui_data_buffer, 0, Mat4, &[_]Mat4{
-        Mat4.ortho(
-            0,
-            @intToFloat(f32, device.w),
-            0,
-            @intToFloat(f32, device.h),
-            -100,
-            100,
-        ),
-    });
-
-    try resources.updateBindGroup(app.ui_group, &[_]resources.BindGroupUpdate{
-        .{ .binding = 0, .handle = app.ui_data_buffer.erased() },
-    });
 
     app.screen_pass = try resources.createRenderPass(.{
         .clear_color = pallet.bg.toLinear(),
@@ -105,41 +74,13 @@ pub fn init(app: *App) !void {
         .clear_flags = .{ .color = true, .depth = true },
     });
 
-    // create our shader pipeline
-
-    const vert_file = try std.fs.cwd().openFile("testbed/assets/ui.vert.spv", .{ .read = true });
-    defer vert_file.close();
-    const frag_file = try std.fs.cwd().openFile("testbed/assets/ui.frag.spv", .{ .read = true });
-    defer frag_file.close();
-
-    const vert_data = try allocator.alloc(u8, (try vert_file.stat()).size);
-    _ = try vert_file.readAll(vert_data);
-    defer allocator.free(vert_data);
-    const frag_data = try allocator.alloc(u8, (try frag_file.stat()).size);
-    _ = try frag_file.readAll(frag_data);
-    defer allocator.free(frag_data);
-
-    var pl_desc = descs.PipelineDesc{
-        .renderpass = app.screen_pass,
-        .cull_mode = .back,
-    };
-    pl_desc.bind_groups[0] = app.ui_group;
-    pl_desc.stages[0] = .{
-        .bindpoint = .Vertex,
-        .data = vert_data,
-    };
-    pl_desc.stages[1] = .{
-        .bindpoint = .Fragment,
-        .data = frag_data,
-    };
-
-    app.ui_pipeline = try resources.createPipeline(pl_desc);
-
     app.font_ren = try FontRen.init("./assets/fonts/scientifica-11.bdf", app.screen_pass, allocator);
     // update the buffer with our projection
     _ = try resources.updateBufferTyped(app.font_ren.buffer, 0, Mat4, &[_]Mat4{
         Mat4.ortho(0, 800, 0, 600, -100, 100),
     });
+
+    app.ui = try UI.init(app.screen_pass, allocator);
 }
 
 pub fn update(app: *App, dt: f64) !void {
@@ -153,6 +94,25 @@ pub fn update(app: *App, dt: f64) !void {
         12,
         pallet.fg.toLinear(),
     );
+
+    // api
+
+    if (app.ui.button(
+        &app.button,
+        .{
+            .rect = .{
+                .x = 10,
+                .y = 10,
+                .w = 200,
+                .h = 100,
+            },
+            .color = pallet.teal.toLinear(),
+        },
+    )) {
+        log.debug("button pressed", .{});
+    }
+
+    try app.ui.update();
 }
 
 pub fn draw(app: *App) !void {
@@ -162,7 +122,7 @@ pub fn draw(app: *App) !void {
 
     try app.font_ren.drawGlyphs(&cmd);
 
-    try cmd.bindPipeline(app.ui_pipeline);
+    try app.ui.draw(&cmd);
 
     try cmd.endRenderPass(app.screen_pass);
 
@@ -170,8 +130,8 @@ pub fn draw(app: *App) !void {
 }
 
 pub fn deinit(app: *App) void {
-    _ = app;
-    std.log.info("{s}: deinitialized", .{App.name});
+    app.ui.deinit();
+    log.info("{s}: deinitialized", .{App.name});
 }
 
 pub fn onResize(app: *App, w: u16, h: u16) void {
@@ -187,4 +147,6 @@ pub fn onResize(app: *App, w: u16, h: u16) void {
             100,
         ),
     }) catch unreachable;
+
+    app.ui.onResize() catch unreachable;
 }
