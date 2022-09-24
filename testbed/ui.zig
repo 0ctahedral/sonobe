@@ -32,13 +32,13 @@ pub const Rect = packed struct {
 
 const Self = @This();
 
-const UIData = packed struct {
+const RectData = packed struct {
     rect: Rect,
     color: Color,
 };
 
 const MAX_QUADS = 1024;
-const BUF_SIZE = @sizeOf(Mat4) + MAX_QUADS * @sizeOf(UIData);
+const BUF_SIZE = @sizeOf(Mat4) + MAX_QUADS * @sizeOf(RectData);
 
 // way of identifying the item
 pub const Id = u32;
@@ -57,6 +57,7 @@ group: Handle(.BindGroup) = .{},
 pipeline: Handle(.Pipeline) = .{},
 data_buffer: Handle(.Buffer) = .{},
 idx_buffer: Handle(.Buffer) = .{},
+offset: u32 = 0,
 
 pub fn init(
     screen_pass: Handle(.RenderPass),
@@ -82,6 +83,13 @@ pub fn init(
         .{ .binding = 0, .handle = self.data_buffer.erased() },
     });
 
+    self.idx_buffer = try resources.createBuffer(
+        .{
+            .size = MAX_QUADS * 6 * @sizeOf(u32),
+            .usage = .Index,
+        },
+    );
+
     // create our shader pipeline
     const vert_file = try std.fs.cwd().openFile("testbed/assets/ui.vert.spv", .{ .read = true });
     defer vert_file.close();
@@ -98,6 +106,7 @@ pub fn init(
     var pl_desc = descs.PipelineDesc{
         .renderpass = screen_pass,
         .cull_mode = .back,
+        .depth_stencil_flags = .{ .depth_write_enable = false },
     };
     pl_desc.bind_groups[0] = self.group;
     pl_desc.stages[0] = .{
@@ -123,23 +132,92 @@ pub fn update(self: *Self) !void {
 }
 
 pub fn onResize(self: *Self) !void {
-    _ = try resources.updateBufferTyped(self.data_buffer, 0, Mat4, &[_]Mat4{
-        Mat4.ortho(
-            0,
-            @intToFloat(f32, device.w),
-            0,
-            @intToFloat(f32, device.h),
-            -100,
-            100,
-        ),
-    });
+    _ = try resources.updateBufferTyped(
+        self.data_buffer,
+        0,
+        Mat4,
+        &[_]Mat4{
+            Mat4.ortho(
+                0,
+                @intToFloat(f32, device.w),
+                0,
+                @intToFloat(f32, device.h),
+                -100,
+                100,
+            ),
+        },
+    );
 }
 
 pub fn draw(self: *Self, cmd: *CmdBuf) !void {
     try cmd.bindPipeline(self.pipeline);
+    // draw the quads
+    try cmd.drawIndexed(self.offset * 6, .{}, &.{}, self.idx_buffer, 0);
+
+    self.offset = 0;
 }
 
 // helpers
+
+fn addRect(
+    self: *Self,
+    rect: Rect,
+    color: Color,
+) void {
+    // add the rectangle
+    const Index = packed struct {
+        index: u24,
+        corner: u8,
+    };
+
+    _ = resources.updateBufferTyped(
+        self.data_buffer,
+        @sizeOf(Mat4) + (@sizeOf(RectData) * self.offset),
+        RectData,
+        &[_]RectData{
+            .{
+                .rect = rect,
+                .color = color,
+            },
+        },
+    ) catch unreachable;
+
+    // update indices
+    _ = resources.updateBufferTyped(
+        self.idx_buffer,
+        @sizeOf(u32) * self.offset * 6,
+        u32,
+        &[_]u32{
+            @bitCast(u32, Index{
+                .corner = 0,
+                .index = @intCast(u24, self.offset),
+            }),
+            @bitCast(u32, Index{
+                .corner = 1,
+                .index = @intCast(u24, self.offset),
+            }),
+            @bitCast(u32, Index{
+                .corner = 2,
+                .index = @intCast(u24, self.offset),
+            }),
+            @bitCast(u32, Index{
+                .corner = 2,
+                .index = @intCast(u24, self.offset),
+            }),
+            @bitCast(u32, Index{
+                .corner = 3,
+                .index = @intCast(u24, self.offset),
+            }),
+            @bitCast(u32, Index{
+                .corner = 0,
+                .index = @intCast(u24, self.offset),
+            }),
+        },
+    ) catch unreachable;
+
+    self.offset += 1;
+}
+
 fn setActive(self: *Self, id: Id) void {
     self.ctx.active = id;
 }
@@ -169,15 +247,20 @@ fn reset(self: *Self) void {
 pub const ButtonDesc = struct {
     rect: Rect,
     color: Color,
+    hover_color: Color,
+    active_color: Color,
 };
 
 pub fn button(self: *Self, id: *Id, desc: ButtonDesc) bool {
     const mouse = input.getMouse();
 
     var result = false;
+    var color = desc.color;
 
-    // TODO: set id if it is not already set
-    if (id.* == 0) return result;
+    if (id.* == 0) {
+        // id.* = self.getId();
+        return result;
+    }
 
     // check if the cursor intersects this button
     // if it does then set to hover
@@ -194,13 +277,17 @@ pub fn button(self: *Self, id: *Id, desc: ButtonDesc) bool {
             }
             self.reset();
         }
+        color = desc.active_color;
     } else if (self.isHover(id.*)) {
+        color = desc.hover_color;
         // if the mouse is down and was already hovering over this
         // then we are not active
         if (mouse.getButton(.left).action == .press) {
             self.setActive(id.*);
         }
     }
+
+    self.addRect(desc.rect, color);
 
     return result;
 }

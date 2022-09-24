@@ -138,11 +138,18 @@ pub const PipelineDesc = struct {
         u32,
         u64,
     };
+
     pub const CullMode = enum {
         none,
         front,
         back,
         both,
+    };
+
+    pub const DepthStencilFlags = packed struct {
+        depth_test_enable: bool = true,
+        depth_write_enable: bool = true,
+        stencil_test_enable: bool = false,
     };
 
     pub const MAX_STAGES = 3;
@@ -162,6 +169,9 @@ pub const PipelineDesc = struct {
 
     /// which faces should we cull?
     cull_mode: CullMode = .back,
+
+    ///
+    depth_stencil_flags: DepthStencilFlags = .{},
 
     /// is this pipeline going to render a wireframe?
     wireframe: bool = false,

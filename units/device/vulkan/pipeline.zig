@@ -75,11 +75,11 @@ pub const Pipeline = struct {
 
         const depth_stencil_ci = vk.PipelineDepthStencilStateCreateInfo{
             .flags = .{},
-            .depth_test_enable = vk.TRUE,
-            .depth_write_enable = vk.TRUE,
+            .depth_test_enable = if (desc.depth_stencil_flags.depth_test_enable) vk.TRUE else vk.FALSE,
+            .depth_write_enable = if (desc.depth_stencil_flags.depth_write_enable) vk.TRUE else vk.FALSE,
             .depth_compare_op = .less,
             .depth_bounds_test_enable = vk.FALSE,
-            .stencil_test_enable = vk.FALSE,
+            .stencil_test_enable = if (desc.depth_stencil_flags.stencil_test_enable) vk.TRUE else vk.FALSE,
             .front = undefined,
             .back = undefined,
             .min_depth_bounds = 0,

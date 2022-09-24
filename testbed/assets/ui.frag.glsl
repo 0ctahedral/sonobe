@@ -3,10 +3,11 @@
 
 layout(location = 0) in struct {
   vec2 uv;
+  vec4 color;
 } dto;
 
 layout(location = 0) out vec4 o_color;
 
 void main() {
-  o_color = vec4(0, 1, 0, 1);
+  o_color = dto.color;
 }

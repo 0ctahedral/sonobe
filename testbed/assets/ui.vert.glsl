@@ -14,6 +14,7 @@ layout (set = 0, binding = 0) readonly buffer ui_data_buf {
 // data transfer object
 layout(location = 0) out struct {
   vec2 uv;
+  vec4 color;
 } out_dto;
 
 vec2 uvs[4] = vec2[](
@@ -37,6 +38,7 @@ void main() {
   );
 
   out_dto.uv = uvs[corner];
+  out_dto.color = data[idx].color;
 
   gl_Position = view_proj * vec4(pos[corner], 0, 1.0);
 }

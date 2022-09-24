@@ -60,6 +60,20 @@ ui: UI = .{},
 
 button: UI.Id = 1,
 
+show_text: bool = false,
+
+const buttonStyle = .{
+    .rect = .{
+        .x = 10,
+        .y = 20,
+        .w = 200,
+        .h = 100,
+    },
+    .color = pallet.light_teal.toLinear(),
+    .hover_color = pallet.teal.toLinear(),
+    .active_color = pallet.violet.toLinear(),
+};
+
 pub fn init(app: *App) !void {
     // setup the camera
     try app.camera.init();
@@ -84,32 +98,26 @@ pub fn init(app: *App) !void {
 }
 
 pub fn update(app: *App, dt: f64) !void {
-    _ = app;
-    _ = dt;
     app.font_ren.clear();
     var buf: [80]u8 = undefined;
     _ = try app.font_ren.addString(
         try std.fmt.bufPrint(buf[0..], "dt: {d:.2} fps: {d:.2}", .{ dt * 1000.0, platform.fps() }),
         Vec2.new(0, 0),
-        12,
-        pallet.fg.toLinear(),
+        24,
+        pallet.bg_alt.toLinear(),
     );
 
-    // api
+    if (app.show_text) {
+        _ = try app.font_ren.addString(
+            "you clicked!",
+            Vec2.new(200, 60),
+            16,
+            pallet.fg.toLinear(),
+        );
+    }
 
-    if (app.ui.button(
-        &app.button,
-        .{
-            .rect = .{
-                .x = 10,
-                .y = 10,
-                .w = 200,
-                .h = 100,
-            },
-            .color = pallet.teal.toLinear(),
-        },
-    )) {
-        log.debug("button pressed", .{});
+    if (app.ui.button(&app.button, buttonStyle)) {
+        app.show_text = !app.show_text;
     }
 
     try app.ui.update();
@@ -120,9 +128,9 @@ pub fn draw(app: *App) !void {
 
     try cmd.beginRenderPass(app.screen_pass);
 
-    try app.font_ren.drawGlyphs(&cmd);
-
     try app.ui.draw(&cmd);
+
+    try app.font_ren.drawGlyphs(&cmd);
 
     try cmd.endRenderPass(app.screen_pass);
 
