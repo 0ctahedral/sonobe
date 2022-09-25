@@ -30,6 +30,7 @@ void main() {
   uint idx = gl_VertexIndex & 0x00ffffff;
   vec4 rect = data[idx].rect;
 
+
   vec2 pos[4] = vec2[](
     rect.xy + vec2(0, rect.w),
     rect.xy + vec2(rect.z, rect.w),

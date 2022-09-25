@@ -58,6 +58,8 @@ pipeline: Handle(.Pipeline) = .{},
 data_buffer: Handle(.Buffer) = .{},
 idx_buffer: Handle(.Buffer) = .{},
 offset: u32 = 0,
+// i think 65K should be enough?
+id_counter: Id = 0,
 
 pub fn init(
     screen_pass: Handle(.RenderPass),
@@ -160,9 +162,8 @@ pub fn draw(self: *Self, cmd: *CmdBuf) !void {
     self.offset = 0;
 }
 
-// helpers
-
 /// just adds a rectangle to the buffer of geometry to draw
+/// basis for all the other
 pub fn addRect(
     self: *Self,
     rect: Rect,
@@ -222,6 +223,13 @@ pub fn addRect(
     self.offset += 1;
 }
 
+// helpers
+
+fn getId(self: *Self) Id {
+    self.id_counter += 1;
+    return self.id_counter;
+}
+
 fn setActive(self: *Self, id: Id) void {
     self.ctx.active = id;
 }
@@ -266,8 +274,7 @@ pub fn button(
     var color = style.color;
 
     if (id.* == 0) {
-        // id.* = self.getId();
-        return result;
+        id.* = self.getId();
     }
 
     // check if the cursor intersects this button

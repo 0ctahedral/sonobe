@@ -59,9 +59,9 @@ font_ren: FontRen = undefined,
 
 ui: UI = .{},
 
-button: UI.Id = 1,
+button: UI.Id = 0,
 
-show_text: bool = false,
+mode: u8 = 0,
 
 const buttonStyle = .{
     .color = pallet.purple.toLinear(),
@@ -98,7 +98,7 @@ pub fn update(app: *App, dt: f64) !void {
     _ = try app.font_ren.addString(
         try std.fmt.bufPrint(buf[0..], "dt: {d:.2} fps: {d:.2}", .{ dt * 1000.0, platform.fps() }),
         Vec2.new(0, 0),
-        24,
+        36,
         pallet.purple.toLinear(),
     );
 
@@ -109,13 +109,11 @@ pub fn update(app: *App, dt: f64) !void {
         .h = 50,
     };
     if (app.ui.button(&app.button, rect, buttonStyle)) {
-        app.show_text = !app.show_text;
+        app.mode = (app.mode + 1) % 4;
+        log.debug("{}", .{app.mode});
     }
 
     var text: []const u8 = "click me";
-    if (app.show_text) {
-        text = "thank you";
-    }
     _ = try app.font_ren.addString(
         text,
         Vec2.new(rect.x + 5, rect.y + 5),
@@ -133,7 +131,14 @@ pub fn draw(app: *App) !void {
 
     try app.ui.draw(&cmd);
 
-    try app.font_ren.drawGlyphs(&cmd);
+    try app.font_ren.drawGlyphsDebug(&cmd, @intToEnum(FontRen.GlyphDebugMode, app.mode));
+    try app.font_ren.drawAtlas(
+        &cmd,
+        @intToFloat(f32, device.w) - 400,
+        @intToFloat(f32, device.h) - 400,
+        400,
+        400,
+    );
 
     try cmd.endRenderPass(app.screen_pass);
 

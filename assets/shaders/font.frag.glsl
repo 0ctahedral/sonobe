@@ -11,8 +11,6 @@ layout (set = 0, binding = 0) readonly buffer tex_data {
 
 layout(location = 0) in struct {
   vec2 uv;
-  vec4 bb;
-  vec4 rect;
   vec4 color;
 } dto;
 
@@ -24,28 +22,26 @@ layout( push_constant ) uniform PushConstants
 } pc;
 
 void main() {
-  // TODO: glyph color
   vec4 color = dto.color;
-
-  vec4 bb = dto.bb;
-
-  vec2 uv = (dto.uv * bb.xy) / res;
-  uv.y += (bb.w + (cell.y - bb.y))/ res.y;
-  uv.x += bb.z / res.x;
-
+  vec2 uv = dto.uv;
   float a = texture(sampler2D(tex, samp), uv).r;
 
+  // float a = texture(sampler2D(tex, samp), uv).r;
   switch (pc.mode) {
     case 1: 
       // draw an outline using the rectangle coords
-      vec2 f = dto.rect.zw * dto.uv;
-      a += step(f.x, 1) + step(f.y, 1) + step(dto.rect.z - 1, f.x) + step(dto.rect.w - 1, f.y);
+      // vec2 f = dto.rect.zw * dto.uv;
+      // a += step(f.x, 1) + step(f.y, 1) + step(dto.rect.z - 1, f.x) + step(dto.rect.w - 1, f.y);
+      vec2 bounds = vec2(24, 48);
+      vec2 f = bounds * dto.uv;
+      a += step(f.x, 1) + step(f.y, 1) + step(bounds.x - 1, f.x) + step(bounds.y - 1, f.y);
       break;
     case 2:
       a = 1;
       break;
     case 3:
       color = vec4(uv, 0.0, 1.0);
+      color += a;
       a = 1;
       break;
     default: break;

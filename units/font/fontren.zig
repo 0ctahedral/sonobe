@@ -23,8 +23,10 @@ const Self = @This();
 
 const GlyphData = struct {
     rect: Vec4,
-    bb: Vec4,
     color: Color,
+    bb: Vec2,
+    offset: u32,
+    ratio: f32,
 };
 
 const MAX_GLYPHS = 1024;
@@ -51,22 +53,27 @@ atlas_pipeline: Handle(.Pipeline) = .{},
 /// offset into the index buffer
 index_offset: u32 = 0,
 
-bb_cache: Cache,
+glyph_cache: Cache,
 
 /// dimension of the texture atlas
 atlas_dimension: u32 = 120,
 
+const TexGlyph = struct {
+    bb: Vec4,
+    idx: u32,
+};
+
 /// a really shitty cache for offsets into the texture
 const Cache = struct {
-    map: std.AutoHashMap(u32, Vec4),
+    map: std.AutoHashMap(u32, TexGlyph),
     next_index: u32 = 0,
 };
 pub fn init(path: []const u8, renderpass: Handle(.RenderPass), allocator: Allocator) !Self {
     var self = Self{
         .allocator = allocator,
         .bdf = try BDF.init(path, allocator),
-        .bb_cache = .{
-            .map = std.AutoHashMap(u32, Vec4).init(allocator),
+        .glyph_cache = .{
+            .map = std.AutoHashMap(u32, TexGlyph).init(allocator),
         },
     };
 
@@ -198,7 +205,7 @@ pub fn init(path: []const u8, renderpass: Handle(.RenderPass), allocator: Alloca
 fn addGlyphToTexture(
     self: *Self,
     codepoint: u32,
-) !Vec4 {
+) !TexGlyph {
     // TODO: throw error if texture is too full
     // write to the pixels array
     const cell = self.bdf.header.bb;
@@ -206,8 +213,8 @@ fn addGlyphToTexture(
     // then we can convert to texels
     const ncol = self.atlas_dimension / cell.x;
 
-    const xoff = self.bb_cache.next_index % ncol;
-    const yoff = ((self.bb_cache.next_index - xoff) / ncol);
+    const xoff = self.glyph_cache.next_index % ncol;
+    const yoff = ((self.glyph_cache.next_index - xoff) / ncol);
 
     // put a bunch of pixels on the stack
     var pixels: [256]u8 = [_]u8{0} ** 256;
@@ -230,23 +237,20 @@ fn addGlyphToTexture(
         cell.y,
     );
 
-    const bb = .{
-        .x = @intToFloat(f32, glyph.bb.x),
-        .y = @intToFloat(f32, glyph.bb.y),
-        .z = @intToFloat(f32, xoff_pix),
-        .w = @intToFloat(f32, yoff_pix),
+    const tg = TexGlyph{
+        .idx = self.glyph_cache.next_index,
+        .bb = .{
+            .x = @intToFloat(f32, glyph.bb.x),
+            .y = @intToFloat(f32, glyph.bb.y),
+            .z = @intToFloat(f32, xoff_pix),
+            .w = @intToFloat(f32, yoff_pix),
+        },
     };
 
-    try self.bb_cache.map.put(codepoint, bb);
-    self.bb_cache.next_index += 1;
+    try self.glyph_cache.map.put(codepoint, tg);
+    self.glyph_cache.next_index += 1;
 
-    //for (pixels) |b, i| {
-    //    utils.log.debug("{d}, ", .{b});
-    //    if ((i + 1) % 16 == 0) {
-    //        utils.log.debug("//\n", .{});
-    //    }
-    //}
-    return bb;
+    return tg;
 }
 
 /// adds glyphs from a string to the draw buffer and returns the offset
@@ -300,31 +304,34 @@ pub fn addGlyph(
     const ratio = height / cell_height;
 
     // bounding box in the texture
-    const tex_bb = self.bb_cache.map.get(codepoint) orelse (try self.addGlyphToTexture(codepoint));
+    const tex_glyph = self.glyph_cache.map.get(codepoint) orelse (try self.addGlyphToTexture(codepoint));
 
     const size = .{
-        .x = tex_bb.x * ratio,
-        .y = tex_bb.y * ratio,
+        .x = tex_glyph.bb.x * ratio,
+        .y = tex_glyph.bb.y * ratio,
     };
 
     const glyph = try self.bdf.getGlyph(codepoint);
+
+    const gd =
+        .{
+        .rect = Vec4.new(
+            pos.x + @intToFloat(f32, glyph.bb.x_off) * ratio,
+            pos.y + (height - size.y) - @intToFloat(f32, glyph.bb.y_off) * ratio,
+            size.x,
+            size.y,
+        ),
+        .bb = Vec2.new(tex_glyph.bb.x, tex_glyph.bb.y), // , tex_glyph.bb.z),
+        .color = color,
+        .offset = tex_glyph.idx,
+        .ratio = ratio,
+    };
 
     _ = try resources.updateBufferTyped(
         self.buffer,
         @sizeOf(Mat4) + (2 * @sizeOf(Vec2)) + (@sizeOf(GlyphData) * self.index_offset),
         GlyphData,
-        &[_]GlyphData{
-            .{
-                .rect = Vec4.new(
-                    pos.x + @intToFloat(f32, glyph.bb.x_off) * ratio,
-                    pos.y + (height - size.y) - @intToFloat(f32, glyph.bb.y_off) * ratio,
-                    size.x,
-                    size.y,
-                ),
-                .bb = tex_bb,
-                .color = color,
-            },
-        },
+        &[_]GlyphData{gd},
     );
 
     // for packing into the indices
@@ -428,7 +435,7 @@ pub fn clear(self: *Self) void {
 }
 
 pub fn deinit(self: *Self) void {
-    self.bb_cache.map.deinit();
+    self.glyph_cache.map.deinit();
     self.allocator.free(self.bdf.glyphs);
     self.allocator.free(self.bdf.codepoints);
 }
