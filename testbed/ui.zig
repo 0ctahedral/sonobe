@@ -15,14 +15,21 @@ const math = @import("math");
 const Vec2 = math.Vec2;
 const Mat4 = math.Mat4;
 
-// TODO: maybe move?
+const Self = @This();
+
+/// A 2d rectangle
 pub const Rect = packed struct {
+    /// x postion
     x: f32 = 0,
+    /// y postion
     y: f32 = 0,
+    /// width
     w: f32 = 0,
+    /// height
     h: f32 = 0,
 
-    pub fn intersects(self: @This(), pos: Vec2) bool {
+    /// does this rectangle intersect the given point
+    pub fn intersectPoint(self: @This(), pos: Vec2) bool {
         return (pos.x >= self.x and
             pos.y >= self.y and
             pos.x <= self.x + self.w and
@@ -30,36 +37,68 @@ pub const Rect = packed struct {
     }
 };
 
-const Self = @This();
-
+/// Struct of data sent to gpu for a single rectangle
 const RectData = packed struct {
     rect: Rect,
     color: Color,
+    // TODO: extra data?
+    // or do we look that up based on the type?
+};
+
+/// the type of rectangle to encode in the buffer
+const RectType = enum(u6) {
+    solid,
+    glyph,
+};
+
+/// data that is packed into an index sent to the gpu
+const RectIndex = packed struct {
+    index: u24,
+    corner: u2,
+    rect_type: RectType = .solid,
 };
 
 const MAX_RECTS = 1024;
-const BUF_SIZE = @sizeOf(Mat4) + MAX_RECTS * @sizeOf(RectData);
+const BUF_SIZE = MAX_RECTS * @sizeOf(RectData);
 
 // way of identifying the item
 pub const Id = u32;
 
-// state of interaction
+/// state of interaction
 const Context = struct {
     /// about to interact 
     hover: Id = 0,
-    /// item is now being interacted with
+    /// item that is now being interacted with
     active: Id = 0,
 };
 
+/// uniform data for the shader
+const UniformData = struct {
+    view_proj: Mat4,
+};
+
 ctx: Context = .{},
-allocator: std.mem.Allocator = undefined,
+
+/// group of bindings for rectangle data
+data_group: Handle(.BindGroup) = .{},
 group: Handle(.BindGroup) = .{},
-pipeline: Handle(.Pipeline) = .{},
-data_buffer: Handle(.Buffer) = .{},
+/// buffer of uniform data (e.g. camera matrix)
+uniform_buffer: Handle(.Buffer) = .{},
+/// buffer of rectangle declarations
+rect_buffer: Handle(.Buffer) = .{},
+/// buffer of indices of the rectangles to draw
 idx_buffer: Handle(.Buffer) = .{},
+
+pipeline: Handle(.Pipeline) = .{},
+
+/// current offset in number of rectangles bump allocated so far
 offset: u32 = 0,
-// i think 65K should be enough?
+/// counter for unique ids which identify the currently
+/// hovering or active ui
+/// TODO: may need a more robust system for this
 id_counter: Id = 0,
+
+allocator: std.mem.Allocator = undefined,
 
 pub fn init(
     screen_pass: Handle(.RenderPass),
@@ -68,22 +107,21 @@ pub fn init(
     var self = Self{};
     self.allocator = allocator;
 
-    self.group = try resources.createBindGroup(&.{
-        .{ .binding_type = .StorageBuffer },
-    });
+    // setup buffers
 
-    self.data_buffer = try resources.createBuffer(
+    self.uniform_buffer = try resources.createBuffer(
+        .{
+            .size = @sizeOf(UniformData),
+            .usage = .Uniform,
+        },
+    );
+
+    self.rect_buffer = try resources.createBuffer(
         .{
             .size = BUF_SIZE,
             .usage = .Storage,
         },
     );
-
-    try self.onResize();
-
-    try resources.updateBindGroup(self.group, &[_]resources.BindGroupUpdate{
-        .{ .binding = 0, .handle = self.data_buffer.erased() },
-    });
 
     self.idx_buffer = try resources.createBuffer(
         .{
@@ -92,7 +130,28 @@ pub fn init(
         },
     );
 
+    // setup bindgroup
+
+    self.group = try resources.createBindGroup(&.{
+        .{ .binding_type = .UniformBuffer },
+        .{ .binding_type = .StorageBuffer },
+    });
+
+    try resources.updateBindGroup(self.group, &[_]resources.BindGroupUpdate{
+        .{ .binding = 0, .handle = self.uniform_buffer.erased() },
+        .{ .binding = 1, .handle = self.rect_buffer.erased() },
+    });
+
+    self.data_group = try resources.createBindGroup(&.{
+        .{ .binding_type = .StorageBuffer },
+    });
+
+    try resources.updateBindGroup(self.data_group, &[_]resources.BindGroupUpdate{
+        .{ .binding = 0, .handle = self.rect_buffer.erased() },
+    });
+
     // create our shader pipeline
+
     const vert_file = try std.fs.cwd().openFile("testbed/assets/ui.vert.spv", .{ .read = true });
     defer vert_file.close();
     const frag_file = try std.fs.cwd().openFile("testbed/assets/ui.frag.spv", .{ .read = true });
@@ -114,6 +173,7 @@ pub fn init(
         },
     };
     pl_desc.bind_groups[0] = self.group;
+    pl_desc.bind_groups[1] = self.data_group;
     pl_desc.stages[0] = .{
         .bindpoint = .Vertex,
         .data = vert_data,
@@ -124,6 +184,10 @@ pub fn init(
     };
 
     self.pipeline = try resources.createPipeline(pl_desc);
+
+    // update the uniform buffer
+
+    try self.onResize();
 
     return self;
 }
@@ -138,18 +202,20 @@ pub fn update(self: *Self) !void {
 
 pub fn onResize(self: *Self) !void {
     _ = try resources.updateBufferTyped(
-        self.data_buffer,
+        self.uniform_buffer,
         0,
-        Mat4,
-        &[_]Mat4{
-            Mat4.ortho(
-                0,
-                @intToFloat(f32, device.w),
-                0,
-                @intToFloat(f32, device.h),
-                -100,
-                100,
-            ),
+        UniformData,
+        &[_]UniformData{
+            .{
+                .view_proj = Mat4.ortho(
+                    0,
+                    @intToFloat(f32, device.w),
+                    0,
+                    @intToFloat(f32, device.h),
+                    -100,
+                    100,
+                ),
+            },
         },
     );
 }
@@ -169,15 +235,9 @@ pub fn addRect(
     rect: Rect,
     color: Color,
 ) void {
-    // add the rectangle
-    const Index = packed struct {
-        index: u24,
-        corner: u8,
-    };
-
     _ = resources.updateBufferTyped(
-        self.data_buffer,
-        @sizeOf(Mat4) + (@sizeOf(RectData) * self.offset),
+        self.rect_buffer,
+        @sizeOf(RectData) * self.offset,
         RectData,
         &[_]RectData{
             .{
@@ -193,27 +253,27 @@ pub fn addRect(
         @sizeOf(u32) * self.offset * 6,
         u32,
         &[_]u32{
-            @bitCast(u32, Index{
+            @bitCast(u32, RectIndex{
                 .corner = 0,
                 .index = @intCast(u24, self.offset),
             }),
-            @bitCast(u32, Index{
+            @bitCast(u32, RectIndex{
                 .corner = 1,
                 .index = @intCast(u24, self.offset),
             }),
-            @bitCast(u32, Index{
+            @bitCast(u32, RectIndex{
                 .corner = 2,
                 .index = @intCast(u24, self.offset),
             }),
-            @bitCast(u32, Index{
+            @bitCast(u32, RectIndex{
                 .corner = 2,
                 .index = @intCast(u24, self.offset),
             }),
-            @bitCast(u32, Index{
+            @bitCast(u32, RectIndex{
                 .corner = 3,
                 .index = @intCast(u24, self.offset),
             }),
-            @bitCast(u32, Index{
+            @bitCast(u32, RectIndex{
                 .corner = 0,
                 .index = @intCast(u24, self.offset),
             }),
@@ -279,7 +339,7 @@ pub fn button(
 
     // check if the cursor intersects this button
     // if it does then set to hover
-    if (rect.intersects(mouse.pos)) {
+    if (rect.intersectPoint(mouse.pos)) {
         self.setHover(id.*);
     }
 

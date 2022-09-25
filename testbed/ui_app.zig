@@ -60,12 +60,13 @@ font_ren: FontRen = undefined,
 ui: UI = .{},
 
 button: UI.Id = 0,
+button2: UI.Id = 0,
 
 mode: u8 = 0,
 
 const buttonStyle = .{
-    .color = pallet.purple.toLinear(),
-    .hover_color = pallet.bg_alt.toLinear(),
+    .color = pallet.bg_alt.toLinear(),
+    .hover_color = pallet.purple.toLinear(),
     .active_color = pallet.active.toLinear(),
 };
 
@@ -109,9 +110,14 @@ pub fn update(app: *App, dt: f64) !void {
         .h = 50,
     };
     if (app.ui.button(&app.button, rect, buttonStyle)) {
-        app.mode = (app.mode + 1) % 4;
-        log.debug("{}", .{app.mode});
+        // app.mode = (app.mode + 1) % 4;
+        // log.debug("{}", .{app.mode});
     }
+    _ = app.ui.button(&app.button2, .{
+        .y = 100,
+        .w = 100,
+        .h = 50,
+    }, buttonStyle);
 
     var text: []const u8 = "click me";
     _ = try app.font_ren.addString(
@@ -132,13 +138,13 @@ pub fn draw(app: *App) !void {
     try app.ui.draw(&cmd);
 
     try app.font_ren.drawGlyphsDebug(&cmd, @intToEnum(FontRen.GlyphDebugMode, app.mode));
-    try app.font_ren.drawAtlas(
-        &cmd,
-        @intToFloat(f32, device.w) - 400,
-        @intToFloat(f32, device.h) - 400,
-        400,
-        400,
-    );
+    // try app.font_ren.drawAtlas(
+    //     &cmd,
+    //     @intToFloat(f32, device.w) - 400,
+    //     @intToFloat(f32, device.h) - 400,
+    //     400,
+    //     400,
+    // );
 
     try cmd.endRenderPass(app.screen_pass);
 

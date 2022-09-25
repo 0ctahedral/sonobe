@@ -1,14 +1,17 @@
 #version 450
 #extension GL_ARB_separate_shader_objects : enable
 
-struct ui_data {
+struct rect_data {
   vec4 rect;
   vec4 color;
 };
 
-layout (set = 0, binding = 0) readonly buffer ui_data_buf {
+layout (set = 0, binding = 0)  uniform uniform_data_block {
   mat4 view_proj;
-  ui_data data[];
+};
+
+layout (set = 1, binding = 0) readonly buffer rect_data_buf {
+  rect_data data[1024];
 };
 
 // data transfer object
@@ -26,7 +29,8 @@ vec2 uvs[4] = vec2[](
 
 void main() {
 
-  uint corner = (gl_VertexIndex >> 24) & 0xf;
+  uint type = (gl_VertexIndex >> 26) & 0xf;
+  uint corner = (gl_VertexIndex >> 24) & 0x3;
   uint idx = gl_VertexIndex & 0x00ffffff;
   vec4 rect = data[idx].rect;
 
