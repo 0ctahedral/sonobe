@@ -10,7 +10,7 @@ layout (set = 0, binding = 0)  uniform uniform_data_block {
   mat4 view_proj;
 };
 
-layout (set = 1, binding = 0) readonly buffer rect_data_buf {
+layout (set = 0, binding = 1) uniform rect_data_buf {
   rect_data data[1024];
 };
 

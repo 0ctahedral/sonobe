@@ -80,7 +80,6 @@ const UniformData = struct {
 ctx: Context = .{},
 
 /// group of bindings for rectangle data
-data_group: Handle(.BindGroup) = .{},
 group: Handle(.BindGroup) = .{},
 /// buffer of uniform data (e.g. camera matrix)
 uniform_buffer: Handle(.Buffer) = .{},
@@ -116,10 +115,12 @@ pub fn init(
         },
     );
 
+    // TODO: uniform for now but may need to be storage
+    // for ui that requires more rectangles
     self.rect_buffer = try resources.createBuffer(
         .{
             .size = BUF_SIZE,
-            .usage = .Storage,
+            .usage = .Uniform,
         },
     );
 
@@ -134,20 +135,12 @@ pub fn init(
 
     self.group = try resources.createBindGroup(&.{
         .{ .binding_type = .UniformBuffer },
-        .{ .binding_type = .StorageBuffer },
+        .{ .binding_type = .UniformBuffer },
     });
 
     try resources.updateBindGroup(self.group, &[_]resources.BindGroupUpdate{
         .{ .binding = 0, .handle = self.uniform_buffer.erased() },
         .{ .binding = 1, .handle = self.rect_buffer.erased() },
-    });
-
-    self.data_group = try resources.createBindGroup(&.{
-        .{ .binding_type = .StorageBuffer },
-    });
-
-    try resources.updateBindGroup(self.data_group, &[_]resources.BindGroupUpdate{
-        .{ .binding = 0, .handle = self.rect_buffer.erased() },
     });
 
     // create our shader pipeline
@@ -173,7 +166,6 @@ pub fn init(
         },
     };
     pl_desc.bind_groups[0] = self.group;
-    pl_desc.bind_groups[1] = self.data_group;
     pl_desc.stages[0] = .{
         .bindpoint = .Vertex,
         .data = vert_data,

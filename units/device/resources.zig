@@ -451,6 +451,15 @@ pub fn updateBindGroup(group: Handle(.BindGroup), updates: []const BindGroupUpda
 
     var writes: [32 * MAX_FRAMES]vk.WriteDescriptorSet = undefined;
 
+    var buf_infos: [32]vk.DescriptorBufferInfo = undefined;
+    var n_buf_infos: usize = 0;
+
+    var tex_infos: [32]vk.DescriptorImageInfo = undefined;
+    var n_tex_infos: usize = 0;
+
+    var sampler_infos: [32]vk.DescriptorImageInfo = undefined;
+    var n_sampler_infos: usize = 0;
+
     for (updates) |u, i| {
         if (u.binding > bg.n_bindings) return error.InvalidBinding;
 
@@ -462,12 +471,10 @@ pub fn updateBindGroup(group: Handle(.BindGroup), updates: []const BindGroupUpda
             .UniformBuffer, .StorageBuffer => {
                 const res = resources.get(u.handle.id).Buffer;
                 const buffer = buffers[@enumToInt(res.desc.usage)].get(res.index);
-                const buf_infos = [_]vk.DescriptorBufferInfo{
-                    .{
-                        .buffer = buffer.handle,
-                        .offset = 0,
-                        .range = buffer.size,
-                    },
+                buf_infos[n_buf_infos] = .{
+                    .buffer = buffer.handle,
+                    .offset = 0,
+                    .range = buffer.size,
                 };
 
                 const buffer_type: vk.DescriptorType = switch (res.desc.usage) {
@@ -483,17 +490,19 @@ pub fn updateBindGroup(group: Handle(.BindGroup), updates: []const BindGroupUpda
                     .descriptor_count = 1,
                     .descriptor_type = buffer_type,
                     .p_image_info = undefined,
-                    .p_buffer_info = buf_infos[0..],
+                    .p_buffer_info = @ptrCast([*]vk.DescriptorBufferInfo, &buf_infos[n_buf_infos]),
                     .p_texel_buffer_view = undefined,
                 };
+
+                n_buf_infos += 1;
             },
             .Texture => {
                 const tex = textures.get(resources.get(u.handle.id).Texture.index);
-                const tex_infos = [_]vk.DescriptorImageInfo{.{
+                tex_infos[n_tex_infos] = .{
                     .sampler = .null_handle,
                     .image_view = tex.image.view,
                     .image_layout = vk.ImageLayout.shader_read_only_optimal,
-                }};
+                };
 
                 new_write = .{
                     .dst_set = bg.sets[0],
@@ -501,18 +510,20 @@ pub fn updateBindGroup(group: Handle(.BindGroup), updates: []const BindGroupUpda
                     .dst_array_element = 0,
                     .descriptor_count = 1,
                     .descriptor_type = .sampled_image,
-                    .p_image_info = tex_infos[0..],
+                    .p_image_info = @ptrCast([*]vk.DescriptorImageInfo, &tex_infos[n_tex_infos]),
                     .p_buffer_info = undefined,
                     .p_texel_buffer_view = undefined,
                 };
+
+                n_tex_infos += 1;
             },
             .Sampler => {
                 const sampler = samplers.get(resources.get(u.handle.id).Sampler.index);
-                const sampler_infos = [_]vk.DescriptorImageInfo{.{
+                sampler_infos[n_sampler_infos] = .{
                     .sampler = sampler.handle,
                     .image_view = .null_handle,
                     .image_layout = .@"undefined",
-                }};
+                };
 
                 new_write = .{
                     .dst_set = bg.sets[0],
@@ -520,10 +531,12 @@ pub fn updateBindGroup(group: Handle(.BindGroup), updates: []const BindGroupUpda
                     .dst_array_element = 0,
                     .descriptor_count = 1,
                     .descriptor_type = .sampler,
-                    .p_image_info = sampler_infos[0..],
+                    .p_image_info = @ptrCast([*]vk.DescriptorImageInfo, &sampler_infos[n_sampler_infos]),
                     .p_buffer_info = undefined,
                     .p_texel_buffer_view = undefined,
                 };
+
+                n_sampler_infos += 1;
             },
         }
 
