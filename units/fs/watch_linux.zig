@@ -170,7 +170,7 @@ fn debugEventMask(mask: u32) void {
     inline for (@typeInfo(sys.IN).Struct.decls) |f| {
         const m = @field(sys.IN, f.name);
         if (m & mask != 0 and m != sys.IN.ALL_EVENTS) {
-            utils.log.debug("file {s}\n", .{f.name});
+            log.debug("file {s}\n", .{f.name});
         }
     }
 }

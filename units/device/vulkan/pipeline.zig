@@ -1,6 +1,7 @@
 const std = @import("std");
 const vk = @import("vulkan");
 const utils = @import("utils");
+const log = utils.log.Logger("pipeline");
 const PipelineDesc = @import("../resources/descs.zig").PipelineDesc;
 const Device = @import("device.zig").Device;
 const RenderPass = @import("renderpass.zig").RenderPass;
@@ -203,10 +204,10 @@ pub const Pipeline = struct {
     }
 
     fn loadShader(path: []const u8, alloctor: std.mem.Allocator) ![]u8 {
-        utils.log.info("finding file: {s}", .{path});
+        log.info("finding file: {s}", .{path});
 
         const f = std.fs.cwd().openFile(path, .{ .read = true }) catch {
-            utils.log.info("could not find file: {s}", .{path});
+            log.info("could not find file: {s}", .{path});
             return error.CouldNotOpenFile;
         };
         defer f.close();

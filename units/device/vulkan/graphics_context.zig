@@ -1,5 +1,6 @@
 const std = @import("std");
 const utils = @import("utils");
+const log = utils.log.Logger("graphics context");
 const vk = @import("vulkan");
 const glfw = @import("glfw");
 const Allocator = std.mem.Allocator;
@@ -211,7 +212,7 @@ fn initializeCandidate(vki: InstanceDispatch, candidate: DeviceCandidate) !vk.De
     else
         2;
 
-    utils.log.info("using device: {s}", .{candidate.props.device_name});
+    log.info("using device: {s}", .{candidate.props.device_name});
 
     return try vki.createDevice(candidate.pdev, &.{
         .flags = .{},

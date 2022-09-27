@@ -12,6 +12,7 @@ const Vec2 = math.Vec2;
 
 const descs = @import("../resources/descs.zig");
 const utils = @import("utils");
+const log = utils.log.Logger("vulkan_backend");
 const Color = utils.Color;
 const Handle = utils.Handle;
 const CmdBuf = @import("../cmdbuf.zig");
@@ -182,7 +183,7 @@ pub fn init(provided_allocator: Allocator, app_name: [*:0]const u8, window: plat
     );
 
     // create framebuffers
-    utils.log.info("fbw: {} fbh: {}", .{ fb_width, fb_width });
+    log.info("fbw: {} fbh: {}", .{ fb_width, fb_width });
     swapchain_render_targets = try allocator.alloc(RenderTarget, swapchain.img_count);
     for (swapchain_render_targets) |*rt| {
         rt.framebuffer = .null_handle;
@@ -224,14 +225,14 @@ pub fn deinit() void {
 
 pub fn onResize(w: u32, h: u32) void {
     size_gen += 1;
-    utils.log.warn("resize triggered: {}x{}, gen: {}", .{ w, h, size_gen });
+    log.warn("resize triggered: {}x{}, gen: {}", .{ w, h, size_gen });
     fb_width = w;
     fb_height = h;
 }
 
 pub fn beginFrame() !bool {
     if (recreating_swapchain) {
-        utils.log.info("waiting for swapchain", .{});
+        log.info("waiting for swapchain", .{});
         try device.vkd.deviceWaitIdle(device.logical);
         return false;
     }
@@ -243,18 +244,18 @@ pub fn beginFrame() !bool {
             return false;
         }
 
-        utils.log.info("resized, booting frame", .{});
+        log.info("resized, booting frame", .{});
         return false;
     }
 
     // wait for current frame
-    //utils.log.info("waiting for render fence: {}", .{getCurrentFrame().render_fence.handle});
+    //log.info("waiting for render fence: {}", .{getCurrentFrame().render_fence.handle});
     try getCurrentFrame().render_fence.wait(device, std.math.maxInt(u64));
 
     image_index = swapchain.acquireNext(device, getCurrentFrame().image_available, Fence{}) catch |err| {
         switch (err) {
             error.OutOfDateKHR => {
-                utils.log.warn("failed to aquire, booting", .{});
+                log.warn("failed to aquire, booting", .{});
                 return false;
             },
             else => |narrow| return narrow,
@@ -412,7 +413,7 @@ pub fn endFrame() !void {
     swapchain.present(device, device.present.?, getCurrentFrame().render_finished, @intCast(u32, image_index)) catch |err| {
         switch (err) {
             error.OutOfDateKHR => {
-                utils.log.warn("swapchain out of date in end frame", .{});
+                log.warn("swapchain out of date in end frame", .{});
             },
             else => |narrow| return narrow,
         }
@@ -433,12 +434,12 @@ fn vk_debug(
     _ = message_descs;
     _ = p_callback_data;
     _ = p_user_data;
-    utils.log.info("{s}", .{p_callback_data.?.*.p_message});
+    log.info("{s}", .{p_callback_data.?.*.p_message});
     return vk.FALSE;
 }
 
 pub fn recreateRenderTargets() !void {
-    utils.log.info("fbw: {} fbh: {}", .{ fb_width, fb_height });
+    log.info("fbw: {} fbh: {}", .{ fb_width, fb_height });
     for (swapchain.render_textures) |tex, i| {
         const attachments = [_]Texture{ tex, swapchain.depth_texture };
 
@@ -457,20 +458,20 @@ pub fn recreateRenderTargets() !void {
 
 fn recreateSwapchain() !bool {
     if (recreating_swapchain) {
-        utils.log.warn("already recreating", .{});
+        log.warn("already recreating", .{});
         return false;
     }
 
     if (fb_width == 0 or fb_height == 0) {
-        utils.log.info("dimesnsion is zero so, no", .{});
+        log.info("dimesnsion is zero so, no", .{});
         return false;
     }
 
     recreating_swapchain = true;
-    utils.log.info("recreating swapchain", .{});
+    log.info("recreating swapchain", .{});
 
     try device.vkd.deviceWaitIdle(device.logical);
-    utils.log.info("device done waiting", .{});
+    log.info("device done waiting", .{});
 
     try swapchain.recreate(vki, device, surface, fb_width, fb_height, allocator);
 
@@ -492,7 +493,7 @@ fn recreateSwapchain() !bool {
     }
 
     recreating_swapchain = false;
-    utils.log.info("done recreating swapchain", .{});
+    log.info("done recreating swapchain", .{});
 
     return true;
 }

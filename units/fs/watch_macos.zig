@@ -110,7 +110,7 @@ fn processEvents(self: *Self, events: []os.Kevent) !void {
             os.close(d.fd);
             d.*.fd = try os.open(d.path, os.O.EVTONLY, 0);
         } else {
-            utils.log.warn("unknown event: {}\n", .{ev});
+            log.warn("unknown event: {}\n", .{ev});
         }
     }
 }

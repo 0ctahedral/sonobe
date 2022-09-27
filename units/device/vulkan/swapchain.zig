@@ -1,6 +1,7 @@
 const std = @import("std");
 const vk = @import("vulkan");
 const utils = @import("utils");
+const log = utils.log.Logger("swapchain");
 const dispatch_types = @import("dispatch_types.zig");
 const InstanceDispatch = dispatch_types.InstanceDispatch;
 const Device = @import("device.zig").Device;
@@ -83,7 +84,7 @@ pub const Swapchain = struct {
             }
         }
 
-        utils.log.info("chosen present mode: {}", .{self.present_mode});
+        log.info("chosen present mode: {}", .{self.present_mode});
 
         // get the actual extent of the window
         const caps = try vki.getPhysicalDeviceSurfaceCapabilitiesKHR(dev.physical, surface);
@@ -97,7 +98,7 @@ pub const Swapchain = struct {
 
         //self.extent = actual_extent;
 
-        //utils.log.info("given extent: {} actual extent: {}", .{ extent, self.extent });
+        //log.info("given extent: {} actual extent: {}", .{ extent, self.extent });
 
         // get the image count
         var min_imgs = caps.min_image_count + 1;
@@ -133,7 +134,7 @@ pub const Swapchain = struct {
         }, null);
 
         if (old_handle != .null_handle) {
-            utils.log.info("destroying old handle: {}", .{old_handle});
+            log.info("destroying old handle: {}", .{old_handle});
             dev.vkd.destroySwapchainKHR(dev.logical, old_handle, null);
             // allocator.free(self.render_textures);
         }
@@ -142,7 +143,7 @@ pub const Swapchain = struct {
         self.img_count = 0;
         var imgs: [8]vk.Image = undefined;
         _ = try dev.vkd.getSwapchainImagesKHR(dev.logical, self.handle, &self.img_count, null);
-        utils.log.info("image img_count: {}", .{self.img_count});
+        log.info("image img_count: {}", .{self.img_count});
         _ = try dev.vkd.getSwapchainImagesKHR(dev.logical, self.handle, &self.img_count, imgs[0..]);
 
         if (is_recreate) {

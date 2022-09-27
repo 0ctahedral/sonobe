@@ -17,51 +17,78 @@ const Level = enum {
     debug,
 };
 
-const color_prefix = "\x1b[";
-const color_suffix = "m";
-const color_clear = "\x1b[0m";
+pub const default = Logger("");
 
-pub inline fn info(
-    comptime fmt: []const u8,
-    args: anytype,
-) void {
-    logLevel(.info, fmt, args);
-}
+pub fn Logger(
+    comptime prefix: []const u8,
+) type {
+    return struct {
 
-pub inline fn err(
-    comptime fmt: []const u8,
-    args: anytype,
-) void {
-    logLevel(.err, fmt, args);
-}
+        /// output file for the logger, defaults to stderr
+        pub const out_file = std.io.getStdErr();
 
-pub inline fn debug(
-    comptime fmt: []const u8,
-    args: anytype,
-) void {
-    logLevel(.debug, fmt, args);
-}
+        const color_prefix = "\x1b[";
+        const color_suffix = "m";
+        const color_clear = "\x1b[0m";
 
-pub inline fn warn(
-    comptime fmt: []const u8,
-    args: anytype,
-) void {
-    logLevel(.warn, fmt, args);
-}
+        pub inline fn info(
+            comptime fmt: []const u8,
+            args: anytype,
+        ) void {
+            logLevel(.info, fmt, args);
+        }
 
-pub fn logLevel(
-    comptime level: Level,
-    comptime fmt: []const u8,
-    args: anytype,
-) void {
-    const color = color_prefix ++ TERM_COLORS[@enumToInt(level)] ++ color_suffix;
-    const stderr = std.io.getStdErr().writer();
-    const prefix = "[" ++ @tagName(level) ++ "] ";
-    stderr.print(color ++ prefix ++ fmt ++ color_clear ++ "\n", args) catch return;
+        pub inline fn err(
+            comptime fmt: []const u8,
+            args: anytype,
+        ) void {
+            logLevel(.err, fmt, args);
+        }
+
+        pub inline fn debug(
+            comptime fmt: []const u8,
+            args: anytype,
+        ) void {
+            logLevel(.debug, fmt, args);
+        }
+
+        pub inline fn warn(
+            comptime fmt: []const u8,
+            args: anytype,
+        ) void {
+            logLevel(.warn, fmt, args);
+        }
+
+        pub fn logLevel(
+            comptime level: Level,
+            comptime fmt: []const u8,
+            args: anytype,
+        ) void {
+            const color = color_prefix ++ TERM_COLORS[@enumToInt(level)] ++ color_suffix;
+            const level_prefix = "[" ++ blk: {
+                const lvl = @tagName(level);
+                if (prefix.len == 0) {
+                    break :blk lvl;
+                } else {
+                    break :blk prefix ++ ": " ++ lvl;
+                }
+            } ++ "] ";
+
+            out_file.writer().print(color ++ level_prefix ++ fmt ++ color_clear ++ "\n", args) catch return;
+        }
+    };
 }
 
 test "log colors" {
+    const log = Logger("");
     inline for (@typeInfo(Level).Enum.fields) |f| {
-        logLevel(@field(Level, f.name), "{s}: bloopy", .{f.name});
+        log.logLevel(@field(Level, f.name), "{s}: bloopy", .{f.name});
+    }
+}
+
+test "log prefix" {
+    const log = Logger("prefix");
+    inline for (@typeInfo(Level).Enum.fields) |f| {
+        log.logLevel(@field(Level, f.name), "{s}: bloopy", .{f.name});
     }
 }

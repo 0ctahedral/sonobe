@@ -22,7 +22,7 @@ var windows: struct {
 } = .{};
 
 pub fn init() anyerror!void {
-    utils.log.info("linux startup", .{});
+    log.info("linux startup", .{});
 
     display = xcb.XOpenDisplay(null).?;
     //_ = xcb.XAutoRepeatOff(display);
@@ -37,7 +37,7 @@ pub fn init() anyerror!void {
 
 pub fn deinit() void {
     //_ = xcb.XAutoRepeatOn(display);
-    utils.log.info("linux shutdown", .{});
+    log.info("linux shutdown", .{});
 }
 
 pub fn nextEvent() ?Event {
@@ -65,7 +65,7 @@ pub fn nextEvent() ?Event {
             //            },
             xcb.XCB_CLIENT_MESSAGE => {
                 const cm = @ptrCast(*xcb.xcb_client_message_event_t, ev);
-                utils.log.info("wm window close event: {}", .{cm});
+                log.info("wm window close event: {}", .{cm});
                 for (windows.handles) |*handle, i| {
                     if (
                     //handle.* != .null_handle and
@@ -92,7 +92,7 @@ pub fn nextEvent() ?Event {
             //                    3 => btn = input.mouse_btns.right,
             //                    else => {
             //                        // TODO: use buttons 4 and 5 to add scrolling
-            //                        utils.log.info("button press: {}", .{bev.detail});
+            //                        log.info("button press: {}", .{bev.detail});
             //                        btn = input.mouse_btns.other;
             //                    },
             //                }
@@ -112,8 +112,8 @@ pub fn nextEvent() ?Event {
                     .h = cn.height,
                 } };
             },
-            //else => |ev| utils.log.info("event: {}", .{ev}),
-            //else => utils.log.info("event: {}", .{ev}),
+            //else => |ev| log.info("event: {}", .{ev}),
+            //else => log.info("event: {}", .{ev}),
             else => {},
         }
         _ = xcb.xcb_flush(connection);
@@ -165,7 +165,7 @@ pub fn createWindow(title: []const u8, w: u32, h: u32) !Window {
         return error.xcbFlushError;
     }
 
-    utils.log.info("linux create window # {}", .{window});
+    log.info("linux create window # {}", .{window});
     windows.idx += 1;
     windows.handles[windows.idx] = window;
     windows.wm_dels[windows.idx] = wm_del;

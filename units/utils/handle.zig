@@ -1,6 +1,7 @@
 const std = @import("std");
 const utils = @import("./utils.zig");
 const testing = @import("std").testing;
+const log = utils.log.default;
 
 /// indexing type for handles
 /// cound consider making this configurable
@@ -106,7 +107,7 @@ test "create one" {
 }
 
 fn takesErased(h: ErasedHandle) void {
-    utils.log.debug("oopsies {}", .{h});
+    log.debug("oopsies {}", .{h});
 }
 
 test "erase handle" {

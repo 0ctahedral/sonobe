@@ -3,6 +3,7 @@
 
 const std = @import("std");
 const utils = @import("utils");
+const log = utils.log.Logger("font/bdf");
 const Allocator = std.mem.Allocator;
 
 /// bounding box for glyphs
@@ -205,7 +206,7 @@ fn parseGlyph(bdf: *BDF, idx: usize, buf: []u8) !usize {
             while (row < @intCast(usize, glyph.bb.y)) : (row += 1) {
                 eol = start + std.mem.indexOf(u8, buf[start..], "\n").?;
                 glyph.bitmap[row] = std.fmt.parseInt(u8, buf[start..eol], 16) catch {
-                    utils.log.debug("invalid row: {s}\n", .{buf[start..eol]});
+                    log.debug("invalid row: {s}\n", .{buf[start..eol]});
                     return error.GlyphBitmapFail;
                 };
 
@@ -238,13 +239,13 @@ test "load scientifica" {
 
     // write dollar to the texture
     const three = (try bdf.getGlyph(@as(u32, '3')));
-    utils.log.debug("{}\n", .{three});
+    log.debug("{}\n", .{three});
     try three.writeToTex(&bitmap, 0, 0, dim);
 
     for (bitmap) |b, i| {
-        utils.log.debug("{d}, ", .{b});
+        log.debug("{d}, ", .{b});
         if ((i + 1) % dim == 0) {
-            utils.log.debug("//\n", .{});
+            log.debug("//\n", .{});
         }
     }
 

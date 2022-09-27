@@ -1,5 +1,6 @@
 const std = @import("std");
 const utils = @import("utils");
+const log = utils.log.default;
 const Handle = utils.Handle;
 const Color = utils.Color;
 const mesh = @import("mesh");
@@ -192,17 +193,17 @@ pub fn update(app: *App, dt: f64) !void {
 
     if (input.keyIs(.v, .press)) {
         app.camera.fov += 10;
-        std.log.debug("fov changed to: {d:.2}", .{app.camera.fov});
+        log.debug("fov changed to: {d:.2}", .{app.camera.fov});
     }
     if (input.keyIs(.c, .press)) {
         app.camera.fov -= 10;
-        std.log.debug("fov changed to: {d:.2}", .{app.camera.fov});
+        log.debug("fov changed to: {d:.2}", .{app.camera.fov});
     }
 
     const mag = ivec.len();
     if (mag > 0.0) {
         app.camera.pos = app.camera.pos.add(ivec.scale(app.camera_move_speed * @floatCast(f32, dt) / mag));
-        //std.log.debug("x: {d:.2} y: {d:.2} z: {d:.2}", .{
+        //log.debug("x: {d:.2} y: {d:.2} z: {d:.2}", .{
         //    app.camera.pos.x,
         //    app.camera.pos.y,
         //    app.camera.pos.z
@@ -310,7 +311,7 @@ pub fn deinit(app: *App) void {
     app.octahedron.deinit();
 
     material.deinit();
-    std.log.info("{s}: deinitialized", .{App.name});
+    log.info("{s}: deinitialized", .{App.name});
 }
 
 pub fn onResize(app: *App, w: u16, h: u16) void {

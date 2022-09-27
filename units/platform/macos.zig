@@ -23,13 +23,13 @@ var windows: FreeList(WinData) = undefined;
 var window_store: [10]WinData = undefined;
 
 pub fn init() anyerror!void {
-    utils.log.info("macos startup", .{});
+    log.info("macos startup", .{});
     _ = startup(&state);
     windows = try FreeList(WinData).initArena(&window_store);
 }
 
 pub fn deinit() void {
-    utils.log.info("macos shutdown", .{});
+    log.info("macos shutdown", .{});
     shutdown(&state);
 }
 
@@ -87,7 +87,7 @@ pub fn createWindow(title: []const u8, w: u32, h: u32) !Window {
 
 export fn close_window(ptr: *anyopaque) void {
     const id: u32 = @truncate(u32, @ptrToInt(ptr));
-    utils.log.info("closing {x}", .{id});
+    log.info("closing {x}", .{id});
     num_living -= 1;
 }
 
@@ -95,7 +95,7 @@ export fn resize_window(ptr: *anyopaque, w: u16, h: u16) void {
     const wd = find_win(ptr).?;
     next_event = Event{ .WindowResize = .{ .w = w, .h = h } };
     _ = wd;
-    //utils.log.info("win: {} resized to {}x{}", .{ wd, w, h });
+    //log.info("win: {} resized to {}x{}", .{ wd, w, h });
 }
 
 pub fn createWindowSurface(vki: InstanceDispatch, instance: vk.Instance, win: Window) !vk.SurfaceKHR {

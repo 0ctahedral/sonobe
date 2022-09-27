@@ -216,10 +216,10 @@ test "no funcs called" {
 // TESTS AND STUFF
 fn onesuspend(a: *u32, c: *Counter) void {
     a.* += 1;
-    // utils.log.debug("added 1\n", .{});
+    // log.debug("added 1\n", .{});
     wait(c, 0);
     a.* += 1;
-    // utils.log.debug("added 1 again\n", .{});
+    // log.debug("added 1 again\n", .{});
 }
 
 test "function with single suspend" {
@@ -251,17 +251,17 @@ test "function with single suspend" {
 
 fn spawner(i: *u32) void {
     var c = Counter{};
-    // utils.log.debug("spanwing other job\n", .{});
+    // log.debug("spanwing other job\n", .{});
     i.* += 1;
     run(other, .{i}, &c) catch unreachable;
-    // utils.log.debug("waiting for other job\n", .{});
+    // log.debug("waiting for other job\n", .{});
     wait(&c, 0);
-    // utils.log.debug("spawn done\n", .{});
+    // log.debug("spawn done\n", .{});
 }
 
 fn other(i: *u32) void {
     i.* += 1;
-    // utils.log.debug("hello from other job\n", .{});
+    // log.debug("hello from other job\n", .{});
 }
 
 test "job spawns job" {
@@ -334,7 +334,7 @@ pub fn checkQueueMask(kq: i32, kev: os.Kevent, mask: u32) void {
     while (true) {
         // oof kinda gnarly
         while (os.kevent(kq, &monitor, &event_data, &std.os.timespec{ .tv_sec = 0, .tv_nsec = 0 }) catch |err| {
-            utils.log.debug("kevent error: {s}", .{@errorName(err)});
+            log.debug("kevent error: {s}", .{@errorName(err)});
             return;
         } > 0) {
             if ((event_data[0].fflags & mask) != 0) {
@@ -351,10 +351,10 @@ pub fn checkQueue(kq: i32, kev: os.Kevent) void {
     while (true) {
         // oof kinda gnarly
         while (os.kevent(kq, &monitor, &event_data, &std.os.timespec{ .tv_sec = 0, .tv_nsec = 0 }) catch |err| {
-            utils.log.debug("kevent error: {s}", .{@errorName(err)});
+            log.debug("kevent error: {s}", .{@errorName(err)});
             return;
         } > 0) {
-            utils.log.debug("kevent: {}", .{event_data[0]});
+            log.debug("kevent: {}", .{event_data[0]});
             return;
         }
         sleep(std.time.ns_per_s);
@@ -394,16 +394,16 @@ test "file watch" {
 
     while (true) {
         if (file_del.val() == 0) {
-            utils.log.debug("\nfile deleted\n", .{});
+            log.debug("\nfile deleted\n", .{});
             break;
         }
     }
 
-    utils.log.debug("\nclosing file\n", .{});
+    log.debug("\nclosing file\n", .{});
     os.close(fd);
 
     const fd2 = try os.open(file_path, os.O.EVTONLY, 0);
-    utils.log.debug("\nreopening file\n", .{});
+    log.debug("\nreopening file\n", .{});
 
     const kev2 = os.Kevent{
         .ident = @intCast(usize, fd2),
@@ -415,13 +415,13 @@ test "file watch" {
         .udata = @ptrToInt(file_path.ptr),
     };
 
-    utils.log.debug("\nstarting new job\n", .{});
+    log.debug("\nstarting new job\n", .{});
     // try run(checkQueueMask, .{ kq, kev, sys.NOTE_ATTRIB }, &file_chng);
     try run(checkQueue, .{ kq, kev2 }, &file_chng);
 
     while (true) {
         if (file_chng.val() == 0) {
-            utils.log.debug("\nfile changed\n", .{});
+            log.debug("\nfile changed\n", .{});
             break;
         }
     }
@@ -448,11 +448,11 @@ test "file watch" {
 //    // read contents of file and print them
 //    const reader = file.reader();
 //    var buf = reader.readAllAlloc(allocator, 1024) catch {
-//        utils.log.debug("could not read\n", .{});
+//        log.debug("could not read\n", .{});
 //        return;
 //    };
 //    defer allocator.free(buf);
-//    utils.log.debug("contents: {s}\n", .{buf});
+//    log.debug("contents: {s}\n", .{buf});
 //}
 //
 //const test_tmp_dir = "tmp_test";
@@ -526,7 +526,7 @@ test "file watch" {
 //    var n: u8 = 0;
 //    while (true) {
 //        if (file_c.val() == 0) {
-//            utils.log.debug("\nfile changed\n", .{});
+//            log.debug("\nfile changed\n", .{});
 //            if (n == 3) {
 //                break;
 //            }

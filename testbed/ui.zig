@@ -7,7 +7,7 @@ const descs = device.resources.descs;
 const CmdBuf = device.CmdBuf;
 
 const utils = @import("utils");
-const log = utils.log;
+const log = log;
 const Color = utils.Color;
 const Handle = utils.Handle;
 

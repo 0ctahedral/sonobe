@@ -1,6 +1,6 @@
 const std = @import("std");
 const utils = @import("utils");
-const log = utils.log;
+const log = utils.log.default;
 const Handle = utils.Handle;
 const Color = utils.Color;
 const mesh = @import("mesh");
