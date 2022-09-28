@@ -7,7 +7,7 @@ const descs = device.resources.descs;
 const CmdBuf = device.CmdBuf;
 
 const utils = @import("utils");
-const log = log;
+const log = utils.log.Logger("ui");
 const Color = utils.Color;
 const Handle = utils.Handle;
 
@@ -16,6 +16,8 @@ const Vec2 = math.Vec2;
 const Mat4 = math.Mat4;
 
 const Self = @This();
+
+const FontAtlas = @import("./font_atlas.zig").FontAtlas;
 
 /// A 2d rectangle
 pub const Rect = packed struct {
@@ -88,6 +90,7 @@ rect_buffer: Handle(.Buffer) = .{},
 /// buffer of indices of the rectangles to draw
 idx_buffer: Handle(.Buffer) = .{},
 
+/// shader 
 pipeline: Handle(.Pipeline) = .{},
 
 /// current offset in number of rectangles bump allocated so far
@@ -97,6 +100,8 @@ offset: u32 = 0,
 /// TODO: may need a more robust system for this
 id_counter: Id = 0,
 
+font_atlas: FontAtlas = undefined,
+
 allocator: std.mem.Allocator = undefined,
 
 pub fn init(
@@ -105,6 +110,11 @@ pub fn init(
 ) !Self {
     var self = Self{};
     self.allocator = allocator;
+
+    self.font_atlas = try FontAtlas.init(
+        "./assets/fonts/scientifica-11.bdf",
+        self.allocator,
+    );
 
     // setup buffers
 
@@ -136,11 +146,15 @@ pub fn init(
     self.group = try resources.createBindGroup(&.{
         .{ .binding_type = .UniformBuffer },
         .{ .binding_type = .UniformBuffer },
+        .{ .binding_type = .Texture },
+        .{ .binding_type = .Sampler },
     });
 
     try resources.updateBindGroup(self.group, &[_]resources.BindGroupUpdate{
         .{ .binding = 0, .handle = self.uniform_buffer.erased() },
         .{ .binding = 1, .handle = self.rect_buffer.erased() },
+        .{ .binding = 2, .handle = self.font_atlas.texture.erased() },
+        .{ .binding = 3, .handle = self.font_atlas.sampler.erased() },
     });
 
     // create our shader pipeline
@@ -185,7 +199,7 @@ pub fn init(
 }
 
 pub fn deinit(self: *Self) void {
-    _ = self;
+    self.font_atlas.deinit();
 }
 
 pub fn update(self: *Self) !void {
@@ -224,6 +238,7 @@ pub fn draw(self: *Self, cmd: *CmdBuf) !void {
 /// basis for all the other
 pub fn addRect(
     self: *Self,
+    rect_type: RectType,
     rect: Rect,
     color: Color,
 ) void {
@@ -248,26 +263,32 @@ pub fn addRect(
             @bitCast(u32, RectIndex{
                 .corner = 0,
                 .index = @intCast(u24, self.offset),
+                .rect_type = rect_type,
             }),
             @bitCast(u32, RectIndex{
                 .corner = 1,
                 .index = @intCast(u24, self.offset),
+                .rect_type = rect_type,
             }),
             @bitCast(u32, RectIndex{
                 .corner = 2,
                 .index = @intCast(u24, self.offset),
+                .rect_type = rect_type,
             }),
             @bitCast(u32, RectIndex{
                 .corner = 2,
                 .index = @intCast(u24, self.offset),
+                .rect_type = rect_type,
             }),
             @bitCast(u32, RectIndex{
                 .corner = 3,
                 .index = @intCast(u24, self.offset),
+                .rect_type = rect_type,
             }),
             @bitCast(u32, RectIndex{
                 .corner = 0,
                 .index = @intCast(u24, self.offset),
+                .rect_type = rect_type,
             }),
         },
     ) catch unreachable;
@@ -307,6 +328,36 @@ fn reset(self: *Self) void {
 }
 
 // widgets
+
+pub fn text(
+    self: *Self,
+    string: []const u8,
+    /// TODO: replacee with bounding rect
+    /// position of bottom left corner
+    pos: Vec2,
+    /// font height in pixels 
+    height: f32,
+    color: Color,
+) void {
+    var offset = Vec2{};
+    var max_y = height;
+    for (string) |b| {
+        // increase x offset by width of previous glyph
+        var o = Vec2{};
+        if (self.font_atlas.getGlyphData(
+            @intCast(u32, b),
+            pos.add(offset),
+            height,
+        )) |data| {
+            self.addRect(.solid, data.rect, color);
+            o = data.next_offset;
+        }
+        offset.x += o.x;
+        max_y = @maximum(max_y, height + o.y);
+    }
+
+    offset.y = max_y;
+}
 
 pub const ButtonStyle = struct {
     color: Color,
@@ -354,7 +405,7 @@ pub fn button(
         }
     }
 
-    self.addRect(rect, color);
+    self.addRect(.solid, rect, color);
 
     return result;
 }

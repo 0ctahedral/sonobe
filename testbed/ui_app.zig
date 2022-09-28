@@ -96,13 +96,20 @@ pub fn init(app: *App) !void {
 pub fn update(app: *App, dt: f64) !void {
     app.font_ren.clear();
     var buf: [80]u8 = undefined;
+    const str = try std.fmt.bufPrint(buf[0..], "dt: {d:.2} fps: {d:.2}", .{ dt * 1000.0, platform.fps() });
     _ = try app.font_ren.addString(
-        try std.fmt.bufPrint(buf[0..], "dt: {d:.2} fps: {d:.2}", .{ dt * 1000.0, platform.fps() }),
+        str,
         Vec2.new(0, 0),
         36,
         pallet.purple.toLinear(),
     );
 
+    app.ui.text(
+        str,
+        Vec2.new(0, 0),
+        36,
+        pallet.active.toLinear(),
+    );
     const rect = .{
         .x = @intToFloat(f32, device.w) - 110,
         .y = 10,
@@ -120,6 +127,12 @@ pub fn update(app: *App, dt: f64) !void {
     }, buttonStyle);
 
     var text: []const u8 = "click me";
+    app.ui.text(
+        text,
+        Vec2.new(rect.x + 5, rect.y + 5),
+        16,
+        pallet.active.toLinear(),
+    );
     _ = try app.font_ren.addString(
         text,
         Vec2.new(rect.x + 5, rect.y + 5),

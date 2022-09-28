@@ -62,8 +62,10 @@ const BDFHeader = struct {
 header: BDFHeader,
 
 /// codepoints for each glpyph
-codepoints: []u32 = &[_]u32{},
-glyphs: []Glyph = &[_]Glyph{},
+codepoints: []u32 = undefined,
+glyphs: []Glyph = undefined,
+
+allocator: Allocator,
 
 pub fn init(path: []const u8, allocator: Allocator) !BDF {
     // open file
@@ -80,6 +82,7 @@ pub fn init(path: []const u8, allocator: Allocator) !BDF {
 
     var bdf = BDF{
         .header = header,
+        .allocator = allocator,
     };
     bdf.glyphs = try allocator.alloc(Glyph, n_glyphs);
     bdf.codepoints = try allocator.alloc(u32, n_glyphs);
@@ -105,6 +108,10 @@ pub fn init(path: []const u8, allocator: Allocator) !BDF {
     return bdf;
 }
 
+pub fn deinit(self: @This()) void {
+    self.allocator.free(self.glyphs);
+    self.allocator.free(self.codepoints);
+}
 /// returns a glyph for a codepoint
 pub fn getGlyph(self: @This(), codepoint: u32) !Glyph {
     // TODO: faster way of searching
