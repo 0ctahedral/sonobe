@@ -118,43 +118,44 @@ pub fn init(
 
     // setup buffers
 
-    self.uniform_buffer = try resources.createBuffer(
-        .{
-            .size = @sizeOf(UniformData),
-            .usage = .Uniform,
-        },
-    );
+    self.uniform_buffer = try resources.createBuffer(.{
+        .size = @sizeOf(UniformData),
+        .usage = .Uniform,
+    });
 
     // TODO: uniform for now but may need to be storage
     // for ui that requires more rectangles
-    self.rect_buffer = try resources.createBuffer(
-        .{
-            .size = BUF_SIZE,
-            .usage = .Uniform,
-        },
-    );
+    self.rect_buffer = try resources.createBuffer(.{
+        .size = BUF_SIZE,
+        .usage = .Uniform,
+    });
 
-    self.idx_buffer = try resources.createBuffer(
-        .{
-            .size = MAX_RECTS * 6 * @sizeOf(u32),
-            .usage = .Index,
-        },
-    );
+    self.idx_buffer = try resources.createBuffer(.{
+        .size = MAX_RECTS * 6 * @sizeOf(u32),
+        .usage = .Index,
+    });
 
     // setup bindgroup
 
     self.group = try resources.createBindGroup(&.{
+        // uniform data
         .{ .binding_type = .UniformBuffer },
+        // rect data
         .{ .binding_type = .UniformBuffer },
+        // glyph data
+        .{ .binding_type = .UniformBuffer },
+        // font atlas
         .{ .binding_type = .Texture },
+        // font atlas
         .{ .binding_type = .Sampler },
     });
 
     try resources.updateBindGroup(self.group, &[_]resources.BindGroupUpdate{
         .{ .binding = 0, .handle = self.uniform_buffer.erased() },
         .{ .binding = 1, .handle = self.rect_buffer.erased() },
-        .{ .binding = 2, .handle = self.font_atlas.texture.erased() },
-        .{ .binding = 3, .handle = self.font_atlas.sampler.erased() },
+        .{ .binding = 2, .handle = self.font_atlas.glyph_buffer.erased() },
+        .{ .binding = 3, .handle = self.font_atlas.texture.erased() },
+        .{ .binding = 4, .handle = self.font_atlas.sampler.erased() },
     });
 
     // create our shader pipeline

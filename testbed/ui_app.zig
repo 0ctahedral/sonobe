@@ -150,7 +150,7 @@ pub fn draw(app: *App) !void {
 
     try app.ui.draw(&cmd);
 
-    try app.font_ren.drawGlyphsDebug(&cmd, @intToEnum(FontRen.GlyphDebugMode, app.mode));
+    // try app.font_ren.drawGlyphsDebug(&cmd, @intToEnum(FontRen.GlyphDebugMode, app.mode));
     // try app.font_ren.drawAtlas(
     //     &cmd,
     //     @intToFloat(f32, device.w) - 400,

@@ -47,6 +47,8 @@ pub const FontAtlas = struct {
     texture: Handle(.Texture) = .{},
     /// sampler for textures used by the gui system
     sampler: Handle(.Sampler) = .{},
+    /// holds the data for glyphs
+    glyph_buffer: Handle(.Buffer) = .{},
     /// dimension of the atlas (its a square)
     dimension: u32,
 
@@ -72,6 +74,10 @@ pub const FontAtlas = struct {
                 .filter = .nearest,
                 .repeat = .wrap,
                 .compare = .greater,
+            }),
+            .glyph_buffer = try resources.createBuffer(.{
+                .size = dim * dim * 2 * @sizeOf(Vec2),
+                .usage = .Uniform,
             }),
         };
     }
@@ -133,8 +139,21 @@ pub const FontAtlas = struct {
         };
 
         try self.map.put(codepoint, g);
-        self.next_index += 1;
 
+        _ = try resources.updateBufferTyped(
+            self.glyph_buffer,
+            2 * self.next_index * @sizeOf(Vec2),
+            Vec2,
+            &[_]Vec2{
+                g.bb,
+                .{
+                    .x = @intToFloat(f32, xoff_pix),
+                    .y = @intToFloat(f32, yoff_pix),
+                },
+            },
+        );
+
+        self.next_index += 1;
         return g;
     }
 
