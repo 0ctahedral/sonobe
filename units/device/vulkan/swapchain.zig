@@ -60,14 +60,15 @@ pub const Swapchain = struct {
             .color_space = .srgb_nonlinear_khr,
         };
         var surface_formats: [32]vk.SurfaceFormatKHR = undefined;
-        var surf_count: u32 = undefined;
+        var surf_count: u32 = 0;
         _ = try vki.getPhysicalDeviceSurfaceFormatsKHR(dev.physical, surface, &surf_count, surface_formats[0..]);
 
-        self.surface_format = surface_formats[0];
+        self.surface_format = preferred_format;
 
-        for (surface_formats[0..surf_count]) |sfmt| {
+        for (surface_formats[0..surf_count]) |sfmt, i| {
+            self.surface_format = sfmt;
+            log.debug("fmt {}: {}", .{ i, sfmt });
             if (std.meta.eql(sfmt, preferred_format)) {
-                self.surface_format = sfmt;
                 break;
             }
         }
