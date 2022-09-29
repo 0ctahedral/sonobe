@@ -350,7 +350,7 @@ pub fn text(
             pos.add(offset),
             height,
         )) |data| {
-            self.addRect(.solid, data.rect, color);
+            self.addRect(.glyph, data.rect, color);
             o = data.next_offset;
         }
         offset.x += o.x;
