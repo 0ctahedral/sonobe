@@ -27,6 +27,8 @@ pub const FontAtlas = struct {
     };
 
     const GlyphData = struct {
+        /// lookup index in the atlas
+        idx: u8,
         /// rectangle that we will use to render this glyph
         rect: Rect,
         /// offset in pixels to draw next glyph
@@ -189,6 +191,8 @@ pub const FontAtlas = struct {
                 .w = size.x,
                 .h = size.y,
             },
+
+            .idx = @intCast(u8, glyph.idx),
 
             .next_offset = Vec2.new(
                 @intToFloat(f32, f_glyph.dwidth.x) * ratio,

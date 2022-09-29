@@ -57,7 +57,7 @@ const RectType = enum(u6) {
 const RectIndex = packed struct {
     index: u24,
     corner: u2,
-    rect_type: RectType = .solid,
+    rect_type: RectType,
 };
 
 const MAX_RECTS = 1024;
@@ -243,6 +243,22 @@ pub fn addRect(
     rect: Rect,
     color: Color,
 ) void {
+    self.addRectIndex(
+        rect_type,
+        rect,
+        color,
+        @intCast(u24, self.offset),
+    );
+}
+
+pub fn addRectIndex(
+    self: *Self,
+    rect_type: RectType,
+    rect: Rect,
+    color: Color,
+    /// custom index value, does not effect the offset in the buffer
+    index: u24,
+) void {
     _ = resources.updateBufferTyped(
         self.rect_buffer,
         @sizeOf(RectData) * self.offset,
@@ -263,32 +279,32 @@ pub fn addRect(
         &[_]u32{
             @bitCast(u32, RectIndex{
                 .corner = 0,
-                .index = @intCast(u24, self.offset),
+                .index = index,
                 .rect_type = rect_type,
             }),
             @bitCast(u32, RectIndex{
                 .corner = 1,
-                .index = @intCast(u24, self.offset),
+                .index = index,
                 .rect_type = rect_type,
             }),
             @bitCast(u32, RectIndex{
                 .corner = 2,
-                .index = @intCast(u24, self.offset),
+                .index = index,
                 .rect_type = rect_type,
             }),
             @bitCast(u32, RectIndex{
                 .corner = 2,
-                .index = @intCast(u24, self.offset),
+                .index = index,
                 .rect_type = rect_type,
             }),
             @bitCast(u32, RectIndex{
                 .corner = 3,
-                .index = @intCast(u24, self.offset),
+                .index = index,
                 .rect_type = rect_type,
             }),
             @bitCast(u32, RectIndex{
                 .corner = 0,
-                .index = @intCast(u24, self.offset),
+                .index = index,
                 .rect_type = rect_type,
             }),
         },
@@ -350,7 +366,14 @@ pub fn text(
             pos.add(offset),
             height,
         )) |data| {
-            self.addRect(.glyph, data.rect, color);
+            var index = @intCast(u24, self.offset);
+            index |= (@intCast(u24, data.idx) << 16);
+            self.addRectIndex(
+                .glyph,
+                data.rect,
+                color,
+                index,
+            );
             o = data.next_offset;
         }
         offset.x += o.x;
