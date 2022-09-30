@@ -19,6 +19,10 @@ pub const DrawIndexedDesc = struct {
     index_handle: Handle(.Buffer),
     /// offset into the index buffer in bytes
     index_offset: u64 = 0,
+    /// number of instances
+    instance_count: u32 = 1,
+    /// id of first instance
+    instance_id: u32 = 0,
 };
 
 // buffer stuff

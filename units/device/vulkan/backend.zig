@@ -383,7 +383,16 @@ fn applyDrawIndexed(cb: *CommandBuffer, desc: descs.DrawIndexedDesc) void {
         .uint32,
     );
 
-    device.vkd.cmdDrawIndexed(cb.handle, desc.count, 1, 0, 0, 0);
+    device.vkd.cmdDrawIndexed(
+        cb.handle,
+        desc.count,
+        desc.instance_count,
+        // base index in index buffer
+        0,
+        // index of vertex in vertex buffer
+        0,
+        desc.instance_id,
+    );
 }
 
 pub fn endFrame() !void {
