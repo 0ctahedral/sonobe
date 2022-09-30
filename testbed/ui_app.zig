@@ -7,6 +7,7 @@ const mesh = @import("mesh");
 const quad = mesh.quad;
 
 const UI = @import("ui.zig");
+const Rect = UI.Rect;
 
 const device = @import("device");
 const descs = device.resources.descs;
@@ -53,16 +54,13 @@ camera: Camera = .{
     .fov = 60,
 },
 
-last_pos: Vec2 = .{},
-
-font_ren: FontRen = undefined,
-
 ui: UI = .{},
 
 button: UI.Id = 0,
 button2: UI.Id = 0,
 
-mode: u8 = 0,
+// dimesnsions of the device
+dims: Vec2 = Vec2.new(800, 600),
 
 const buttonStyle = .{
     .color = pallet.bg_alt.toLinear(),
@@ -84,63 +82,68 @@ pub fn init(app: *App) !void {
         .clear_flags = .{ .color = true, .depth = true },
     });
 
-    app.font_ren = try FontRen.init("./assets/fonts/scientifica-11.bdf", app.screen_pass, allocator);
-    // update the buffer with our projection
-    _ = try resources.updateBufferTyped(app.font_ren.buffer, 0, Mat4, &[_]Mat4{
-        Mat4.ortho(0, 800, 0, 600, -100, 100),
-    });
-
     app.ui = try UI.init(app.screen_pass, allocator);
 }
 
 pub fn update(app: *App, dt: f64) !void {
-    app.font_ren.clear();
+    // fps text
     var buf: [80]u8 = undefined;
-    const str = try std.fmt.bufPrint(buf[0..], "dt: {d:.2} fps: {d:.2}", .{ dt * 1000.0, platform.fps() });
-    _ = try app.font_ren.addString(
-        str,
-        Vec2.new(0, 0),
-        36,
-        pallet.purple.toLinear(),
+    const str = try std.fmt.bufPrint(
+        buf[0..],
+        "dt: {d:.2} fps: {d:.2}",
+        .{
+            dt * 1000.0,
+            platform.fps(),
+        },
     );
-
     app.ui.text(
         str,
         Vec2.new(0, 0),
-        36,
+        18,
         pallet.active.toLinear(),
     );
-    const rect = .{
-        .x = @intToFloat(f32, device.w) - 110,
-        .y = 10,
-        .w = 100,
-        .h = 50,
-    };
-    if (app.ui.button(&app.button, rect, buttonStyle)) {
-        // app.mode = (app.mode + 1) % 4;
-        // log.debug("{}", .{app.mode});
+
+    // buttons
+    {
+        const rect = .{
+            .x = @intToFloat(f32, device.w) - 110,
+            .y = 10,
+            .w = 100,
+            .h = 50,
+        };
+        if (app.ui.button(&app.button, rect, buttonStyle)) {
+            log.debug("clicked", .{});
+        }
+        var text: []const u8 = "click me";
+        app.ui.text(
+            text,
+            Vec2.new(rect.x + 5, rect.y + 5),
+            16,
+            pallet.active.toLinear(),
+        );
     }
-    _ = app.ui.button(&app.button2, .{
-        .y = 100,
-        .w = 100,
-        .h = 50,
-    }, buttonStyle);
 
-    var text: []const u8 = "click me";
-    app.ui.text(
-        text,
-        Vec2.new(rect.x + 5, rect.y + 5),
-        16,
-        pallet.active.toLinear(),
-    );
-    _ = try app.font_ren.addString(
-        text,
-        Vec2.new(rect.x + 5, rect.y + 5),
-        16,
-        pallet.fg.toLinear(),
-    );
-
-    try app.ui.update();
+    // lil window in the middle
+    {
+        const rect = Rect{
+            .x = 30,
+            .y = 70,
+            .w = app.dims.x - 60,
+            .h = app.dims.y - 100,
+        };
+        // border
+        app.ui.addRect(
+            .solid,
+            rect,
+            pallet.active.toLinear(),
+        );
+        // bg
+        app.ui.addRect(
+            .solid,
+            rect.shrink(10),
+            pallet.bg_alt.toLinear(),
+        );
+    }
 }
 
 pub fn draw(app: *App) !void {
@@ -149,15 +152,6 @@ pub fn draw(app: *App) !void {
     try cmd.beginRenderPass(app.screen_pass);
 
     try app.ui.draw(&cmd);
-
-    // try app.font_ren.drawGlyphsDebug(&cmd, @intToEnum(FontRen.GlyphDebugMode, app.mode));
-    // try app.font_ren.drawAtlas(
-    //     &cmd,
-    //     @intToFloat(f32, device.w) - 400,
-    //     @intToFloat(f32, device.h) - 400,
-    //     400,
-    //     400,
-    // );
 
     try cmd.endRenderPass(app.screen_pass);
 
@@ -170,18 +164,7 @@ pub fn deinit(app: *App) void {
 }
 
 pub fn onResize(app: *App, w: u16, h: u16) void {
-    app.camera.aspect = @intToFloat(f32, w) / @intToFloat(f32, h);
-
-    _ = resources.updateBufferTyped(app.font_ren.buffer, 0, Mat4, &[_]Mat4{
-        Mat4.ortho(
-            0,
-            @intToFloat(f32, device.w),
-            0,
-            @intToFloat(f32, device.h),
-            -100,
-            100,
-        ),
-    }) catch unreachable;
-
+    app.dims = Vec2.new(@intToFloat(f32, w), @intToFloat(f32, h));
+    app.camera.aspect = app.dims.x / app.dims.y;
     app.ui.onResize() catch unreachable;
 }

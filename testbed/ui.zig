@@ -31,11 +31,22 @@ pub const Rect = packed struct {
     h: f32 = 0,
 
     /// does this rectangle intersect the given point
-    pub fn intersectPoint(self: @This(), pos: Vec2) bool {
+    pub fn intersectPoint(self: Rect, pos: Vec2) bool {
         return (pos.x >= self.x and
             pos.y >= self.y and
             pos.x <= self.x + self.w and
             pos.y <= self.y + self.h);
+    }
+
+    /// shrinks the rectangle on sides by amount
+    pub fn shrink(self: Rect, amt: f32) Rect {
+        const amt_2 = amt / 2;
+        return .{
+            .x = self.x + amt_2,
+            .y = self.y + amt_2,
+            .w = self.w - amt,
+            .h = self.h - amt,
+        };
     }
 };
 
@@ -203,10 +214,6 @@ pub fn deinit(self: *Self) void {
     self.font_atlas.deinit();
 }
 
-pub fn update(self: *Self) !void {
-    self.ctx.hover = 0;
-}
-
 pub fn onResize(self: *Self) !void {
     _ = try resources.updateBufferTyped(
         self.uniform_buffer,
@@ -237,7 +244,7 @@ pub fn draw(self: *Self, cmd: *CmdBuf) !void {
 
 /// just adds a rectangle to the buffer of geometry to draw
 /// basis for all the other
-pub fn addRect(
+pub inline fn addRect(
     self: *Self,
     rect_type: RectType,
     rect: Rect,
@@ -404,11 +411,7 @@ pub fn button(
         id.* = self.getId();
     }
 
-    // check if the cursor intersects this button
-    // if it does then set to hover
-    if (rect.intersectPoint(mouse.pos)) {
-        self.setHover(id.*);
-    }
+    const is_intersect = rect.intersectPoint(mouse.pos);
 
     // check if this button is active
     if (self.isActive(id.*)) {
@@ -421,12 +424,22 @@ pub fn button(
         }
         color = style.active_color;
     } else if (self.isHover(id.*)) {
-        color = style.hover_color;
-        // if the mouse is down and was already hovering over this
-        // then we are not active
-        if (mouse.getButton(.left).action == .press) {
-            self.setActive(id.*);
+        // we were hovered but the mouse is no longer in
+        // then reset
+        if (is_intersect) {
+            color = style.hover_color;
+            // if the mouse is down and was already hovering over this
+            // then we are not active
+            if (mouse.getButton(.left).action == .press) {
+                self.setActive(id.*);
+            }
         }
+    }
+
+    // check if the cursor intersects this button
+    // if it does then set to hover
+    if (is_intersect) {
+        self.setHover(id.*);
     }
 
     self.addRect(.solid, rect, color);
