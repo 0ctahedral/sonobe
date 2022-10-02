@@ -47,7 +47,9 @@ pub fn setMouseButton(ev: Events.Event) bool {
 /// set the position of the cursor
 pub fn setMousePos(ev: Events.Event) bool {
     // update the mouse position
+    const old_pos = mouse.pos;
     mouse.pos = ev.MouseMove;
+    mouse.delta = mouse.pos.sub(old_pos);
 
     for (mouse.buttons) |*btn| {
         // don't need to do anything if the button is none or released
@@ -74,6 +76,8 @@ pub fn resetMouse() void {
             btn.* = .{};
         }
     }
+
+    mouse.delta = .{};
 }
 
 /// mouse input
@@ -114,6 +118,8 @@ pub const Mouse = struct {
     buttons: [N_BUTTONS]ButtonState = [_]ButtonState{.{}} ** N_BUTTONS,
 
     pos: Vec2 = .{},
+
+    delta: Vec2 = .{},
 
     pub inline fn getButton(self: Mouse, btn: Button) ButtonState {
         return self.buttons[@enumToInt(btn)];
