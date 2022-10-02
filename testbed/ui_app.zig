@@ -60,6 +60,8 @@ button: UI.Id = .{},
 slider: UI.Id = .{},
 slider_value: f32 = 0,
 
+dropdown: UI.Id = .{},
+
 // dimesnsions of the device
 dims: Vec2 = Vec2.new(800, 600),
 
@@ -71,10 +73,15 @@ const button_style = .{
 
 const slider_style = .{
     .slider_color = pallet.bg_alt.toLinear(),
-    // .color = pallet.bg_alt.toLinear(),
     .color = pallet.purple.toLinear(),
     .hover_color = pallet.active.toLinear(),
     .active_color = pallet.fg.toLinear(),
+};
+
+const dropdown_style = .{
+    .color = pallet.bg_alt.toLinear(),
+    .hover_color = pallet.purple.toLinear(),
+    .active_color = pallet.active.toLinear(),
 };
 
 pub fn init(app: *App) !void {
@@ -116,7 +123,7 @@ pub fn update(app: *App, dt: f64) !void {
     // buttons
     {
         const rect = UI.Rect{
-            .x = @intToFloat(f32, device.w) - 110,
+            .x = app.dims.x - 110,
             .y = 10,
             .w = 100,
             .h = 50,
@@ -136,28 +143,6 @@ pub fn update(app: *App, dt: f64) !void {
         );
     }
 
-    // lil window in the middle
-    //    {
-    //        const rect = Rect{
-    //            .x = 30,
-    //            .y = 70,
-    //            .w = app.dims.x - 60,
-    //            .h = app.dims.y - 100,
-    //        };
-    //        // border
-    //        app.ui.addRect(
-    //            .solid,
-    //            rect,
-    //            pallet.active.toLinear(),
-    //        );
-    //        // bg
-    //        app.ui.addRect(
-    //            .solid,
-    //            rect.shrink(10),
-    //            pallet.bg_alt.toLinear(),
-    //        );
-    //    }
-
     // lets try making a slider
     {
         const last_val = app.slider_value;
@@ -166,7 +151,7 @@ pub fn update(app: *App, dt: f64) !void {
             .min = -100,
             .max = 100,
             .slider_rect = .{
-                .x = @intToFloat(f32, device.w) - 175,
+                .x = app.dims.x - 175,
                 .y = 75,
                 .w = 100,
                 .h = 10,
@@ -209,7 +194,39 @@ pub fn update(app: *App, dt: f64) !void {
     }
 
     // dropdown time
-    {}
+    {
+        if (app.ui.dropdown(&app.dropdown, .{
+            .rect = .{
+                .x = app.dims.x - 100,
+                .y = 100,
+                .w = 80,
+                .h = 20,
+            },
+            .style = dropdown_style,
+        })) {
+            var i: u8 = 0;
+            var rect = UI.Rect{
+                .x = app.dims.x - 100,
+                .y = 100,
+                .w = 80,
+                .h = 20,
+            };
+            while (i < 5) : (i += 1) {
+                rect.y += 20;
+                // dropdown item
+                if (app.ui.dropdownItem(
+                    rect,
+                    if (i % 2 == 0)
+                        pallet.purple.toLinear()
+                    else
+                        pallet.bg_alt.toLinear(),
+                    pallet.active,
+                )) {
+                    log.debug("item: {} selected", .{i});
+                }
+            }
+        }
+    }
 }
 
 pub fn draw(app: *App) !void {
