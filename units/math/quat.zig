@@ -180,10 +180,10 @@ pub const Quat = packed struct {
     /// preserve length
     pub inline fn lerp(l: Self, r: Self, t: f32) Self {
         return Self.new(
-            util.lerp(l.w, r.w, t),
-            util.lerp(l.x, r.x, t),
-            util.lerp(l.y, r.y, t),
-            util.lerp(l.z, r.z, t),
+            util.lerp(f32, l.w, r.w, t),
+            util.lerp(f32, l.x, r.x, t),
+            util.lerp(f32, l.y, r.y, t),
+            util.lerp(f32, l.z, r.z, t),
         ).norm();
     }
 
@@ -418,7 +418,7 @@ test "lerp" {
         .z = 0,
     };
 
-    const l = Quat.lerp(p, q, 0.5);
+    const l = Quat.lerp(f32, p, q, 0.5);
     // normalized
     try testing.expectApproxEqAbs(l.w, 0.105409, 0.001);
     try testing.expectApproxEqAbs(l.x, 0.843274, 0.001);
@@ -435,13 +435,13 @@ test "slerp" {
     // 90 degrees on x axis
     const c = Quat.fromAxisAngle(Vec3.new(1, 0, 0), math.pi / 2.0);
 
-    var s = Quat.slerp(a, b, 1.0);
+    var s = Quat.slerp(f32, a, b, 1.0);
     try testing.expectApproxEqAbs(s.w, b.w, eps_value);
     try testing.expectApproxEqAbs(s.x, b.x, eps_value);
     try testing.expectApproxEqAbs(s.y, b.y, eps_value);
     try testing.expectApproxEqAbs(s.z, b.z, eps_value);
 
-    const v = Quat.slerp(a, b, 0.50);
+    const v = Quat.slerp(f32, a, b, 0.50);
     try testing.expectApproxEqAbs(v.w, c.w, eps_value);
     try testing.expectApproxEqAbs(v.x, c.x, eps_value);
     try testing.expectApproxEqAbs(v.y, c.y, eps_value);

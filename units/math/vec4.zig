@@ -63,10 +63,10 @@ pub const Vec4 = packed struct {
     /// lerp
     pub fn lerp(l: Self, r: Self, t: f32) Self {
         return Self.new(
-            util.lerp(l.x, r.x, t),
-            util.lerp(l.y, r.y, t),
-            util.lerp(l.z, r.z, t),
-            util.lerp(l.w, r.w, t),
+            util.lerp(f32, l.x, r.x, t),
+            util.lerp(f32, l.y, r.y, t),
+            util.lerp(f32, l.z, r.z, t),
+            util.lerp(f32, l.w, r.w, t),
         );
     }
 };
