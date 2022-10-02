@@ -398,23 +398,27 @@ pub const ButtonStyle = struct {
     active_color: Color,
 };
 
+pub const ButtonDesc = struct {
+    rect: Rect,
+    style: ButtonStyle,
+};
+
 pub fn button(
     self: *Self,
     id: *Id,
-    rect: Rect,
-    style: ButtonStyle,
+    desc: ButtonDesc,
 ) bool {
     const mouse = input.getMouse();
     const left = mouse.getButton(.left);
 
     var result = false;
-    var color = style.color;
+    var color = desc.style.color;
 
     if (id.id == 0) {
         id.*.id = self.nextId();
     }
 
-    const is_intersect = rect.intersectPoint(mouse.pos);
+    const is_intersect = desc.rect.intersectPoint(mouse.pos);
 
     // check if the cursor intersects this button
     // if it does then set to hover
@@ -431,12 +435,12 @@ pub fn button(
             }
             self.reset();
         }
-        color = style.active_color;
+        color = desc.style.active_color;
     } else if (self.isHover(id.*)) {
         // we were hovered but the mouse is no longer in
         // then reset
         if (is_intersect) {
-            color = style.hover_color;
+            color = desc.style.hover_color;
             // if the mouse is down and was already hovering over this
             // then we are not active
             if (left.action == .press) {
@@ -447,7 +451,7 @@ pub fn button(
         }
     }
 
-    self.addRect(.solid, rect, color);
+    self.addRect(.solid, desc.rect, color);
 
     return result;
 }
@@ -460,45 +464,55 @@ pub const SliderStyle = struct {
     hover_color: Color,
     active_color: Color,
 };
+
+pub const SliderDesc = struct {
+    slider_rect: Rect,
+    handle_w: f32,
+    handle_h: f32,
+    style: SliderStyle,
+    min: T,
+    max: T,
+    /// should the slider return true when
+    /// active or only when the value chagnes?
+    ret_on_active: bool = false,
+};
+
 // TODO: typed slider?
 const T = f32;
 pub fn slider(
     self: *Self,
     id: *Id,
-    slider_rect: Rect,
-    handle_rect: Rect,
-    style: SliderStyle,
-    min: T,
-    max: T,
     value: *T,
-    // TODO: should this return a bool based on if the slider value changed?
-) void {
+    desc: SliderDesc,
+) bool {
     if (id.id == 0) {
         id.*.id = self.nextId();
     }
 
+    var ret = false;
+
     const mouse = input.getMouse();
     const left = mouse.getButton(.left);
     // will change based on selection status
-    var color = style.color;
+    var color = desc.style.color;
 
-    const min_x = slider_rect.x - handle_rect.w * 0.5;
-    const max_x = slider_rect.x + slider_rect.w - (handle_rect.w * 0.5);
+    const min_x = desc.slider_rect.x - desc.handle_w * 0.5;
+    const max_x = desc.slider_rect.x + desc.slider_rect.w - (desc.handle_w * 0.5);
 
     const x = math.util.map(
         f32,
         value.*,
-        min,
-        max,
+        desc.min,
+        desc.max,
         min_x,
         max_x,
     );
 
     var hrect = Rect{
         .x = x,
-        .y = slider_rect.y + (slider_rect.h - handle_rect.h) * 0.5,
-        .w = handle_rect.w,
-        .h = handle_rect.h,
+        .y = desc.slider_rect.y + (desc.slider_rect.h - desc.handle_h) * 0.5,
+        .w = desc.handle_w,
+        .h = desc.handle_h,
     };
 
     const is_intersect = hrect.intersectPoint(mouse.pos);
@@ -512,28 +526,36 @@ pub fn slider(
     // check if this button is active
     if (self.isActive(id.*)) {
         // if released we gotta reset
+        if (desc.ret_on_active) {
+            ret = true;
+        }
         if (left.action == .release) {
             self.reset();
+            ret = true;
         }
         // otherwise lets move some shit
         hrect.x += mouse.delta.x;
         hrect.x = math.util.clamp(f32, hrect.x, min_x, max_x);
         // now we need to modify value
-        value.* = math.util.map(
+        const new_value = math.util.map(
             f32,
             hrect.x,
             min_x,
             max_x,
-            min,
-            max,
+            desc.min,
+            desc.max,
         );
+        if (new_value != value.*) {
+            value.* = new_value;
+            ret = true;
+        }
 
-        color = style.active_color;
+        color = desc.style.active_color;
     } else if (self.isHover(id.*)) {
         // we were hovered but the mouse is no longer in
         // then reset
         if (is_intersect) {
-            color = style.hover_color;
+            color = desc.style.hover_color;
             // if the mouse is down and was already hovering over this
             // then we are not active
             if (left.action == .press) {
@@ -545,7 +567,9 @@ pub fn slider(
     }
 
     // draw slider rect
-    self.addRect(.solid, slider_rect, style.slider_color);
+    self.addRect(.solid, desc.slider_rect, desc.style.slider_color);
     // draw handle rect
     self.addRect(.solid, hrect, color);
+
+    return ret;
 }

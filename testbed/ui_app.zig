@@ -71,9 +71,10 @@ const button_style = .{
 
 const slider_style = .{
     .slider_color = pallet.bg_alt.toLinear(),
-    .color = pallet.bg_alt.toLinear(),
-    .hover_color = pallet.purple.toLinear(),
-    .active_color = pallet.active.toLinear(),
+    // .color = pallet.bg_alt.toLinear(),
+    .color = pallet.purple.toLinear(),
+    .hover_color = pallet.active.toLinear(),
+    .active_color = pallet.fg.toLinear(),
 };
 
 pub fn init(app: *App) !void {
@@ -114,13 +115,16 @@ pub fn update(app: *App, dt: f64) !void {
     }
     // buttons
     {
-        const rect = .{
+        const rect = UI.Rect{
             .x = @intToFloat(f32, device.w) - 110,
             .y = 10,
             .w = 100,
             .h = 50,
         };
-        if (app.ui.button(&app.button, rect, button_style)) {
+        if (app.ui.button(&app.button, .{
+            .rect = rect,
+            .style = button_style,
+        })) {
             log.debug("clicked", .{});
         }
         var text: []const u8 = "click me";
@@ -156,29 +160,33 @@ pub fn update(app: *App, dt: f64) !void {
 
     // lets try making a slider
     {
-        // default value
-        const min = -50.0;
-        const max = 100.0;
-
-        const slider_rect = .{
-            .x = @intToFloat(f32, device.w) / 2 - 50,
-            .y = @intToFloat(f32, device.h) / 2 - 25,
-            .w = 100,
-            .h = 10,
+        const last_val = app.slider_value;
+        const desc = UI.SliderDesc{
+            .style = slider_style,
+            .min = -50.0,
+            .max = 100.0,
+            .slider_rect = .{
+                .x = @intToFloat(f32, device.w) - 175,
+                .y = 75,
+                .w = 100,
+                .h = 10,
+            },
+            .handle_w = 10,
+            .handle_h = 20,
+            .ret_on_active = true,
         };
-        const handle_rect = .{
-            .w = 10,
-            .h = 20,
-        };
-        app.ui.slider(
+        var text_color = pallet.active.toLinear();
+        if (app.ui.slider(
             &app.slider,
-            slider_rect,
-            handle_rect,
-            slider_style,
-            min,
-            max,
             &app.slider_value,
-        );
+            desc,
+        )) {
+            text_color = pallet.fg.toLinear();
+        }
+
+        if (last_val != app.slider_value) {
+            log.debug("new val: {d:.2}", .{app.slider_value});
+        }
 
         // and lets print the value next to it
         var buf: [10]u8 = undefined;
@@ -189,9 +197,9 @@ pub fn update(app: *App, dt: f64) !void {
         );
         app.ui.text(
             str,
-            Vec2.new(slider_rect.x + slider_rect.w + 10, slider_rect.y - 8),
+            Vec2.new(desc.slider_rect.x + desc.slider_rect.w + 10, desc.slider_rect.y - 8),
             16,
-            pallet.active.toLinear(),
+            text_color,
         );
     }
 }
