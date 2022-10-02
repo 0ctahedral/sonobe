@@ -355,54 +355,68 @@ fn reset(self: *Self) void {
 
 // widgets
 
+/// draw some text to the screen
 pub fn text(
     self: *Self,
+    /// string of text to write
     string: []const u8,
-    /// TODO: replacee with bounding rect
-    /// position of bottom left corner
-    pos: Vec2,
-    /// font height in pixels 
+    /// bounding box of the text
+    rect: Rect,
+    /// the pt height of the text font
     height: f32,
+    /// what color should the font be
     color: Color,
 ) void {
     var offset = Vec2{};
-    var max_y = height;
+    const pos = Vec2.new(rect.x, rect.y);
     for (string) |b| {
-        // increase x offset by width of previous glyph
-        var o = Vec2{};
         if (self.font_atlas.getGlyphData(
             @intCast(u32, b),
             pos.add(offset),
             height,
         )) |data| {
+            // use the upper 8 bits in the index for the
+            // lookup into the glyph table
             var index = @intCast(u24, self.offset);
             index |= (@intCast(u24, data.idx) << 16);
+
+            offset.x += data.next_offset.x;
+
+            // don't add the glyph if it would leave the bounds
+            // of the textbox rectangle
+            if (offset.x >= rect.w) break;
+
             self.addRectIndex(
                 .glyph,
                 data.rect,
                 color,
                 index,
             );
-            o = data.next_offset;
         }
-        offset.x += o.x;
-        max_y = @maximum(max_y, height + o.y);
     }
-
-    offset.y = max_y;
 }
 
+/// Style definition for a button
 pub const ButtonStyle = struct {
+    /// the default color of the button when it is not
+    /// being interacted with
     color: Color,
+    /// color of the button when the mouse hovers over it
     hover_color: Color,
+    /// color of the button when it is clicked
     active_color: Color,
 };
 
+/// encapsulates data needed to draw a button
 pub const ButtonDesc = struct {
+    /// rectangle that describes the click and draw area
     rect: Rect,
+    /// style of the button described ^^^
     style: ButtonStyle,
 };
 
+/// draw a button to the screen
+/// returns if the button was clicked this frame
 pub fn button(
     self: *Self,
     id: *Id,
@@ -457,32 +471,39 @@ pub fn button(
 }
 
 pub const SliderStyle = struct {
-    // color for slider
+    /// color for slider area
     slider_color: Color,
-    // color for slider handle
+    /// color for slider handle
     color: Color,
+    /// color of the handle when hovered over
     hover_color: Color,
+    /// color of the handle when clicked or dragged
     active_color: Color,
 };
 
 pub const SliderDesc = struct {
+    /// size and position of the slider
     slider_rect: Rect,
+    /// width of the handle
     handle_w: f32,
+    /// height of the handle
     handle_h: f32,
+    /// ^^^
     style: SliderStyle,
-    min: T,
-    max: T,
+    /// minimum value of the slider
+    min: f32,
+    /// maximum value of the slider
+    max: f32,
     /// should the slider return true when
     /// active or only when the value chagnes?
     ret_on_active: bool = false,
 };
 
-// TODO: typed slider?
-const T = f32;
 pub fn slider(
     self: *Self,
     id: *Id,
-    value: *T,
+    /// value that the slider changes
+    value: *f32,
     desc: SliderDesc,
 ) bool {
     if (id.id == 0) {

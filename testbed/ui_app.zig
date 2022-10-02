@@ -108,7 +108,7 @@ pub fn update(app: *App, dt: f64) !void {
         );
         app.ui.text(
             str,
-            Vec2.new(0, 0),
+            .{ .x = 0, .y = 0, .h = 25, .w = 230 },
             18,
             pallet.active.toLinear(),
         );
@@ -130,7 +130,7 @@ pub fn update(app: *App, dt: f64) !void {
         var text: []const u8 = "click me";
         app.ui.text(
             text,
-            Vec2.new(rect.x + 5, rect.y + 5),
+            .{ .x = rect.x + 5, .y = rect.y + 5, .h = 20, .w = 75 },
             16,
             pallet.active.toLinear(),
         );
@@ -163,8 +163,8 @@ pub fn update(app: *App, dt: f64) !void {
         const last_val = app.slider_value;
         const desc = UI.SliderDesc{
             .style = slider_style,
-            .min = -50.0,
-            .max = 100.0,
+            .min = -100,
+            .max = 100,
             .slider_rect = .{
                 .x = @intToFloat(f32, device.w) - 175,
                 .y = 75,
@@ -197,11 +197,19 @@ pub fn update(app: *App, dt: f64) !void {
         );
         app.ui.text(
             str,
-            Vec2.new(desc.slider_rect.x + desc.slider_rect.w + 10, desc.slider_rect.y - 8),
+            .{
+                .x = desc.slider_rect.x + desc.slider_rect.w + 10,
+                .y = desc.slider_rect.y - 8,
+                .h = 20,
+                .w = 60,
+            },
             16,
             text_color,
         );
     }
+
+    // dropdown time
+    {}
 }
 
 pub fn draw(app: *App) !void {
