@@ -40,7 +40,7 @@ pub const Rect = packed struct {
 
     /// shrinks the rectangle on sides by amount
     pub fn shrink(self: Rect, amt: f32) Rect {
-        const amt_2 = amt / 2;
+        const amt_2 = amt * 0.5;
         return .{
             .x = self.x + amt_2,
             .y = self.y + amt_2,
@@ -75,14 +75,16 @@ const MAX_RECTS = 1024;
 const BUF_SIZE = MAX_RECTS * @sizeOf(RectData);
 
 // way of identifying the item
-pub const Id = u32;
+pub const Id = struct {
+    id: u32 = 0,
+};
 
 /// state of interaction
 const Context = struct {
     /// about to interact 
-    hover: Id = 0,
+    hover: u32 = 0,
     /// item that is now being interacted with
-    active: Id = 0,
+    active: u32 = 0,
 };
 
 /// uniform data for the shader
@@ -109,7 +111,7 @@ offset: u32 = 0,
 /// counter for unique ids which identify the currently
 /// hovering or active ui
 /// TODO: may need a more robust system for this
-id_counter: Id = 0,
+id_counter: u32 = 0,
 
 font_atlas: FontAtlas = undefined,
 
@@ -322,27 +324,27 @@ pub fn addRectIndex(
 
 // helpers
 
-fn getId(self: *Self) Id {
+fn nextId(self: *Self) u32 {
     self.id_counter += 1;
     return self.id_counter;
 }
 
 fn setActive(self: *Self, id: Id) void {
-    self.ctx.active = id;
+    self.ctx.active = id.id;
 }
 
 fn setHover(self: *Self, id: Id) void {
     if (self.ctx.hover == 0) {
-        self.ctx.hover = id;
+        self.ctx.hover = id.id;
     }
 }
 
 fn isActive(self: *Self, id: Id) bool {
-    return self.ctx.active == id;
+    return self.ctx.active == id.id;
 }
 
 fn isHover(self: *Self, id: Id) bool {
-    return self.ctx.hover == id;
+    return self.ctx.hover == id.id;
 }
 
 fn reset(self: *Self) void {
@@ -403,21 +405,28 @@ pub fn button(
     style: ButtonStyle,
 ) bool {
     const mouse = input.getMouse();
+    const left = mouse.getButton(.left);
 
     var result = false;
     var color = style.color;
 
-    if (id.* == 0) {
-        id.* = self.getId();
+    if (id.id == 0) {
+        id.*.id = self.nextId();
     }
 
     const is_intersect = rect.intersectPoint(mouse.pos);
 
+    // check if the cursor intersects this button
+    // if it does then set to hover
+    if (is_intersect) {
+        self.setHover(id.*);
+    }
+
     // check if this button is active
     if (self.isActive(id.*)) {
-        if (mouse.getButton(.left).action == .release) {
+        if (left.action == .release) {
             // if it is then we check if the button is up and reset it
-            if (id.* == self.ctx.hover) {
+            if (self.isHover(id.*)) {
                 result = true;
             }
             self.reset();
@@ -430,11 +439,69 @@ pub fn button(
             color = style.hover_color;
             // if the mouse is down and was already hovering over this
             // then we are not active
-            if (mouse.getButton(.left).action == .press) {
+            if (left.action == .press) {
                 self.setActive(id.*);
             }
+        } else {
+            self.reset();
         }
     }
+
+    self.addRect(.solid, rect, color);
+
+    return result;
+}
+
+pub const SliderStyle = struct {
+    // color for slider
+    slider_color: Color,
+    // color for slider handle
+    color: Color,
+    hover_color: Color,
+    active_color: Color,
+};
+// TODO: typed slider?
+const T = f32;
+pub fn slider(
+    self: *Self,
+    id: *Id,
+    slider_rect: Rect,
+    handle_rect: Rect,
+    style: SliderStyle,
+    min: T,
+    max: T,
+    value: *T,
+    // TODO: should this return a bool based on if the slider value changed?
+) void {
+    if (id.id == 0) {
+        id.*.id = self.nextId();
+    }
+
+    const mouse = input.getMouse();
+    const left = mouse.getButton(.left);
+    // will change based on selection status
+    var color = style.color;
+
+    const min_x = slider_rect.x - handle_rect.w * 0.5;
+    const max_x = slider_rect.x + slider_rect.w - (handle_rect.w * 0.5);
+
+    const x = math.util.map(
+        f32,
+        value.*,
+        min,
+        max,
+        min_x,
+        max_x,
+    );
+
+    var hrect = Rect{
+        .x = x,
+        .y = slider_rect.y + (slider_rect.h - handle_rect.h) * 0.5,
+        .w = handle_rect.w,
+        .h = handle_rect.h,
+    };
+
+    const is_intersect = hrect.intersectPoint(mouse.pos);
 
     // check if the cursor intersects this button
     // if it does then set to hover
@@ -442,7 +509,43 @@ pub fn button(
         self.setHover(id.*);
     }
 
-    self.addRect(.solid, rect, color);
+    // check if this button is active
+    if (self.isActive(id.*)) {
+        // if released we gotta reset
+        if (left.action == .release) {
+            self.reset();
+        }
+        // otherwise lets move some shit
+        hrect.x += mouse.delta.x;
+        hrect.x = math.util.clamp(f32, hrect.x, min_x, max_x);
+        // now we need to modify value
+        value.* = math.util.map(
+            f32,
+            hrect.x,
+            min_x,
+            max_x,
+            min,
+            max,
+        );
 
-    return result;
+        color = style.active_color;
+    } else if (self.isHover(id.*)) {
+        // we were hovered but the mouse is no longer in
+        // then reset
+        if (is_intersect) {
+            color = style.hover_color;
+            // if the mouse is down and was already hovering over this
+            // then we are not active
+            if (left.action == .press) {
+                self.setActive(id.*);
+            }
+        } else {
+            self.reset();
+        }
+    }
+
+    // draw slider rect
+    self.addRect(.solid, slider_rect, style.slider_color);
+    // draw handle rect
+    self.addRect(.solid, hrect, color);
 }

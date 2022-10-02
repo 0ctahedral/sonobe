@@ -56,13 +56,21 @@ camera: Camera = .{
 
 ui: UI = .{},
 
-button: UI.Id = 0,
-button2: UI.Id = 0,
+button: UI.Id = .{},
+slider: UI.Id = .{},
+slider_value: f32 = 0,
 
 // dimesnsions of the device
 dims: Vec2 = Vec2.new(800, 600),
 
-const buttonStyle = .{
+const button_style = .{
+    .color = pallet.bg_alt.toLinear(),
+    .hover_color = pallet.purple.toLinear(),
+    .active_color = pallet.active.toLinear(),
+};
+
+const slider_style = .{
+    .slider_color = pallet.bg_alt.toLinear(),
     .color = pallet.bg_alt.toLinear(),
     .hover_color = pallet.purple.toLinear(),
     .active_color = pallet.active.toLinear(),
@@ -87,22 +95,23 @@ pub fn init(app: *App) !void {
 
 pub fn update(app: *App, dt: f64) !void {
     // fps text
-    var buf: [80]u8 = undefined;
-    const str = try std.fmt.bufPrint(
-        buf[0..],
-        "dt: {d:.2} fps: {d:.2}",
-        .{
-            dt * 1000.0,
-            platform.fps(),
-        },
-    );
-    app.ui.text(
-        str,
-        Vec2.new(0, 0),
-        18,
-        pallet.active.toLinear(),
-    );
-
+    {
+        var buf: [80]u8 = undefined;
+        const str = try std.fmt.bufPrint(
+            buf[0..],
+            "dt: {d:.2} fps: {d:.2}",
+            .{
+                dt * 1000.0,
+                platform.fps(),
+            },
+        );
+        app.ui.text(
+            str,
+            Vec2.new(0, 0),
+            18,
+            pallet.active.toLinear(),
+        );
+    }
     // buttons
     {
         const rect = .{
@@ -111,7 +120,7 @@ pub fn update(app: *App, dt: f64) !void {
             .w = 100,
             .h = 50,
         };
-        if (app.ui.button(&app.button, rect, buttonStyle)) {
+        if (app.ui.button(&app.button, rect, button_style)) {
             log.debug("clicked", .{});
         }
         var text: []const u8 = "click me";
@@ -124,24 +133,65 @@ pub fn update(app: *App, dt: f64) !void {
     }
 
     // lil window in the middle
+    //    {
+    //        const rect = Rect{
+    //            .x = 30,
+    //            .y = 70,
+    //            .w = app.dims.x - 60,
+    //            .h = app.dims.y - 100,
+    //        };
+    //        // border
+    //        app.ui.addRect(
+    //            .solid,
+    //            rect,
+    //            pallet.active.toLinear(),
+    //        );
+    //        // bg
+    //        app.ui.addRect(
+    //            .solid,
+    //            rect.shrink(10),
+    //            pallet.bg_alt.toLinear(),
+    //        );
+    //    }
+
+    // lets try making a slider
     {
-        const rect = Rect{
-            .x = 30,
-            .y = 70,
-            .w = app.dims.x - 60,
-            .h = app.dims.y - 100,
+        // default value
+        const min = -50.0;
+        const max = 100.0;
+
+        const slider_rect = .{
+            .x = @intToFloat(f32, device.w) / 2 - 50,
+            .y = @intToFloat(f32, device.h) / 2 - 25,
+            .w = 100,
+            .h = 10,
         };
-        // border
-        app.ui.addRect(
-            .solid,
-            rect,
-            pallet.active.toLinear(),
+        const handle_rect = .{
+            .w = 10,
+            .h = 20,
+        };
+        app.ui.slider(
+            &app.slider,
+            slider_rect,
+            handle_rect,
+            slider_style,
+            min,
+            max,
+            &app.slider_value,
         );
-        // bg
-        app.ui.addRect(
-            .solid,
-            rect.shrink(10),
-            pallet.bg_alt.toLinear(),
+
+        // and lets print the value next to it
+        var buf: [10]u8 = undefined;
+        const str = try std.fmt.bufPrint(
+            buf[0..],
+            "{d:.2}",
+            .{app.slider_value},
+        );
+        app.ui.text(
+            str,
+            Vec2.new(slider_rect.x + slider_rect.w + 10, slider_rect.y - 8),
+            16,
+            pallet.active.toLinear(),
         );
     }
 }
