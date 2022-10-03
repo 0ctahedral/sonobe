@@ -67,21 +67,22 @@ dims: Vec2 = Vec2.new(800, 600),
 
 const button_style = .{
     .color = pallet.bg_alt.toLinear(),
-    .hover_color = pallet.purple.toLinear(),
-    .active_color = pallet.active.toLinear(),
+    .hover = pallet.purple.toLinear(),
+    .active = pallet.active.toLinear(),
 };
 
 const slider_style = .{
     .slider_color = pallet.bg_alt.toLinear(),
     .color = pallet.purple.toLinear(),
-    .hover_color = pallet.active.toLinear(),
-    .active_color = pallet.fg.toLinear(),
+    .hover = pallet.active.toLinear(),
+    .active = pallet.fg.toLinear(),
 };
 
 const dropdown_style = .{
     .color = pallet.bg_alt.toLinear(),
-    .hover_color = pallet.purple.toLinear(),
-    .active_color = pallet.active.toLinear(),
+    .hover = pallet.purple.toLinear(),
+    .active = pallet.active.toLinear(),
+    .text = pallet.fg.toLinear(),
 };
 
 pub fn init(app: *App) !void {
@@ -195,6 +196,13 @@ pub fn update(app: *App, dt: f64) !void {
 
     // dropdown time
     {
+        const texts = [_][]const u8{
+            "one",
+            "two",
+            "three",
+            "four",
+            "five",
+        };
         if (app.ui.dropdown(&app.dropdown, .{
             .rect = .{
                 .x = app.dims.x - 100,
@@ -202,6 +210,7 @@ pub fn update(app: *App, dt: f64) !void {
                 .w = 80,
                 .h = 20,
             },
+            .text = "hello",
             .style = dropdown_style,
         })) {
             var i: u8 = 0;
@@ -214,15 +223,19 @@ pub fn update(app: *App, dt: f64) !void {
             while (i < 5) : (i += 1) {
                 rect.y += 20;
                 // dropdown item
-                if (app.ui.dropdownItem(
-                    rect,
-                    if (i % 2 == 0)
-                        pallet.purple.toLinear()
-                    else
-                        pallet.bg_alt.toLinear(),
-                    pallet.active,
-                )) {
-                    log.debug("item: {} selected", .{i});
+                if (app.ui.dropdownItem(app.dropdown, .{
+                    .rect = rect,
+                    .text = texts[i],
+                    .style = .{
+                        .color = if (i % 2 == 0)
+                            pallet.purple.toLinear()
+                        else
+                            pallet.bg_alt.toLinear(),
+                        .hover = pallet.active.toLinear(),
+                        .text = pallet.fg.toLinear(),
+                    },
+                })) {
+                    log.debug("item[{}]: {s} selected", .{ i, texts[i] });
                 }
             }
         }

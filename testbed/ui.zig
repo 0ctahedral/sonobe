@@ -402,9 +402,9 @@ pub const ButtonStyle = struct {
     /// being interacted with
     color: Color,
     /// color of the button when the mouse hovers over it
-    hover_color: Color,
+    hover: Color,
     /// color of the button when it is clicked
-    active_color: Color,
+    active: Color,
 };
 
 /// encapsulates data needed to draw a button
@@ -449,12 +449,12 @@ pub fn button(
             }
             self.reset();
         }
-        color = desc.style.active_color;
+        color = desc.style.active;
     } else if (self.isHover(id.*)) {
         // we were hovered but the mouse is no longer in
         // then reset
         if (is_intersect) {
-            color = desc.style.hover_color;
+            color = desc.style.hover;
             // if the mouse is down and was already hovering over this
             // then we are not active
             if (left.action == .press) {
@@ -476,9 +476,9 @@ pub const SliderStyle = struct {
     /// color for slider handle
     color: Color,
     /// color of the handle when hovered over
-    hover_color: Color,
+    hover: Color,
     /// color of the handle when clicked or dragged
-    active_color: Color,
+    active: Color,
 };
 
 pub const SliderDesc = struct {
@@ -571,12 +571,12 @@ pub fn slider(
             ret = true;
         }
 
-        color = desc.style.active_color;
+        color = desc.style.active;
     } else if (self.isHover(id.*)) {
         // we were hovered but the mouse is no longer in
         // then reset
         if (is_intersect) {
-            color = desc.style.hover_color;
+            color = desc.style.hover;
             // if the mouse is down and was already hovering over this
             // then we are not active
             if (left.action == .press) {
@@ -601,9 +601,11 @@ pub const DropdownStyle = struct {
     /// being interacted with
     color: Color,
     /// color of the button when the mouse hovers over it
-    hover_color: Color,
+    hover: Color,
     /// color of the button when it is clicked
-    active_color: Color,
+    active: Color,
+    /// color of text
+    text: Color,
 };
 
 /// encapsulates data needed to draw a button
@@ -611,7 +613,8 @@ pub const DropdownDesc = struct {
     /// rectangle that describes the click and draw area
     rect: Rect,
     /// style of the button described ^^^
-    style: ButtonStyle,
+    style: DropdownStyle,
+    text: []const u8,
 };
 
 pub fn dropdown(
@@ -640,7 +643,7 @@ pub fn dropdown(
     // check if this button is active
     if (self.isActive(id.*)) {
         result = true;
-        color = desc.style.active_color;
+        color = desc.style.active;
         if (left.action == .release and !is_intersect) {
             self.reset();
         }
@@ -648,7 +651,7 @@ pub fn dropdown(
         // we were hovered but the mouse is no longer in
         // then reset
         if (is_intersect) {
-            color = desc.style.hover_color;
+            color = desc.style.hover;
             // if the mouse is down and was already hovering over this
             // then we are not active
             if (left.action == .press) {
@@ -660,32 +663,54 @@ pub fn dropdown(
     }
 
     self.addRect(.solid, desc.rect, color);
+    self.text(
+        desc.text,
+        desc.rect,
+        desc.rect.h - 2,
+        desc.style.text,
+    );
 
     return result;
 }
 
+const DropdownItemStyle = struct {
+    color: Color,
+    hover: Color,
+    text: Color,
+};
+const DropdownItemDesc = struct {
+    rect: Rect,
+    style: DropdownItemStyle,
+    text: []const u8,
+};
+
 pub fn dropdownItem(
     self: *Self,
-    rect: Rect,
-    normal_color: Color,
-    hover_color: Color,
+    parent_id: Id,
+    desc: DropdownItemDesc,
 ) bool {
     const mouse = input.getMouse();
-    const left = mouse.getButton(.left);
     var result = false;
-    var color = normal_color;
+    var color = desc.style.color;
 
-    const is_intersect = rect.intersectPoint(mouse.pos);
+    const is_intersect = desc.rect.intersectPoint(mouse.pos);
     if (is_intersect) {
-        color = hover_color;
+        self.setHover(parent_id);
+        color = desc.style.hover;
+
+        if (mouse.getButton(.left).action == .release) {
+            self.reset();
+            result = true;
+        }
     }
 
-    if (left.action == .release and is_intersect) {
-        self.reset();
-        result = true;
-    }
-
-    self.addRect(.solid, rect, color);
+    self.addRect(.solid, desc.rect, color);
+    self.text(
+        desc.text,
+        desc.rect,
+        desc.rect.h - 2,
+        desc.style.text,
+    );
 
     return result;
 }
