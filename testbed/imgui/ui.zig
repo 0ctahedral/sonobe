@@ -17,7 +17,7 @@ const Mat4 = math.Mat4;
 
 const Self = @This();
 
-const FontAtlas = @import("./font_atlas.zig").FontAtlas;
+const FontAtlas = @import("../font_atlas.zig").FontAtlas;
 
 /// A 2d rectangle
 pub const Rect = packed struct {

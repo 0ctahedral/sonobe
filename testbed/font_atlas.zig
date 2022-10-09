@@ -5,14 +5,14 @@ const resources = device.resources;
 const BDF = @import("font").BDF;
 
 const utils = @import("utils");
-const log = utils.log.Logger("ui");
+const log = utils.log.Logger("font_atlas");
 const Color = utils.Color;
 const Handle = utils.Handle;
 
 const math = @import("math");
 const Vec2 = math.Vec2;
 
-const Rect = @import("./ui.zig").Rect;
+const Rect = @import("./imgui/ui.zig").Rect;
 
 /// font atlas/cache datastructure
 pub const FontAtlas = struct {
