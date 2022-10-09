@@ -6,8 +6,9 @@ const Color = utils.Color;
 const mesh = @import("mesh");
 const quad = mesh.quad;
 
-const UI = @import("imgui/ui.zig");
-const Rect = UI.Rect;
+const imgui = @import("imgui/imgui.zig");
+const UI = imgui.UI;
+const Rect = imgui.Rect;
 
 const device = @import("device");
 const descs = device.resources.descs;

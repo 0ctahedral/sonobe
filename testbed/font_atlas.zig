@@ -12,7 +12,7 @@ const Handle = utils.Handle;
 const math = @import("math");
 const Vec2 = math.Vec2;
 
-const Rect = @import("./imgui/ui.zig").Rect;
+const Rect = @import("./imgui/imgui.zig").Rect;
 
 /// font atlas/cache datastructure
 pub const FontAtlas = struct {

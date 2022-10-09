@@ -19,36 +19,7 @@ const Self = @This();
 
 const FontAtlas = @import("../font_atlas.zig").FontAtlas;
 
-/// A 2d rectangle
-pub const Rect = packed struct {
-    /// x postion
-    x: f32 = 0,
-    /// y postion
-    y: f32 = 0,
-    /// width
-    w: f32 = 0,
-    /// height
-    h: f32 = 0,
-
-    /// does this rectangle intersect the given point
-    pub fn intersectPoint(self: Rect, pos: Vec2) bool {
-        return (pos.x >= self.x and
-            pos.y >= self.y and
-            pos.x <= self.x + self.w and
-            pos.y <= self.y + self.h);
-    }
-
-    /// shrinks the rectangle on sides by amount
-    pub fn shrink(self: Rect, amt: f32) Rect {
-        const amt_2 = amt * 0.5;
-        return .{
-            .x = self.x + amt_2,
-            .y = self.y + amt_2,
-            .w = self.w - amt,
-            .h = self.h - amt,
-        };
-    }
-};
+pub const Rect = @import("rect.zig").Rect;
 
 /// Struct of data sent to gpu for a single rectangle
 const RectData = packed struct {

@@ -19,7 +19,7 @@ pub fn build(b: *Builder) !void {
     // fs_tests.addPackage(units.utils);
     // test_step.dependOn(&fs_tests.step);
 
-    const utils_tests = b.addTest("units/utils/color.zig");
+    const utils_tests = b.addTest("testbed/imgui/tree.zig");
     for (units.utils.dependencies.?) |d| {
         utils_tests.addPackage(d);
     }
