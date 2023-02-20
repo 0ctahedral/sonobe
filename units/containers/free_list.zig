@@ -41,7 +41,7 @@ pub fn FreeList(
 
         /// resets the whole command pool
         pub fn reset(self: *Self) void {
-            for (self.mem) |*u, i| {
+            for (self.mem, 0..) |*u, i| {
                 u.* = .{ .next = @intCast(u32, i) + 1 };
             }
             // set head
@@ -60,7 +60,7 @@ pub fn FreeList(
                 .mem = ptr[0..size],
             };
             // TODO: is this necessary?
-            for (self.mem) |*u, i| {
+            for (self.mem, 0..) |*u, i| {
                 u.* = .{ .next = @intCast(u32, i) + 1 };
             }
             // set head

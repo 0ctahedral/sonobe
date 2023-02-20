@@ -68,7 +68,7 @@ struct win_data {
 };
 
 
-struct win_data* find_win(NSWindow* window);
+struct win_data* win_ptr_to_data(NSWindow* window);
 void resize_window(NSWindow*, uint16_t, uint16_t);
 
 bool create_window(char* title, int w, int h, struct win_data* data) {
@@ -114,8 +114,7 @@ bool create_window(char* title, int w, int h, struct win_data* data) {
         |NSWindowStyleMaskMiniaturizable
     ];
     data->window.titlebarAppearsTransparent = true;
-
-
+    // data->window.backgroundColor = [NSColor colorWithCalibratedRed:0.0 green:1.0 blue:0.0 alpha:0.5f];
     }
 
     return true;
@@ -223,7 +222,7 @@ void close_window(NSWindow*);
 }
 
 - (void)windowDidResize:(NSNotification *)notification {
-    struct win_data* wd = find_win(notification.object);
+    struct win_data* wd = win_ptr_to_data(notification.object);
     if (wd) {
       const NSRect contentRect = [wd->view frame];
       const NSRect fbRect = [wd->view convertRectToBacking:contentRect];

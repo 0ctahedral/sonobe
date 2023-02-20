@@ -143,7 +143,7 @@ pub fn sendAll() void {
 
 // get index of first null in callbacks
 fn firstNull(event: EventType) ?usize {
-    for (callbacks[@enumToInt(event)]) |cb, i| {
+    for (callbacks[@enumToInt(event)], 0..) |cb, i| {
         if (cb == null) {
             return i;
         }
