@@ -324,7 +324,8 @@ void close_window(NSWindow*);
 
 - (void)mouseDown:(NSEvent *)event {
     //input_process_button(BUTTON_LEFT, true);
-    printf("mouse click\n");
+    const NSPoint pos = [event locationInWindow];
+    mouse_click((int16_t)pos.x, (int16_t)pos.y);
 }
 
 - (void)mouseDragged:(NSEvent *)event {

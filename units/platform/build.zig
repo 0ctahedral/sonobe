@@ -24,6 +24,10 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
 
+    const math = b.createModule(.{
+        .source_file = .{ .path = "../math/math.zig" },
+        .dependencies = &.{},
+    });
     const utils = b.createModule(.{
         .source_file = .{ .path = "../utils/utils.zig" },
         .dependencies = &.{},
@@ -33,6 +37,7 @@ pub fn build(b: *std.Build) void {
         .dependencies = &.{},
     });
 
+    exe.addModule("math", math);
     exe.addModule("containers", containers);
     exe.addModule("utils", utils);
     exe.linkLibC();

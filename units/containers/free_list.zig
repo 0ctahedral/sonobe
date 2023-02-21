@@ -144,6 +144,27 @@ pub fn FreeList(
 
                 return ret;
             }
+
+            pub const RetIdx = struct {
+                ret: *T,
+                idx: usize,
+            };
+
+            pub fn nextIdx(self: *Iter) ?RetIdx {
+                while (self.next_free == self.i) {
+                    self.next_free = self.fl.mem[self.i].next;
+                    if (self.next_free == 0) {
+                        return null;
+                    }
+                    self.i += 1;
+                }
+
+                const ret_idx = self.i;
+                var ret: *T = &self.fl.mem[ret_idx].item;
+                self.i += 1;
+
+                return RetIdx{ .ret = ret, .idx = ret_idx };
+            }
         };
 
         pub fn iter(self: *Self) Iter {

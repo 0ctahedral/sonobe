@@ -2,7 +2,8 @@ const std = @import("std");
 const Handle = @import("utils").Handle;
 const FreeList = @import("containers").FreeList;
 const log = @import("utils").log.default;
-const Event = @import("events.zig");
+const events = @import("events.zig");
+const Event = events.Event;
 
 extern fn startup(state: *macos_state) bool;
 extern fn shutdown(state: *macos_state) void;
@@ -41,7 +42,7 @@ pub fn deinit() void {
     shutdown(&state);
 }
 
-pub fn createWindow(title: []const u8, w: u32, h: u32) !void {
+pub fn createWindow(title: []const u8, w: u32, h: u32) !Handle(.Window) {
     const id: u32 = try windows.allocIndex();
     var wd = &window_store[id];
 
@@ -51,9 +52,9 @@ pub fn createWindow(title: []const u8, w: u32, h: u32) !void {
 
     num_living += 1;
 
-    // return Window{
-    //     .handle = @intToEnum(Handle(.Window), id),
-    // };
+    return Handle(.Window){
+        .id = id,
+    };
 }
 
 pub fn poll() void {
@@ -62,9 +63,22 @@ pub fn poll() void {
 
 // functions we export as callbacks for cocoa
 
+export fn mouse_click(x: i16, y: i16) void {
+    events.enqueue(Event{ .MouseButton = .{
+        .button = .left,
+        .action = .press,
+        .pos = .{
+            .x = @intToFloat(f32, x),
+            .y = @intToFloat(f32, y),
+        },
+    } });
+}
+
 export fn mouse_move(x: i16, y: i16) void {
-    _ = x;
-    _ = y;
+    events.enqueue(Event{ .MouseMove = .{
+        .x = @intToFloat(f32, x),
+        .y = @intToFloat(f32, y),
+    } });
 }
 
 export fn win_ptr_to_data(window: *anyopaque) ?*WinData {
@@ -77,14 +91,34 @@ export fn win_ptr_to_data(window: *anyopaque) ?*WinData {
     return null;
 }
 
+fn winPtrToIdx(window: *anyopaque) ?u32 {
+    var iter = windows.iter();
+    while (iter.nextIdx()) |wd| {
+        if (@ptrToInt(wd.ret.window) == @ptrToInt(window)) {
+            return @intCast(u32, wd.idx);
+        }
+    }
+    return null;
+}
+
 export fn close_window(ptr: *anyopaque) void {
     const id: u32 = @truncate(u32, @ptrToInt(ptr));
-    log.info("closing {x}", .{id});
+    const idx = winPtrToIdx(ptr).?;
+    log.info("closing {} ({x})", .{ idx, id });
     num_living -= 1;
+    events.enqueue(Event{ .WindowClose = Handle(.Window){ .id = idx } });
 }
 
 export fn resize_window(ptr: *anyopaque, w: u16, h: u16) void {
-    const wd = win_ptr_to_data(ptr).?;
-    // next_event = Event{ .WindowResize = .{ .w = w, .h = h } };
-    log.info("win: {} resized to {}x{}", .{ wd, w, h });
+    const idx = winPtrToIdx(ptr).?;
+    events.enqueue(Event{
+        .WindowResize = .{
+            .handle = Handle(.Window){ .id = idx },
+            // TODO: get x and y
+            .x = 0,
+            .y = 0,
+            .w = w,
+            .h = h,
+        },
+    });
 }
