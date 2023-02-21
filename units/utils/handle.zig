@@ -1,5 +1,5 @@
 const std = @import("std");
-const utils = @import("./utils.zig");
+const utils = @import("utils.zig");
 const testing = @import("std").testing;
 const log = utils.log.default;
 
@@ -16,7 +16,7 @@ const Nullable = enum(I) {
 /// contains an index which can be null
 /// and a generation counter
 /// const HandleType = packed struct {
-pub fn Handle(_: anytype) type {
+pub fn Handle(comptime _: anytype) type {
     return packed struct {
         /// "unique" identity of this handle
         // id: Nullable = .null_handle,
