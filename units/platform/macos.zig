@@ -83,10 +83,32 @@ pub fn poll() void {
 
 // functions we export as callbacks for cocoa
 
-export fn mouse_click(x: i16, y: i16) void {
-    events.enqueue(Event{ .MouseButton = .{
+export fn mouse_left(x: i16, y: i16, press: bool) void {
+    input.setMouseButton(Event{ .MouseButton = .{
         .button = .left,
-        .action = .press,
+        .action = if (press) .press else .release,
+        .pos = .{
+            .x = @intToFloat(f32, x),
+            .y = @intToFloat(f32, y),
+        },
+    } });
+}
+
+export fn mouse_right(x: i16, y: i16, press: bool) void {
+    input.setMouseButton(Event{ .MouseButton = .{
+        .button = .right,
+        .action = if (press) .press else .release,
+        .pos = .{
+            .x = @intToFloat(f32, x),
+            .y = @intToFloat(f32, y),
+        },
+    } });
+}
+
+export fn mouse_middle(x: i16, y: i16, press: bool) void {
+    input.setMouseButton(Event{ .MouseButton = .{
+        .button = .middle,
+        .action = if (press) .press else .release,
         .pos = .{
             .x = @intToFloat(f32, x),
             .y = @intToFloat(f32, y),
@@ -95,7 +117,7 @@ export fn mouse_click(x: i16, y: i16) void {
 }
 
 export fn mouse_move(x: i16, y: i16) void {
-    events.enqueue(Event{ .MouseMove = .{
+    input.setMousePos(Event{ .MouseMove = .{
         .x = @intToFloat(f32, x),
         .y = @intToFloat(f32, y),
     } });

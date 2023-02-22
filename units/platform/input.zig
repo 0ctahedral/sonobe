@@ -9,7 +9,7 @@ pub inline fn getMouse() Mouse {
 }
 
 /// set the state of a button
-pub fn setMouseButton(ev: events.Event) bool {
+pub fn setMouseButton(ev: events.Event) void {
     const bev = ev.MouseButton;
     const idx = @enumToInt(bev.button);
 
@@ -27,17 +27,17 @@ pub fn setMouseButton(ev: events.Event) bool {
         btn.*.action = .release;
     }
 
-    return true;
+    events.enqueue(ev);
 }
 
 /// set the position of the cursor
-pub fn setMousePos(ev: events.Event) bool {
+pub fn setMousePos(ev: events.Event) void {
     // update the mouse position
     const old_pos = mouse.pos;
     mouse.pos = ev.MouseMove;
     mouse.delta = mouse.pos.sub(old_pos);
 
-    for (mouse.buttons) |*btn| {
+    for (&mouse.buttons) |*btn| {
         // don't need to do anything if the button is none or released
         if (btn.action == .none or btn.action == .release) continue;
 
@@ -51,8 +51,7 @@ pub fn setMousePos(ev: events.Event) bool {
             // make vector of drag dist
         }
     }
-
-    return true;
+    events.enqueue(ev);
 }
 
 /// reset the mouse state if it was just released (typically at the end of a frame)

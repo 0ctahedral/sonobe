@@ -14,7 +14,7 @@ pub fn main() !void {
     const wh = try platform.createWindow("window", 800, 800);
 
     // poll for events every 2.7 ms
-    const thread = try std.Thread.spawn(.{}, timedLoop, .{ 16.6, &appLoop, .{wh} });
+    const thread = try std.Thread.spawn(.{}, timedLoop, .{ 16.6, &appLoop, .{} });
 
     try platform.setWindowTitle(wh, "foobar");
 
@@ -37,16 +37,11 @@ pub fn timedLoop(ms: f32, comptime f: anytype, args: anytype) !void {
     }
 }
 
-pub fn appLoop(win: Handle(.Window)) bool {
+pub fn appLoop() bool {
     platform.startFrame();
     while (events.popEvent()) |ev| {
         switch (ev) {
-            .WindowClose => |wid| {
-                if (wid.id == win.id) {
-                    // running.store(false, .Release);
-                }
-                // return false;
-            },
+            .WindowClose => |_| {},
             .MouseButton => {},
             .MouseMove => {},
             .KeyPress, .KeyRelease => {},
@@ -60,6 +55,11 @@ pub fn appLoop(win: Handle(.Window)) bool {
         if (platform.input.isMod(.{ .super = true }) and platform.input.isKey(.q, .press)) {
             running.store(false, .Release);
             return false;
+        }
+
+        const left = platform.input.getMouse().getButton(.left);
+        if (left.action == .drag) {
+            log.debug("{d:.2} {d:.2}", .{ left.drag.x, left.drag.y });
         }
     }
 

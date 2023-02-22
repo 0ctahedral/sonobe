@@ -334,29 +334,50 @@ void set_window_title(struct win_data* wd, char* title) {
     return YES;
 }
 
-- (void)mouseDown:(NSEvent *)event {
-    //input_process_button(BUTTON_LEFT, true);
-    const NSPoint pos = [event locationInWindow];
-    mouse_click((int16_t)pos.x, (int16_t)pos.y);
-}
-
-- (void)mouseDragged:(NSEvent *)event {
-    // Equivalent to moving the mouse for now
-    [self mouseMoved:event];
-}
-
-- (void)mouseUp:(NSEvent *)event {
-//    input_process_button(BUTTON_LEFT, false);
-}
-
 - (void)mouseMoved:(NSEvent *)event {
     const NSPoint pos = [event locationInWindow];
-    
     mouse_move((int16_t)pos.x, (int16_t)pos.y);
 }
 
+- (void)mouseDown:(NSEvent *)event {
+    const NSPoint pos = [event locationInWindow];
+    mouse_left((int16_t)pos.x, (int16_t)pos.y, true);
+}
+
+- (void)mouseUp:(NSEvent *)event {
+    const NSPoint pos = [event locationInWindow];
+    mouse_left((int16_t)pos.x, (int16_t)pos.y, false);
+}
+
 - (void)rightMouseDown:(NSEvent *)event {
-    //input_process_button(BUTTON_RIGHT, true);
+    const NSPoint pos = [event locationInWindow];
+    mouse_right((int16_t)pos.x, (int16_t)pos.y, true);
+}
+
+- (void)rightMouseUp:(NSEvent *)event {
+ //   input_process_button(BUTTON_RIGHT, false);
+    const NSPoint pos = [event locationInWindow];
+    mouse_right((int16_t)pos.x, (int16_t)pos.y, false);
+}
+
+- (void)otherMouseDown:(NSEvent *)event {
+    const NSPoint pos = [event locationInWindow];
+    mouse_middle((int16_t)pos.x, (int16_t)pos.y, true);
+}
+
+- (void)otherMouseUp:(NSEvent *)event {
+    // Interpreted as middle click
+    const NSPoint pos = [event locationInWindow];
+    mouse_middle((int16_t)pos.x, (int16_t)pos.y, false);
+}
+
+- (void)scrollWheel:(NSEvent *)event {
+    //input_process_mouse_wheel((i8)[event scrollingDeltaY]);
+}
+
+- (void)mouseDragged:(NSEvent *)event {
+  // Equivalent to moving the mouse for now
+  [self mouseMoved:event];
 }
 
 - (void)rightMouseDragged:(NSEvent *)event  {
@@ -364,27 +385,9 @@ void set_window_title(struct win_data* wd, char* title) {
     [self mouseMoved:event];
 }
 
-- (void)rightMouseUp:(NSEvent *)event {
- //   input_process_button(BUTTON_RIGHT, false);
-}
-
-- (void)otherMouseDown:(NSEvent *)event {
-    // Interpreted as middle click
-    //input_process_button(BUTTON_MIDDLE, true);
-}
-
 - (void)otherMouseDragged:(NSEvent *)event {
     // Equivalent to moving the mouse for now
     [self mouseMoved:event];
-}
-
-- (void)otherMouseUp:(NSEvent *)event {
-    // Interpreted as middle click
-    //input_process_button(BUTTON_MIDDLE, false);
-}
-
-- (void)scrollWheel:(NSEvent *)event {
-    //input_process_mouse_wheel((i8)[event scrollingDeltaY]);
 }
 
 - (void) flagsChanged:(NSEvent *) event {
