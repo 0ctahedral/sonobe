@@ -208,13 +208,25 @@ bool pump_messages(platform_state *plat_state) {
 
     if (self != nil) {
         state = init_state;
-        //state_ptr->quit_flagged = false;
     }
     
     return self;
 }
 
 void close_window(NSWindow*);
+
+void get_window_size(struct win_data* wd, uint16_t* w, uint16_t* h) {
+    if (wd) {
+      const NSRect contentRect = [wd->view frame];
+      const NSRect fbRect = [wd->view convertRectToBacking:contentRect];
+      *w = (uint16_t) fbRect.size.width;
+      *h = (uint16_t) fbRect.size.height;
+   }
+}
+
+void set_window_title(struct win_data* wd, char* title) {
+    [wd->window setTitle:@(title)];
+}
 
 - (BOOL)windowShouldClose:(NSWindow*)sender {
     close_window(sender);

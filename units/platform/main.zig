@@ -1,5 +1,5 @@
 const std = @import("std");
-const platform = @import("macos.zig");
+const platform = @import("platform.zig");
 const events = @import("events.zig");
 const log = @import("utils").log.default;
 const Handle = @import("utils").Handle;
@@ -15,6 +15,8 @@ pub fn main() !void {
 
     // poll for events every 2.7 ms
     const thread = try std.Thread.spawn(.{}, timedLoop, .{ 16.6, &appLoop, .{wh} });
+
+    try platform.setWindowTitle(wh, "foobar");
 
     try eventLoop(2.7);
 
@@ -51,7 +53,6 @@ pub fn appLoop(win: Handle(.Window)) bool {
             else => {},
         }
     }
-    log.debug("{} clicks handled this frame", .{i});
     return true;
 }
 

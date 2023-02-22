@@ -1,13 +1,17 @@
 const std = @import("std");
 const Handle = @import("utils").Handle;
 const FreeList = @import("containers").FreeList;
+const Vec2 = @import("math").Vec2;
 const log = @import("utils").log.default;
 const events = @import("events.zig");
 const Event = events.Event;
+const PlatformSettings = @import("platform.zig").PlatformSettings;
 
 extern fn startup(state: *macos_state) bool;
 extern fn shutdown(state: *macos_state) void;
 extern fn create_window(title: [*:0]const u8, w: i32, h: i32, wd: *WinData) bool;
+extern fn get_window_size(wd: *WinData, w: *u16, h: *u16) void;
+extern fn set_window_title(wd: *WinData, title: [*:0]const u8) void;
 pub extern fn pump_messages(state: *macos_state) bool;
 
 const macos_state = extern struct {
@@ -27,8 +31,6 @@ var state: macos_state = undefined;
 var num_living: usize = 0;
 var windows: FreeList(WinData) = undefined;
 var window_store: [10]WinData = undefined;
-
-pub const PlatformSettings = struct {};
 
 pub fn init(settings: PlatformSettings) anyerror!void {
     _ = settings;
@@ -54,6 +56,23 @@ pub fn createWindow(title: []const u8, w: u32, h: u32) !Handle(.Window) {
 
     return Handle(.Window){
         .id = id,
+    };
+}
+
+/// does nothing for now
+pub fn setWindowTitle(win: Handle(.Window), title: []const u8) !void {
+    const win_ptr = &window_store[win.id];
+    set_window_title(win_ptr, @ptrCast([*:0]const u8, title.ptr));
+}
+
+pub fn getWindowSize(win: Handle(.Window)) Vec2 {
+    const win_ptr = &window_store[win.id];
+    var w: u16 = 0;
+    var h: u16 = 0;
+    get_window_size(win_ptr, &w, &h);
+    return .{
+        .x = @intToFloat(f32, w),
+        .y = @intToFloat(f32, h),
     };
 }
 
