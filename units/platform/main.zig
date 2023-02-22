@@ -38,21 +38,38 @@ pub fn timedLoop(ms: f32, comptime f: anytype, args: anytype) !void {
 }
 
 pub fn appLoop(win: Handle(.Window)) bool {
-    var i: u32 = 0;
+    platform.startFrame();
     while (events.popEvent()) |ev| {
         switch (ev) {
             .WindowClose => |wid| {
                 if (wid.id == win.id) {
-                    running.store(false, .Release);
+                    // running.store(false, .Release);
                 }
-                return false;
+                // return false;
             },
-            .MouseButton => |_| {
-                i += 1;
-            },
+            .MouseButton => {},
+            .MouseMove => {},
+            .KeyPress, .KeyRelease => {},
             else => {},
         }
     }
+
+    // this is where update would happen
+    // instead we quit on cmd q
+    {
+        if (platform.input.keyIs(.l_super, .down) and platform.input.keyIs(.q, .press)) {
+            running.store(false, .Release);
+            return false;
+        }
+    }
+
+    // reset the mouse
+    platform.input.resetMouse();
+    platform.input.resetKeyboard();
+
+    // end frame
+    platform.endFrame();
+
     return true;
 }
 

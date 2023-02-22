@@ -1,6 +1,6 @@
 const std = @import("std");
 const Vec2 = @import("math").Vec2;
-const Events = @import("events.zig");
+const events = @import("events.zig");
 
 var mouse = Mouse{};
 
@@ -9,7 +9,7 @@ pub inline fn getMouse() Mouse {
 }
 
 /// set the state of a button
-pub fn setMouseButton(ev: Events.Event) bool {
+pub fn setMouseButton(ev: events.Event) bool {
     const bev = ev.MouseButton;
     const idx = @enumToInt(bev.button);
 
@@ -31,7 +31,7 @@ pub fn setMouseButton(ev: Events.Event) bool {
 }
 
 /// set the position of the cursor
-pub fn setMousePos(ev: Events.Event) bool {
+pub fn setMousePos(ev: events.Event) bool {
     // update the mouse position
     const old_pos = mouse.pos;
     mouse.pos = ev.MouseMove;
@@ -57,7 +57,7 @@ pub fn setMousePos(ev: Events.Event) bool {
 
 /// reset the mouse state if it was just released (typically at the end of a frame)
 pub fn resetMouse() void {
-    for (mouse.buttons) |*btn| {
+    for (&mouse.buttons) |*btn| {
         if (btn.action == .release) {
             btn.* = .{};
         }
@@ -112,7 +112,7 @@ pub const Mouse = struct {
     }
 };
 
-pub fn setKeyState(ev: Events.Event) bool {
+pub fn setKeyState(ev: events.Event) void {
     switch (ev) {
         .KeyPress => |k| {
             keymap[@enumToInt(k)] = .press;
@@ -122,11 +122,11 @@ pub fn setKeyState(ev: Events.Event) bool {
         },
         else => {},
     }
-    return true;
+    events.enqueue(ev);
 }
 
 pub fn resetKeyboard() void {
-    for (keymap) |*s| {
+    for (&keymap) |*s| {
         switch (s.*) {
             .press => s.* = .down,
             .release => s.* = .up,

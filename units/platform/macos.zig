@@ -144,13 +144,15 @@ export fn resize_window(ptr: *anyopaque, w: u16, h: u16) void {
 }
 
 export fn key_down(keycode: u32) void {
-    const key = translate_keycode(keycode);
-    log.debug("key down: {}", .{key});
+    input.setKeyState(Event{
+        .KeyPress = translate_keycode(keycode),
+    });
 }
 
 export fn key_up(keycode: u32) void {
-    const key = translate_keycode(keycode);
-    log.debug("key up: {}", .{key});
+    input.setKeyState(Event{
+        .KeyRelease = translate_keycode(keycode),
+    });
 }
 
 export fn modifier_keys(
@@ -161,55 +163,25 @@ export fn modifier_keys(
     alt: u32,
     super: u32,
 ) void {
+    _ = modifier;
     const key = translate_keycode(keycode);
-    switch (key) {
+    const ev: Event = switch (key) {
         .l_shift,
         .r_shift,
-        => {
-            if (shift > 0) {
-                log.debug("key down: {}", .{key});
-            } else {
-                log.debug("key up: {}", .{key});
-            }
-        },
+        => if (shift > 0) .{ .KeyPress = key } else .{ .KeyRelease = key },
         .l_ctrl,
         .r_ctrl,
-        => {
-            if (ctrl > 0) {
-                log.debug("key down: {}", .{key});
-            } else {
-                log.debug("key up: {}", .{key});
-            }
-        },
+        => if (ctrl > 0) .{ .KeyPress = key } else .{ .KeyRelease = key },
         .l_alt,
         .r_alt,
-        => {
-            if (alt > 0) {
-                log.debug("key down: {}", .{key});
-            } else {
-                log.debug("key up: {}", .{key});
-            }
-        },
+        => if (alt > 0) .{ .KeyPress = key } else .{ .KeyRelease = key },
         .l_super,
         .r_super,
-        => {
-            if (super > 0) {
-                log.debug("key down: {}", .{key});
-            } else {
-                log.debug("key up: {}", .{key});
-            }
-        },
-        else => {
-            log.debug("key: {} mod: {x} shift {x} ctrl {x} alt {x} super {x}", .{
-                key,
-                modifier,
-                shift,
-                ctrl,
-                alt,
-                super,
-            });
-        },
-    }
+        => if (super > 0) .{ .KeyPress = key } else .{ .KeyRelease = key },
+        else => unreachable,
+    };
+
+    input.setKeyState(ev);
 }
 
 inline fn translate_keycode(ns_keycode: u32) input.Key {
