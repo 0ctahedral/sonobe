@@ -57,7 +57,7 @@ pub fn appLoop(win: Handle(.Window)) bool {
     // this is where update would happen
     // instead we quit on cmd q
     {
-        if (platform.input.keyIs(.l_super, .down) and platform.input.keyIs(.q, .press)) {
+        if (platform.input.isMod(.{ .super = true }) and platform.input.isKey(.q, .press)) {
             running.store(false, .Release);
             return false;
         }

@@ -181,7 +181,7 @@ export fn modifier_keys(
         else => unreachable,
     };
 
-    input.setKeyState(ev);
+    input.setModifier(ev);
 }
 
 inline fn translate_keycode(ns_keycode: u32) input.Key {

@@ -85,8 +85,6 @@ pub const Mouse = struct {
         release,
     };
 
-    // TODO: add modifiers
-
     /// tracks state for a button
     pub const ButtonState = struct {
         /// the action the button is currently in
@@ -125,6 +123,36 @@ pub fn setKeyState(ev: events.Event) void {
     events.enqueue(ev);
 }
 
+pub fn setModifier(ev: events.Event) void {
+    setKeyState(ev);
+
+    switch (ev) {
+        .KeyPress => |k| {
+            switch (k) {
+                .l_shift, .r_shift => modifiers.shift = true,
+                .l_ctrl, .r_ctrl => modifiers.ctrl = true,
+                .l_alt, .r_alt => modifiers.alt = true,
+                .l_super, .r_super => modifiers.super = true,
+                else => unreachable,
+            }
+        },
+        .KeyRelease => |k| {
+            switch (k) {
+                .l_shift => modifiers.shift = isKey(.r_shift, .down),
+                .r_shift => modifiers.shift = isKey(.l_shift, .down),
+                .l_ctrl => modifiers.ctrl = isKey(.r_ctrl, .down),
+                .r_ctrl => modifiers.ctrl = isKey(.l_ctrl, .down),
+                .l_alt => modifiers.alt = isKey(.r_alt, .down),
+                .r_alt => modifiers.alt = isKey(.l_alt, .down),
+                .l_super => modifiers.super = isKey(.r_super, .down),
+                .r_super => modifiers.super = isKey(.l_super, .down),
+                else => unreachable,
+            }
+        },
+        else => {},
+    }
+}
+
 pub fn resetKeyboard() void {
     for (&keymap) |*s| {
         switch (s.*) {
@@ -135,16 +163,40 @@ pub fn resetKeyboard() void {
     }
 }
 
-pub fn getKey(key: Key) Key.State {
+/// get the state of a given key
+pub inline fn getKey(key: Key) Key.State {
     return keymap[@enumToInt(key)];
 }
 
-pub fn keyIs(key: Key, state: Key.State) bool {
+/// return if the key is in a given state
+pub inline fn isKey(key: Key, state: Key.State) bool {
     return keymap[@enumToInt(key)] == state;
+}
+
+/// return if modifiers are pressed
+pub inline fn isMod(mod: ModState) bool {
+    // check if mods are the same
+    return modifiers.super == mod.super and
+        modifiers.shift == mod.shift and
+        modifiers.ctrl == mod.ctrl and
+        modifiers.alt == mod.alt;
+}
+
+pub inline fn getMod() ModState {
+    return modifiers;
 }
 
 pub const N_KEYS = @typeInfo(Key).Enum.fields.len;
 var keymap: [N_KEYS]Key.State = [_]Key.State{.up} ** N_KEYS;
+var modifiers = ModState{};
+
+pub const ModState = packed struct {
+    super: bool = false,
+    shift: bool = false,
+    ctrl: bool = false,
+    alt: bool = false,
+};
+
 pub const Key = enum {
     pub const State = enum {
         press,
