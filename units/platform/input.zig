@@ -4,25 +4,11 @@ const Events = @import("events.zig");
 
 var mouse = Mouse{};
 
-/// initialize input subsytem
-pub fn init() !void {
-    // regiter for mouse events
-    try Events.register(.MouseButton, setMouseButton);
-    try Events.register(.MouseMove, setMousePos);
-    try Events.register(.KeyPress, setKeyState);
-    try Events.register(.KeyRelease, setKeyState);
-}
-
-pub fn deinit() void {
-    // reset everything
-    mouse = Mouse{};
-}
-
 pub inline fn getMouse() Mouse {
     return mouse;
 }
 
-/// set the stae of a button
+/// set the state of a button
 pub fn setMouseButton(ev: Events.Event) bool {
     const bev = ev.MouseButton;
     const idx = @enumToInt(bev.button);
@@ -159,7 +145,6 @@ pub fn keyIs(key: Key, state: Key.State) bool {
 
 pub const N_KEYS = @typeInfo(Key).Enum.fields.len;
 var keymap: [N_KEYS]Key.State = [_]Key.State{.up} ** N_KEYS;
-// TODO: do we need the numbers?
 pub const Key = enum {
     pub const State = enum {
         press,
@@ -281,11 +266,11 @@ pub const Key = enum {
     subtract,
     add,
     l_shift,
-    l_control,
+    l_ctrl,
     l_alt,
     l_super,
     r_shift,
-    r_control,
+    r_ctrl,
     r_alt,
     r_super,
     menu,
