@@ -1,9 +1,18 @@
 const std = @import("std");
+const builtin = @import("builtin");
 
 // Although this function looks imperative, note that its job is to
 // declaratively construct a build graph that will be executed by an external
 // runner.
 pub fn build(b: *std.Build) void {
+    comptime {
+        const current_zig = builtin.zig_version;
+        const min_zig = std.SemanticVersion.parse("0.11.0-dev.1884+2641feb9b") catch return;
+        if (current_zig.order(min_zig) == .lt) {
+            @compileError(std.fmt.comptimePrint("Your Zig version v{} does not meet the minimum build requirement of v{}", .{ current_zig, min_zig }));
+        }
+    }
+
     // Standard target options allows the person running `zig build` to choose
     // what target to build for. Here we do not override the defaults, which
     // means any target is allowed, and the default is native. Other options

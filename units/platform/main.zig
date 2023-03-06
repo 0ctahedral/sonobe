@@ -15,19 +15,26 @@ pub fn main() !void {
 
     // poll for events every 2.7 ms
     const thread = try std.Thread.spawn(.{}, timedLoop, .{ 16.6, &appLoop, .{} });
+    const p_thread = try std.Thread.spawn(.{}, timedLoop, .{ 1000, &printer, .{} });
 
     try platform.setWindowTitle(wh, "foobar");
 
     try eventLoop(2.7);
 
     thread.join();
+    p_thread.join();
+}
+
+pub fn printer() void {
+    log.warn("second", .{});
 }
 
 pub fn timedLoop(ms: f32, comptime f: anytype, args: anytype) !void {
     // TODO: assert that f returns a boolean
     const ns_per_update = @floatToInt(i64, ms * std.time.ns_per_ms);
     var tick = try std.time.Instant.now();
-    while (@call(.auto, f, args)) {
+    while (running.load(.Acquire)) {
+        @call(.auto, f, args);
         // wait the rest of the loop
         var now = try std.time.Instant.now();
         while (ns_per_update - @intCast(i64, now.since(tick)) > 0) {
@@ -37,7 +44,7 @@ pub fn timedLoop(ms: f32, comptime f: anytype, args: anytype) !void {
     }
 }
 
-pub fn appLoop() bool {
+pub fn appLoop() void {
     platform.startFrame();
     while (events.popEvent()) |ev| {
         switch (ev) {
@@ -54,12 +61,11 @@ pub fn appLoop() bool {
     {
         if (platform.input.isMod(.{ .super = true }) and platform.input.isKey(.q, .press)) {
             running.store(false, .Release);
-            return false;
         }
 
         const left = platform.input.getMouse().getButton(.left);
         if (left.action == .drag) {
-            log.debug("{d:.2} {d:.2}", .{ left.drag.x, left.drag.y });
+            // log.debug("{d:.2} {d:.2}", .{ left.drag.x, left.drag.y });
         }
     }
 
@@ -69,8 +75,6 @@ pub fn appLoop() bool {
 
     // end frame
     platform.endFrame();
-
-    return true;
 }
 
 // high precision pump of event loop at refresh rate
