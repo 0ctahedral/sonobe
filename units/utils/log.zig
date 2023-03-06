@@ -19,17 +19,16 @@ const Level = enum {
 
 pub const default = Logger("");
 
+const COLOR_PREFIX = "\x1b[";
+const COLOR_SUFFIX = "m";
+const COLOR_CLEAR = "\x1b[0m";
+
 pub fn Logger(
     comptime prefix: []const u8,
 ) type {
     return struct {
-
         /// output file for the logger, defaults to stderr
-        pub const out_file = std.io.getStdErr();
-
-        const color_prefix = "\x1b[";
-        const color_suffix = "m";
-        const color_clear = "\x1b[0m";
+        pub var out_file = std.io.getStdErr();
 
         pub inline fn info(
             comptime fmt: []const u8,
@@ -64,7 +63,7 @@ pub fn Logger(
             comptime fmt: []const u8,
             args: anytype,
         ) void {
-            const color = color_prefix ++ TERM_COLORS[@enumToInt(level)] ++ color_suffix;
+            const color = COLOR_PREFIX ++ TERM_COLORS[@enumToInt(level)] ++ COLOR_SUFFIX;
             const level_prefix = "[" ++ blk: {
                 const lvl = @tagName(level);
                 if (prefix.len == 0) {
@@ -74,7 +73,13 @@ pub fn Logger(
                 }
             } ++ "] ";
 
-            out_file.writer().print(color ++ level_prefix ++ fmt ++ color_clear ++ "\n", args) catch return;
+            out_file.writer().print(color ++ level_prefix ++ fmt ++ COLOR_CLEAR ++ "\n", args) catch return;
+        }
+
+        pub fn subLogger(
+            comptime subPrefix: []const u8,
+        ) type {
+            return Logger(prefix ++ subPrefix);
         }
     };
 }
@@ -91,4 +96,23 @@ test "log prefix" {
     inline for (@typeInfo(Level).Enum.fields) |f| {
         log.logLevel(@field(Level, f.name), "{s}: bloopy", .{f.name});
     }
+}
+
+test "sublogger" {
+    const log = Logger("prefix");
+    const sub = log.subLogger(".sub");
+
+    log.info("logger", .{});
+    sub.info("sub logger", .{});
+}
+
+test "change output file" {
+    const log = Logger("prefix");
+    log.out_file = std.io.getStdOut();
+
+    const sub = log.subLogger(".sub");
+    sub.out_file = std.io.getStdErr();
+
+    log.info("stdout logger", .{});
+    sub.info("stderr logger", .{});
 }
