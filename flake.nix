@@ -33,7 +33,7 @@
       {
         # create the dev shell that now has the correct version of zig in it
         devShells.default = mkShell {
-          buildInputs = [ zig ];
+          buildInputs = [ zig xorg.libX11.dev xorg.libxcb.dev ];
         };
       }
     );

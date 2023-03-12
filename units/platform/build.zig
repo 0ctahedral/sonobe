@@ -50,9 +50,21 @@ pub fn build(b: *std.Build) void {
     exe.addModule("containers", containers);
     exe.addModule("utils", utils);
     exe.linkLibC();
-    exe.addCSourceFile("macos.m", &.{});
-    exe.linkFramework("AppKit");
-    exe.linkFramework("QuartzCore");
+
+    switch (builtin.target.os.tag) {
+        .macos => {
+            // macos only stuff
+            exe.addCSourceFile("macos.m", &.{});
+            exe.linkFramework("AppKit");
+            exe.linkFramework("QuartzCore");
+        },
+        .linux => {
+            exe.linkSystemLibrary("xcb");
+            exe.linkSystemLibrary("X11");
+            exe.linkSystemLibrary("X11-xcb");
+        },
+        else => @panic("unsupported os"),
+    }
 
     // This declares intent for the executable to be installed into the
     // standard location when the user invokes the "install" step (the default

@@ -1,4 +1,5 @@
 const std = @import("std");
+const builtin = @import("builtin");
 const utils = @import("utils");
 const log = utils.log.Logger("platform");
 pub const events = @import("events.zig");
@@ -6,7 +7,11 @@ pub const input = @import("input.zig");
 const Handle = utils.Handle;
 const Vec2 = @import("math").Vec2;
 
-const backend = @import("macos.zig");
+const backend = switch (builtin.target.os.tag) {
+    .macos => @import("macos.zig"),
+    .linux => @import("linux.zig"),
+    else => unreachable,
+};
 
 pub var is_running = true;
 

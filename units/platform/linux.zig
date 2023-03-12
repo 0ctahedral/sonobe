@@ -1,11 +1,11 @@
 const std = @import("std");
 const os = std.os;
 const xcb = @import("xcb_decls.zig").XCB;
-const Window = @import("window.zig");
-const vk = @import("vulkan");
 const Handle = @import("utils").Handle;
-const InstanceDispatch = @import("../device/vulkan/dispatch_types.zig").InstanceDispatch;
-const Event = @import("events.zig").Event;
+const events = @import("events.zig");
+const Event = events.Event;
+const log = @import("utils").log.default;
+const PlatformSettings = @import("platform.zig").PlatformSettings;
 
 var display: *xcb.Display = undefined;
 var connection: *xcb.xcb_connection_t = undefined;
@@ -13,7 +13,7 @@ var screen: *xcb.xcb_screen_t = undefined;
 
 var windows: struct {
     /// idx of the next open spot
-    idx: usize = 0,
+    idx: u32 = 0,
     // number of windows still living
     num_living: usize = 0,
     handles: [32]xcb.xcb_window_t = undefined,
@@ -21,7 +21,8 @@ var windows: struct {
     wm_protos: [32]xcb.xcb_atom_t = undefined,
 } = .{};
 
-pub fn init() anyerror!void {
+pub fn init(settings: PlatformSettings) anyerror!void {
+    _ = settings;
     log.info("linux startup", .{});
 
     display = xcb.XOpenDisplay(null).?;
@@ -40,11 +41,8 @@ pub fn deinit() void {
     log.info("linux shutdown", .{});
 }
 
-pub fn nextEvent() ?Event {
-    var ret: ?Event = null;
-
-    if (xcb.xcb_poll_for_event(connection)) |ev| {
-        _ = ev;
+pub fn poll() void {
+    while (xcb.xcb_poll_for_event(connection)) |ev| {
         // Input events
         switch (ev.*.response_type & ~@as(u32, 0x80)) {
             //            xcb.XCB_KEY_PRESS,
@@ -65,8 +63,7 @@ pub fn nextEvent() ?Event {
             //            },
             xcb.XCB_CLIENT_MESSAGE => {
                 const cm = @ptrCast(*xcb.xcb_client_message_event_t, ev);
-                log.info("wm window close event: {}", .{cm});
-                for (windows.handles) |*handle, i| {
+                for (&windows.handles, 0..) |*handle, i| {
                     if (
                     //handle.* != .null_handle and
                     cm.window == handle.* and
@@ -75,9 +72,9 @@ pub fn nextEvent() ?Event {
                         _ = xcb.xcb_destroy_window(connection, handle.*);
                         windows.num_living -= 1;
                         if (windows.num_living == 0) {
-                            return Event{ .Quit = .{} };
+                            events.enqueue(Event{ .Quit = {} });
                         }
-                        return Event{ .WindowClose = @intToEnum(Handle(.Window), i) };
+                        events.enqueue(Event{ .WindowClose = Handle(.Window){ .id = @intCast(u32, i) } });
                     }
                 }
             },
@@ -105,12 +102,12 @@ pub fn nextEvent() ?Event {
             //            // for resizes
             xcb.XCB_CONFIGURE_NOTIFY => {
                 const cn = @ptrCast(*xcb.xcb_configure_notify_event_t, ev);
-                ret = Event{ .WindowResize = .{
+                events.enqueue(Event{ .WindowResize = .{
                     .x = cn.x,
                     .y = cn.y,
                     .w = cn.width,
                     .h = cn.height,
-                } };
+                } });
             },
             //else => |ev| log.info("event: {}", .{ev}),
             //else => log.info("event: {}", .{ev}),
@@ -118,11 +115,9 @@ pub fn nextEvent() ?Event {
         }
         _ = xcb.xcb_flush(connection);
     }
-
-    return ret;
 }
 
-pub fn createWindow(title: []const u8, w: u32, h: u32) !Window {
+pub fn createWindow(title: []const u8, w: u32, h: u32) !Handle(.Window) {
     // Allocate an id for our window
     const window = xcb.xcb_generate_id(connection);
 
@@ -172,16 +167,19 @@ pub fn createWindow(title: []const u8, w: u32, h: u32) !Window {
     windows.wm_protos[windows.idx] = wm_proto;
     windows.num_living += 1;
 
-    return Window{
-        .handle = Handle(.Window){ .id = windows.idx },
-    };
+    return Handle(.Window){ .id = windows.idx };
 }
 
-pub fn createWindowSurface(vki: InstanceDispatch, instance: vk.Instance, win: Window) !vk.SurfaceKHR {
-    var surf = vki.createXcbSurfaceKHR(instance, &.{
-        .flags = .{},
-        .connection = @ptrCast(*vk.xcb_connection_t, connection),
-        .window = windows.handles[@enumToInt(win.handle)],
-    }, null);
-    return surf;
+/// TODO: does nothing for now
+pub fn setWindowTitle(handle: Handle(.Window), title: []const u8) !void {
+    _ = xcb.xcb_change_property(
+        connection,
+        xcb.XCB_PROP_MODE_REPLACE,
+        windows.handles[handle.id],
+        xcb.XCB_ATOM_WM_NAME,
+        xcb.XCB_ATOM_STRING,
+        8, // data should be viewed 8 bits at a time
+        @intCast(u32, title.len),
+        title.ptr,
+    );
 }

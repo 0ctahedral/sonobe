@@ -60,7 +60,6 @@ pub fn createWindow(title: []const u8, w: u32, h: u32) !Handle(.Window) {
     };
 }
 
-/// does nothing for now
 pub fn setWindowTitle(win: Handle(.Window), title: []const u8) !void {
     const win_ptr = &window_store[win.id];
     set_window_title(win_ptr, @ptrCast([*:0]const u8, title.ptr));

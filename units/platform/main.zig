@@ -48,7 +48,9 @@ pub fn appLoop() void {
     platform.startFrame();
     while (events.popEvent()) |ev| {
         switch (ev) {
-            .WindowClose => |_| {},
+            .WindowClose => |h| {
+                log.info("closed: {}", .{h.id});
+            },
             .MouseButton => {},
             .MouseMove => {},
             .KeyPress, .KeyRelease => {},
