@@ -15,14 +15,14 @@ pub fn main() !void {
 
     // poll for events every 2.7 ms
     const thread = try std.Thread.spawn(.{}, timedLoop, .{ 16.6, &appLoop, .{} });
-    const p_thread = try std.Thread.spawn(.{}, timedLoop, .{ 1000, &printer, .{} });
+    // const p_thread = try std.Thread.spawn(.{}, timedLoop, .{ 1000, &printer, .{} });
 
     try platform.setWindowTitle(wh, "foobar");
 
     try eventLoop(2.7);
 
     thread.join();
-    p_thread.join();
+    // p_thread.join();
 }
 
 pub fn printer() void {
@@ -53,7 +53,8 @@ pub fn appLoop() void {
             },
             .MouseButton => {},
             .MouseMove => {},
-            .KeyPress, .KeyRelease => {},
+            .KeyPress => {},
+            .KeyRelease => {},
             else => {},
         }
     }
