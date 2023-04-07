@@ -27,16 +27,30 @@
         pkgs = import nixpkgs {
           inherit system;
         };
+
+        darwinInputs = with pkgs;
+                  lib.optionals stdenv.isDarwin
+                  (with pkgs.darwin.apple_sdk.frameworks; [
+                    AppKit
+                    Cocoa
+                    CoreFoundation
+                    CoreServices
+                    CoreVideo
+                    Foundation
+                    Metal
+                    Security
+                  ]);
+
+        linuxInputs = with pkgs;
+                lib.optionals stdenv.isLinux
+                [ xorg.libX11.dev xorg.libxcb.dev ];
       in
       # use the inherited system so that we don't have to type out nixpkgs.blah.blah.blah
       with pkgs;
       {
         # create the dev shell that now has the correct version of zig in it
         devShells.default = mkShell {
-          buildInputs = [ zig ] ++ 
-            (if system == "x86_64-linux"
-            then [ xorg.libX11.dev xorg.libxcb.dev ]
-            else []);
+          buildInputs = [ zig pkg-config ] ++ darwinInputs ++ linuxInputs;
         };
       }
     );
