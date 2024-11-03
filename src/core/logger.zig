@@ -22,6 +22,9 @@ pub const default = Logger("");
 pub fn Logger(
     comptime prefix: []const u8,
 ) type {
+    // TODO: ability to set default and multiple files
+    // TODO: set min level for each output
+
     return struct {
 
         /// output file for the logger, defaults to stderr
@@ -64,7 +67,7 @@ pub fn Logger(
             comptime fmt: []const u8,
             args: anytype,
         ) void {
-            const color = color_prefix ++ TERM_COLORS[@enumToInt(level)] ++ color_suffix;
+            const color = color_prefix ++ TERM_COLORS[@intFromEnum(level)] ++ color_suffix;
             const level_prefix = "[" ++ blk: {
                 const lvl = @tagName(level);
                 if (prefix.len == 0) {
