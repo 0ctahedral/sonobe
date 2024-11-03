@@ -34,6 +34,11 @@ pub fn Logger(
         const color_suffix = "m";
         const color_clear = "\x1b[0m";
 
+        /// creates a new sublogger of this one
+        pub fn sub(comptime new_prefix: []const u8) type {
+            return Logger(prefix ++ "." ++ new_prefix);
+        }
+
         pub inline fn info(
             comptime fmt: []const u8,
             args: anytype,
@@ -77,6 +82,7 @@ pub fn Logger(
                 }
             } ++ "] ";
 
+            // TODO: lock this so that we can't write at the same time till its flushed
             out_file.writer().print(color ++ level_prefix ++ fmt ++ color_clear ++ "\n", args) catch return;
         }
     };
