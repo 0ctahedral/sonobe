@@ -101,10 +101,13 @@ pub fn loop(self: *Runtime) !void {
 
         // input
         while (platform.pollEvent()) |event| {
-            log.debug("handling event: {}", .{event});
+            // log.debug("handling event: {}", .{event});
             switch (event) {
                 .quit => is_running.reset(),
-                else => { log.info("{}", .{event}); },
+                .mouse_button => |btn|{
+                    log.debug("{}", .{ btn });
+                },
+                else => {},
             }
         }
 

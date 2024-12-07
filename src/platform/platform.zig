@@ -46,10 +46,31 @@ pub fn pollEvent() ?Event {
                     },
                 },
             },
-            else => blk: {
-                log.debug("unhandled event: {d}", .{event.type});
-                break :blk null;
+            c.SDL_EVENT_MOUSE_BUTTON_DOWN => Event{
+                .mouse_button = .{
+                    .pos = .{
+                        .x = event.button.x,
+                        .y = event.button.y,
+                    },
+                    .button = @enumFromInt(event.button.button),
+                    .state = .pressed,
+                },
             },
+            c.SDL_EVENT_MOUSE_BUTTON_UP => Event{
+                .mouse_button = .{
+                    .pos = .{
+                        .x = event.button.x,
+                        .y = event.button.y,
+                    },
+                    .button = @enumFromInt(event.button.button),
+                    .state = .released,
+                },
+            },
+            else =>  null,
+            // blk: {
+            //     log.debug("unhandled event: {d}", .{event.type});
+            //     break :blk null;
+            // },
         };
     }
 
