@@ -13,6 +13,11 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
 
+    exe.linkLibC();
+    exe.addLibraryPath(.{ .cwd_relative = "/usr/local/lib/" });
+    exe.addIncludePath(.{ .cwd_relative = "/usr/local/include/" });
+    exe.linkSystemLibrary("SDL3");
+
     // install in the zig-out directory
     b.installArtifact(exe);
 

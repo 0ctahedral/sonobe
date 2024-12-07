@@ -1,6 +1,7 @@
-const core = @import("core/core.zig");
 const std = @import("std");
+const core = @import("core/core.zig");
 const log = core.logger.Logger("runtime");
+const platform = @import("platform/platform.zig");
 
 // TODO: put this in the platform
 const posix = std.posix;
@@ -23,7 +24,7 @@ ellapsed_ns: u64 = 0,
 
 
 pub fn init(self: *Runtime) !void {
-    log.debug("init runtime", .{});
+    log.debug("init", .{});
     self.ellapsed_ns = 0;
     is_running.set();
 
@@ -34,7 +35,7 @@ pub fn init(self: *Runtime) !void {
     // to turn off running
     const handle = struct {
         fn call(sig: c_int) callconv(.C) void {
-            _ = sig;
+            log.debug("signal {} triggered", .{sig});
             is_running.reset();
         }
 
@@ -44,6 +45,7 @@ pub fn init(self: *Runtime) !void {
         .mask = posix.empty_sigset,
         .flags = 0,
     };
+    log.debug("added quit to sigint", .{});
     try std.posix.sigaction(SIG.INT, &sigact, null);
 }
 
@@ -92,6 +94,13 @@ pub fn loop(self: *Runtime) !void {
         while (self.frame_acc_s >= self.fixed_step_s) {
             self.fixedUpdate(self.fixed_step_s);
             self.frame_acc_s -= self.fixed_step_s;
+        }
+
+        while (platform.pollEvent()) |event| {
+            log.debug("handling event: {}", .{event});
+            switch (event) {
+                .quit => is_running.reset(),
+            }
         }
 
         // while we still have time since the last frame, run update
