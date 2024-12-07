@@ -32,12 +32,25 @@ pub fn init() !void {
 pub fn pollEvent() ?Event {
     var event: c.SDL_Event = undefined;
     if (c.SDL_PollEvent(&event)) {
-        switch (event.type) {
-            c.SDL_EVENT_QUIT => {
-                return .quit;
+        return switch (event.type) {
+            c.SDL_EVENT_QUIT => .quit,
+            c.SDL_EVENT_MOUSE_MOTION => Event{
+                .mouse_move = .{
+                    .pos = .{
+                        .x = event.motion.x,
+                        .y = event.motion.y,
+                    },
+                    .delta = .{
+                        .x = event.motion.xrel,
+                        .y = event.motion.yrel,
+                    },
+                },
             },
-            else => {},
-        }
+            else => blk: {
+                log.debug("unhandled event: {d}", .{event.type});
+                break :blk null;
+            },
+        };
     }
 
     return null;

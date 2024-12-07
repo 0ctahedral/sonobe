@@ -13,13 +13,15 @@ const Runtime = @This();
 /// is the runtime in a running state?
 var is_running: std.Thread.ResetEvent = .{};
 
-// fixed timestep in seconds
+// settings
+
+/// fixed timestep in seconds
 fixed_step_s: f32 = 0.01,
 
-// accumulator for time elapsed between fixed time steps
+/// accumulator for time elapsed between fixed time steps
 frame_acc_s: f32 = 0,
 
-// total time ellapsed since starting
+/// total time ellapsed since starting
 ellapsed_ns: u64 = 0,
 
 
@@ -91,19 +93,22 @@ pub fn loop(self: *Runtime) !void {
         // update the accumulator
         self.frame_acc_s += frame_s;
 
+        // fixed update
         while (self.frame_acc_s >= self.fixed_step_s) {
             self.fixedUpdate(self.fixed_step_s);
             self.frame_acc_s -= self.fixed_step_s;
         }
 
+        // input
         while (platform.pollEvent()) |event| {
             log.debug("handling event: {}", .{event});
             switch (event) {
                 .quit => is_running.reset(),
+                else => { log.info("{}", .{event}); },
             }
         }
 
-        // while we still have time since the last frame, run update
+        // free update
         self.update(frame_s);
     }
 }
