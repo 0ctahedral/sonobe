@@ -74,8 +74,8 @@ pub const Vec2 = packed struct {
 
 test "new" {
     // normal new
-    var v = Vec2{ .x = 0.0, .y = 1.5 };
-    var v1 = Vec2.new(-0.8, 1.5);
+    const v = Vec2{ .x = 0.0, .y = 1.5 };
+    const v1 = Vec2.new(-0.8, 1.5);
 
     try testing.expectEqual(v.x, 0);
     try testing.expectEqual(v.y, 1.5);
@@ -85,7 +85,7 @@ test "new" {
 
 test "add/sub" {
     var v = Vec2{ .x = 0.0, .y = 1.5 };
-    var v1 = Vec2.new(-0.8, 1.5);
+    const v1 = Vec2.new(-0.8, 1.5);
 
     try testing.expectEqual(v.sub(v1), Vec2.new(0.8, 0));
     try testing.expectEqual(v.add(v1), Vec2.new(-0.8, 3));
@@ -100,7 +100,7 @@ test "scale/mul" {
     try testing.expectEqual(v1.x, -1);
     try testing.expectEqual(v1.y, 3);
 
-    var v2 = v1.mul(v);
+    const v2 = v1.mul(v);
     try testing.expectEqual(v2.x, 0.5);
     try testing.expectEqual(v2.y, 4.5);
 }
@@ -112,7 +112,7 @@ test "len" {
 
 test "norm" {
     var v = Vec2.new(-0.8, 1.5);
-    var n = v.norm();
+    const n = v.norm();
     try testing.expectApproxEqAbs(n.x, -0.47058823529, 0.001);
     try testing.expectApproxEqAbs(n.y, 0.88235294117, 0.001);
     v = Vec2.new(1, 0);
@@ -134,9 +134,9 @@ test "dist" {
 }
 
 test "lerp" {
-    var a = Vec2.new(1, 2);
-    var b = Vec2.new(-1, 5);
-    var c = Vec2.lerp(a, b, 0.5);
+    const a = Vec2.new(1, 2);
+    const b = Vec2.new(-1, 5);
+    const c = Vec2.lerp(a, b, 0.5);
     try testing.expectApproxEqAbs(c.x, 0.0, 0.001);
     try testing.expectApproxEqAbs(c.y, 3.5, 0.001);
 }

@@ -159,7 +159,7 @@ pub const Quat = packed struct {
 
             const s = @sqrt((mat.m[i][i] - (mat.m[j][j] + mat.m[k][k])) + 1.0);
 
-            var t: f32 = if (s != 0.0) (0.5 / s) else s;
+            const t: f32 = if (s != 0.0) (0.5 / s) else s;
 
             vals[i] = s * 0.5;
 
@@ -294,7 +294,7 @@ test "multiply" {
 
     const q = Quat.new(4, 3.9, -1, -3);
 
-    var n = p.mul(q);
+    const n = p.mul(q);
 
     try testing.expectApproxEqAbs(n.w, 5.3, 0.001);
     try testing.expectApproxEqAbs(n.x, 6.9, 0.001);
@@ -379,14 +379,14 @@ test "toMat4" {
     const rotx = q1.toMat4().m;
 
     // from mat4 rotate test
-    var rotx_expect: [4][4]f32 = .{
+    const rotx_expect: [4][4]f32 = .{
         .{ 1, 0, 0, 0 },
         .{ 0, -1, 0, 0 },
         .{ 0, 0, -1, 0 },
         .{ 0, 0, 0, 1 },
     };
 
-    var norot_expect: [4][4]f32 = .{
+    const norot_expect: [4][4]f32 = .{
         .{ 1, 0, 0, 0 },
         .{ 0, 1, 0, 0 },
         .{ 0, 0, 1, 0 },
@@ -435,7 +435,7 @@ test "slerp" {
     // 90 degrees on x axis
     const c = Quat.fromAxisAngle(Vec3.new(1, 0, 0), math.pi / 2.0);
 
-    var s = Quat.slerp(f32, a, b, 1.0);
+    const s = Quat.slerp(f32, a, b, 1.0);
     try testing.expectApproxEqAbs(s.w, b.w, eps_value);
     try testing.expectApproxEqAbs(s.x, b.x, eps_value);
     try testing.expectApproxEqAbs(s.y, b.y, eps_value);

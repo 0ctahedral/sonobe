@@ -235,7 +235,7 @@ pub const Mat4 = struct {
 };
 
 test "init" {
-    var m = Mat4.identity();
+    const m = Mat4.identity();
     try testing.expectEqual(m.m, .{
         .{ 1, 0, 0, 0 },
         .{ 0, 1, 0, 0 },
@@ -259,7 +259,7 @@ test "mul" {
         .{ 0, 0, 0, 1 },
     } };
     // rotate 90 degrees
-    var c = Mat4{ .m = .{
+    const c = Mat4{ .m = .{
         .{ 1, 0, 0, 0 },
         .{ 0, -0.5, 0, 0 },
         .{ 0, 0, -0.5, 0 },
@@ -368,22 +368,22 @@ test "translate" {
 }
 
 test "rotate" {
-    var rotx = Mat4.rotate(.x, math.pi).m;
-    var rotx_expect: [4][4]f32 = .{
+    const rotx = Mat4.rotate(.x, math.pi).m;
+    const rotx_expect: [4][4]f32 = .{
         .{ 1, 0, 0, 0 },
         .{ 0, -1, 0, 0 },
         .{ 0, 0, -1, 0 },
         .{ 0, 0, 0, 1 },
     };
-    var roty = Mat4.rotate(.y, math.pi).m;
-    var roty_expect: [4][4]f32 = .{
+    const roty = Mat4.rotate(.y, math.pi).m;
+    const roty_expect: [4][4]f32 = .{
         .{ -1, 0, 0, 0 },
         .{ 0, 1, 0, 0 },
         .{ 0, 0, -1, 0 },
         .{ 0, 0, 0, 1 },
     };
-    var rotz = Mat4.rotate(.z, math.pi).m;
-    var rotz_expect: [4][4]f32 = .{
+    const rotz = Mat4.rotate(.z, math.pi).m;
+    const rotz_expect: [4][4]f32 = .{
         .{ -1, 0, 0, 0 },
         .{ 0, -1, 0, 0 },
         .{ 0, 0, 1, 0 },
@@ -433,7 +433,7 @@ test "eql" {
 
 test "mulVec3" {
     const mat = Mat4.identity();
-    var p = Vec3.UP;
+    const p = Vec3.UP;
     var q = mat.mulVec3(p);
 
     try testing.expectApproxEqAbs(p.x, q.x, 0.001);

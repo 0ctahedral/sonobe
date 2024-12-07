@@ -7,7 +7,7 @@ pub inline fn lerp(comptime T: type, from: T, to: T, t: T) T {
 }
 
 pub inline fn median(comptime T: type, a: T, b: T, c: T) T {
-    return @maximum(@minimum(a, b), @minimum(@maximum(a, b), c));
+    return @max(@min(a, b), @min(@max(a, b), c));
 }
 
 pub inline fn clamp(
@@ -16,7 +16,7 @@ pub inline fn clamp(
     min: T,
     max: T,
 ) T {
-    return @minimum(max, @maximum(min, v));
+    return @min(max, @max(min, v));
 }
 
 pub inline fn map(
