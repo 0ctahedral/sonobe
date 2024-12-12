@@ -127,7 +127,7 @@ test "push pop" {
     try testing.expect(rb.empty());
     try testing.expect(rb.pop() == null);
 
-    var idx = try rb.push(5);
+    const idx = try rb.push(5);
     try testing.expect(idx == 0);
     try testing.expect(rb.len == 1);
     try testing.expect(rb.pop().? == 5);

@@ -5,4 +5,4 @@
 pub const RingBuffer = @import("ring_buffer.zig").RingBuffer;
 pub const FreeList = @import("free_list.zig").FreeList;
 pub const Cache = @import("cache.zig").Cache;
-// pub const SparseSet = @import("./sparse_set.zig").SparseSet;
+pub const SparseSet = @import("sparse_set.zig").SparseSet;

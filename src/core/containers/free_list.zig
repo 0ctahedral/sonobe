@@ -41,8 +41,8 @@ pub fn FreeList(
 
         /// resets the whole command pool
         pub fn reset(self: *Self) void {
-            for (self.mem) |*u, i| {
-                u.* = .{ .next = @intCast(u32, i) + 1 };
+            for (self.mem, 0..) |*u, i| {
+                u.* = .{ .next = @as(u32, i) + 1 };
             }
             // set head
             self.mem[0] = .{ .next = 1 };
@@ -53,24 +53,20 @@ pub fn FreeList(
         pub fn initArena(mem: []T) !Self {
             const size = mem.len;
 
-            var ptr = @ptrCast([*]Item, mem.ptr);
+            var ptr: [*]Item = @ptrCast(mem.ptr);
 
             var self = Self{
                 .allocator = null,
                 .mem = ptr[0..size],
             };
             // TODO: is this necessary?
-            for (self.mem) |*u, i| {
-                u.* = .{ .next = @intCast(u32, i) + 1 };
+            for (self.mem, 0..) |*u, i| {
+                u.* = .{ .next = @as(u32, @intCast(i)) + 1 };
             }
             // set head
             self.mem[0] = .{ .next = 1 };
             self.mem[size - 1] = .{ .next = 0 };
             return self;
-        }
-
-        pub inline fn allocAny(self: *Self) !*anyopaque {
-            @ptrCast(*anyopaque, self.alloc());
         }
 
         pub fn alloc(self: *Self) !*T {
@@ -80,7 +76,7 @@ pub fn FreeList(
 
         pub fn allocIndex(self: *Self) !Index {
             const slot = self.mem[0].next;
-            self.mem[0].next = self.mem[@as(usize, slot)].next;
+            self.mem[0].next = self.mem[@as(usize, @intCast(slot))].next;
             // if the head is pointing to itself then the buffer is full
             if (slot > 0) {
                 self.mem[slot] = .{ .item = undefined };
@@ -95,28 +91,28 @@ pub fn FreeList(
         }
 
         pub fn freeAny(self: *Self, item_ptr: *anyopaque) void {
-            const index = (@ptrToInt(item_ptr) - @ptrToInt(self.mem.ptr)) / @sizeOf(Item);
-            self.freeIndex(@intCast(u32, index));
+            const index = (@intFromPtr(item_ptr) - @intFromPtr(self.mem.ptr)) / @sizeOf(Item);
+            self.freeIndex(@intCast(index));
         }
 
         pub fn freeIndex(self: *Self, idx: Index) void {
             const index = @as(usize, idx);
             // insert at the front of the list
             self.mem[index] = .{ .next = self.mem[0].next };
-            self.mem[0].next = @intCast(u32, index);
+            self.mem[0].next = @intCast(index);
         }
 
         pub fn set(self: *Self, idx: Index, val: T) void {
-            self.mem[@intCast(usize, idx)] = .{ .item = val };
+            self.mem[@intCast(idx)] = .{ .item = val };
         }
 
         pub fn get(self: *Self, idx: Index) *T {
-            return &self.mem[@intCast(usize, idx)].item;
+            return &self.mem[@intCast(idx)].item;
         }
 
         pub inline fn getIndex(self: Self, ptr: *T) Index {
-            const index = (@ptrToInt(ptr) - @ptrToInt(self.mem.ptr)) / @sizeOf(Item);
-            return @intCast(u32, index);
+            const index = (@intFromPtr(ptr) - @intFromPtr(self.mem.ptr)) / @sizeOf(Item);
+            return @intCast(index);
         }
 
         pub fn deinit(self: *Self) void {
@@ -139,7 +135,7 @@ pub fn FreeList(
                     self.i += 1;
                 }
 
-                var ret: *T = &self.fl.mem[self.i].item;
+                const ret: *T = &self.fl.mem[self.i].item;
                 self.i += 1;
 
                 return ret;
@@ -172,7 +168,7 @@ test "init" {
 test "init arena" {
     const FooList = FreeList(foo);
 
-    var data = try std.testing.allocator.alloc(foo, 100);
+    const data = try std.testing.allocator.alloc(foo, 100);
     defer std.testing.allocator.free(data);
 
     var fl = try FooList.initArena(data);
@@ -187,9 +183,9 @@ test "addressing" {
     var fl = try FooList.init(std.testing.allocator, 100);
     defer fl.deinit();
     const p1 = try fl.alloc();
-    try expect(@ptrToInt(p1) == @ptrToInt(&fl.mem[1]));
+    try expect(@intFromPtr(p1) == @intFromPtr(&fl.mem[1]));
     const p2 = try fl.alloc();
-    try expect(@ptrToInt(p2) == @ptrToInt(&fl.mem[2]));
+    try expect(@intFromPtr(p2) == @intFromPtr(&fl.mem[2]));
 
     fl.free(p2);
     try expect(fl.mem[0].next == 2);
@@ -226,8 +222,8 @@ test "iter" {
     var iter = fl.iter();
 
     const f1 = iter.next();
-    try expect(@ptrToInt(f1) == @ptrToInt(p1));
+    try expect(@intFromPtr(f1) == @intFromPtr(p1));
     const f3 = iter.next();
-    try expect(@ptrToInt(f3) == @ptrToInt(p3));
+    try expect(@intFromPtr(f3) == @intFromPtr(p3));
     try expect(iter.next() == null);
 }
