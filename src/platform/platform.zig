@@ -15,6 +15,29 @@ const vk = @import("vulkan");
 var windows: FreeList(Window) = undefined;
 var window_store: [10]Window = undefined;
 
+const app_name = "foobar";
+const apis: []const vk.ApiInfo = &.{
+    // You can either add invidiual functions by manually creating an 'api'
+    .{
+        .base_commands = .{
+            .createInstance = true,
+        },
+        .instance_commands = .{
+            .createDevice = true,
+        },
+    },
+    // Or you can add entire feature sets or extensions
+    vk.features.version_1_0,
+    vk.extensions.khr_surface,
+    vk.extensions.khr_swapchain,
+};
+
+const BaseDispatch = vk.BaseWrapper(apis);
+const InstanceDispatch = vk.InstanceWrapper(apis);
+const Instance = vk.InstanceProxy(apis);
+var vki: InstanceDispatch = undefined;
+var instance: Instance = undefined;
+
 pub fn init() !void {
     log.debug("init", .{});
 
@@ -34,29 +57,9 @@ pub fn init() !void {
         return error.CouldNotLoadVulkan;
     }
 
-    const app_name = "foobar";
-    const apis: []const vk.ApiInfo = &.{
-        // You can either add invidiual functions by manually creating an 'api'
-        .{
-            .base_commands = .{
-                .createInstance = true,
-            },
-            .instance_commands = .{
-                .createDevice = true,
-            },
-        },
-        // Or you can add entire feature sets or extensions
-        vk.features.version_1_0,
-        vk.extensions.khr_surface,
-        vk.extensions.khr_swapchain,
-    };
-
-    const BaseDispatch = vk.BaseWrapper(apis);
-    // const InstanceDispatch = vk.InstanceWrapper(apis);
     // const DeviceDispatch = vk.DeviceWrapper(apis);
 
     // Also create some proxying wrappers, which also have the respective handles
-    // const Instance = vk.InstanceProxy(apis);
     // const Device = vk.DeviceProxy(apis);
     const proc_addr: *const fn (instance: vk.Instance, procname: [*:0]const u8) vk.PfnVoidFunction = @ptrCast(c.SDL_Vulkan_GetVkGetInstanceProcAddr());
     var vkb: BaseDispatch = try BaseDispatch.load(proc_addr);
@@ -85,7 +88,7 @@ pub fn init() !void {
         // vk.extensions.ext_validation_features.name,
     };
 
-    const instance = try vkb.createInstance(&.{
+    const vk_instance = try vkb.createInstance(&.{
         .p_application_info = &app_info,
         .enabled_extension_count = required_exts.len,
         .pp_enabled_extension_names = @ptrCast(required_exts),
@@ -93,7 +96,10 @@ pub fn init() !void {
         .pp_enabled_layer_names = @ptrCast(layers),
         .flags = .{.enumerate_portability_bit_khr = true}
     }, null);
-    _ = instance;
+
+    vki = try InstanceDispatch.load(vk_instance, vkb.dispatch.vkGetInstanceProcAddr);
+    instance = Instance.init(vk_instance, &vki);
+    errdefer instance.destroyInstance(null);
 }
 
 pub fn pollEvent() ?Event {
@@ -180,7 +186,7 @@ pub fn deinit() void {
 
 pub const Window = packed struct {
     window: *c.SDL_Window,
-    surface: ?*c.SDL_Surface = null,
+    surface: vk.SurfaceKHR = .null_handle,
 
     pub fn init(title: []const u8) !Window {
         log.debug("creating window", .{});
@@ -192,14 +198,17 @@ pub const Window = packed struct {
 
         // create surface
         log.debug("creating surface for window {*}", .{win.window});
-        win.surface = c.SDL_GetWindowSurface(win.window);
+        
+        if (!c.SDL_Vulkan_CreateSurface(win.window, @ptrFromInt(@intFromEnum(instance.handle)), null, @ptrCast(&win.surface))) {
+            return error.FailedToCreateSurface;
+        }
         return win;
     }
 
     pub fn deinit(self: *Window) void {
-        if (self.surface != null) {
+        if (self.surface != .null_handle) {
             log.debug("destroying surface for window {*}", .{self.window});
-            c.SDL_DestroySurface(self.surface);
+            instance.destroySurfaceKHR(self.surface, null);
         }
         // destroy window
         log.debug("destroying window {*}", .{self.window});
