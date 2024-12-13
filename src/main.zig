@@ -14,9 +14,7 @@ pub fn main() !void {
     try platform.init();
     defer platform.deinit();
 
-    const w1 = try platform.createWindow("window 1");
-    log.info("created window: {}", .{w1.getWindowID()});
-    _ = try platform.createWindow("window 2");
+    _ = try platform.createWindow("playground");
 
     var runtime = Runtime{};
     try runtime.init();

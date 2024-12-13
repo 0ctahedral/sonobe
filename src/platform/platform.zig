@@ -5,9 +5,12 @@ const FreeList = core.containers.FreeList;
 pub const log = core.logger.Logger("platform");
 pub const Event = @import("event.zig").Event;
 
-const c = @cImport(
-    @cInclude("SDL3/SDL.h")
-);
+const c = @cImport({
+    @cInclude("SDL3/SDL.h");
+    @cInclude("SDL3/SDL_vulkan.h");
+});
+
+const vk = @import("vulkan");
 
 var windows: FreeList(Window) = undefined;
 var window_store: [10]Window = undefined;
@@ -22,6 +25,75 @@ pub fn init() !void {
     log.debug("SDL3 init success", .{});
 
     windows = try FreeList(Window).initArena(&window_store);
+
+    log.debug("attempting to init graphics", .{});
+
+
+    // TODO: move to graphics
+    if (!c.SDL_Vulkan_LoadLibrary(null)) {
+        return error.CouldNotLoadVulkan;
+    }
+
+    const app_name = "foobar";
+    const apis: []const vk.ApiInfo = &.{
+        // You can either add invidiual functions by manually creating an 'api'
+        .{
+            .base_commands = .{
+                .createInstance = true,
+            },
+            .instance_commands = .{
+                .createDevice = true,
+            },
+        },
+        // Or you can add entire feature sets or extensions
+        vk.features.version_1_0,
+        vk.extensions.khr_surface,
+        vk.extensions.khr_swapchain,
+    };
+
+    const BaseDispatch = vk.BaseWrapper(apis);
+    // const InstanceDispatch = vk.InstanceWrapper(apis);
+    // const DeviceDispatch = vk.DeviceWrapper(apis);
+
+    // Also create some proxying wrappers, which also have the respective handles
+    // const Instance = vk.InstanceProxy(apis);
+    // const Device = vk.DeviceProxy(apis);
+    const proc_addr: *const fn (instance: vk.Instance, procname: [*:0]const u8) vk.PfnVoidFunction = @ptrCast(c.SDL_Vulkan_GetVkGetInstanceProcAddr());
+    var vkb: BaseDispatch = try BaseDispatch.load(proc_addr);
+
+    const required_exts: []const [*:0]const u8 = &[_][*:0]const u8{
+        vk.extensions.khr_surface.name,
+        vk.extensions.ext_metal_surface.name,
+        vk.extensions.khr_portability_enumeration.name,
+    };
+
+    log.info("loading extensions:", .{});
+    for (required_exts, 0..) |value, i| {
+        log.info("extension {}: {s}", .{i, value});
+    }
+
+    const app_info = vk.ApplicationInfo{
+        .p_application_name = app_name,
+        .application_version = vk.makeApiVersion(0, 0, 0, 0),
+        .p_engine_name = app_name,
+        .engine_version = vk.makeApiVersion(0, 0, 0, 0),
+        .api_version = vk.API_VERSION_1_2,
+    };
+
+    const layers = &[_][*:0]const u8{
+        // vk.extensions.khr_portability_enumeration.name
+        // vk.extensions.ext_validation_features.name,
+    };
+
+    const instance = try vkb.createInstance(&.{
+        .p_application_info = &app_info,
+        .enabled_extension_count = required_exts.len,
+        .pp_enabled_extension_names = @ptrCast(required_exts),
+        .enabled_layer_count = layers.len,
+        .pp_enabled_layer_names = @ptrCast(layers),
+        .flags = .{.enumerate_portability_bit_khr = true}
+    }, null);
+    _ = instance;
 }
 
 pub fn pollEvent() ?Event {
@@ -112,8 +184,9 @@ pub const Window = packed struct {
 
     pub fn init(title: []const u8) !Window {
         log.debug("creating window", .{});
+        const flags: u64 = c.SDL_WINDOW_VULKAN;
         var win = Window{
-            .window = c.SDL_CreateWindow(@ptrCast(title), 800, 600, 0) orelse return error.CreateWindowFailed,
+            .window = c.SDL_CreateWindow(@ptrCast(title), 800, 600, flags) orelse return error.CreateWindowFailed,
         };
         log.debug("window: {} created", .{win.window});
 
