@@ -26,7 +26,7 @@ ellapsed_ns: u64 = 0,
 
 
 pub fn init(self: *Runtime) !void {
-    log.debug("init", .{});
+    log.info("init", .{});
     self.ellapsed_ns = 0;
     is_running.set();
 
@@ -52,7 +52,7 @@ pub fn init(self: *Runtime) !void {
 }
 
 pub fn deinit(self: *Runtime) void {
-    log.debug("deinit runtime", .{});
+    log.info("deinit runtime", .{});
     // TODO: any cleanup we need
     _ = self;
 }

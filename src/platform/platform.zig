@@ -4,7 +4,7 @@ const core = @import("../core/core.zig");
 const FreeList = core.containers.FreeList;
 pub const log = core.logger.Logger("platform");
 pub const Event = @import("event.zig").Event;
-pub const gpu = @import("./gpu.zig");
+pub const gpu = @import("gpu.zig");
 const vk = @import("vulkan");
 
 const c = @cImport({
@@ -17,17 +17,15 @@ var windows: FreeList(Window) = undefined;
 var window_store: [10]Window = undefined;
 
 pub fn init() !void {
-    log.debug("init", .{});
+    log.info("init", .{});
 
     if (!c.SDL_Init(c.SDL_INIT_VIDEO)) {
         return error.SDLInitFailed;
     }
 
-    log.debug("SDL3 init success", .{});
+    log.info("SDL3 init success", .{});
 
     windows = try FreeList(Window).initArena(&window_store);
-
-    try gpu.init();
 }
 
 pub fn pollEvent() ?Event {
@@ -109,7 +107,7 @@ pub fn deinit() void {
 
     // quit
     c.SDL_Quit();
-    log.debug("SDL3 deinit success", .{});
+    log.info("SDL3 deinit success", .{});
 }
 
 pub const Window = packed struct {
@@ -117,29 +115,45 @@ pub const Window = packed struct {
     surface: vk.SurfaceKHR = .null_handle,
 
     pub fn init(title: []const u8) !Window {
-        log.debug("creating window", .{});
+        log.info("creating window", .{});
         const flags: u64 = c.SDL_WINDOW_VULKAN;
-        var win = Window{
+        const win_ptr = try windows.alloc();
+        errdefer windows.free(win_ptr);
+
+        win_ptr.* = Window{
             .window = c.SDL_CreateWindow(@ptrCast(title), 800, 600, flags) orelse return error.CreateWindowFailed,
         };
-        log.debug("window: {} created", .{win.window});
+
+        log.info("window: {} created", .{win_ptr.window});
+        return win_ptr.*;
+    }
+
+    pub fn getSurface(self: *Window) !vk.SurfaceKHR {
+        if (self.surface != .null_handle) {
+            return self.surface;
+        }
 
         // create surface
-        log.debug("creating surface for window {*}", .{win.window});
-        
-        if (!c.SDL_Vulkan_CreateSurface(win.window, @ptrFromInt(@intFromEnum(gpu.instance.handle)), null, @ptrCast(&win.surface))) {
+        log.info("creating surface for window {*}", .{self.window});
+
+        if (!c.SDL_Vulkan_CreateSurface(self.window, @ptrFromInt(@intFromEnum(gpu.instance.handle)), null, @ptrCast(&self.surface))) {
             return error.FailedToCreateSurface;
         }
-        return win;
+
+        return self.surface;
+    }
+
+    pub fn getTitle(self: Window) [*:0]const u8 {
+        return c.SDL_GetWindowTitle(self.window);
     }
 
     pub fn deinit(self: *Window) void {
         if (self.surface != .null_handle) {
-            log.debug("destroying surface for window {*}", .{self.window});
+            log.info("destroying surface for window {*}", .{self.window});
             gpu.instance.destroySurfaceKHR(self.surface, null);
         }
         // destroy window
-        log.debug("destroying window {*}", .{self.window});
+        log.info("destroying window {*}", .{self.window});
         c.SDL_DestroyWindow(self.window);
     }
 
@@ -147,13 +161,3 @@ pub const Window = packed struct {
         return c.SDL_GetWindowID(self.window);
     }
 };
-
-pub fn createWindow(title: []const u8) !Window {
-    var win = try Window.init(title);
-    errdefer win.deinit();
-
-    const id: u32 = try windows.allocIndex();
-    window_store[id] = win;
-
-    return win;
-}
