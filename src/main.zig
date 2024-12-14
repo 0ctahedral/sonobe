@@ -1,9 +1,9 @@
 const std = @import("std");
-const core = @import("core/core.zig");
+const core = @import("core.zig");
 pub const log = core.logger.Logger("platform");
 // this will eventually be able to do this
 // const platform = @import("platform");
-const platform = @import("platform/platform.zig");
+const platform = @import("platform.zig");
 const gpu = @import("platform/gpu.zig");
 
 const Runtime = @import("Runtime.zig");
@@ -22,8 +22,14 @@ pub fn main() !void {
 
     var window = try platform.Window.init("playground");
 
-    try gpu.init(&window, allocator);
+    try gpu.init();
     defer gpu.deinit();
+
+    window.surface = try gpu.createSurface(window.window);
+
+    const device = try gpu.createDevice(allocator, window.surface.?);
+    defer device.deinit();
+
 
     var runtime = Runtime{};
     try runtime.init();

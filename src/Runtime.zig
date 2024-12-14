@@ -1,7 +1,7 @@
 const std = @import("std");
-const core = @import("core/core.zig");
+const core = @import("core.zig");
 const log = core.logger.Logger("runtime");
-const platform = @import("platform/platform.zig");
+const platform = @import("platform.zig");
 
 // TODO: put this in the platform
 const posix = std.posix;

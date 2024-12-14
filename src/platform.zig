@@ -1,11 +1,12 @@
 const std = @import("std");
 const builtin = @import("builtin");
-const core = @import("../core/core.zig");
-const FreeList = core.containers.FreeList;
-pub const log = core.logger.Logger("platform");
-pub const Event = @import("event.zig").Event;
-pub const gpu = @import("gpu.zig");
 const vk = @import("vulkan");
+const core = @import("core.zig");
+const FreeList = core.containers.FreeList;
+pub const Event = @import("platform/event.zig").Event;
+pub const gpu = @import("platform/gpu.zig");
+
+pub const log = core.logger.Logger("platform");
 
 const c = @cImport({
     @cInclude("SDL3/SDL.h");
@@ -110,9 +111,9 @@ pub fn deinit() void {
     log.info("SDL3 deinit success", .{});
 }
 
-pub const Window = packed struct {
+pub const Window = struct {
     window: *c.SDL_Window,
-    surface: vk.SurfaceKHR = .null_handle,
+    surface: ?gpu.Surface = null,
 
     pub fn init(title: []const u8) !Window {
         log.info("creating window", .{});
@@ -128,29 +129,13 @@ pub const Window = packed struct {
         return win_ptr.*;
     }
 
-    pub fn getSurface(self: *Window) !vk.SurfaceKHR {
-        if (self.surface != .null_handle) {
-            return self.surface;
-        }
-
-        // create surface
-        log.info("creating surface for window {*}", .{self.window});
-
-        if (!c.SDL_Vulkan_CreateSurface(self.window, @ptrFromInt(@intFromEnum(gpu.instance.handle)), null, @ptrCast(&self.surface))) {
-            return error.FailedToCreateSurface;
-        }
-
-        return self.surface;
-    }
-
     pub fn getTitle(self: Window) [*:0]const u8 {
         return c.SDL_GetWindowTitle(self.window);
     }
 
     pub fn deinit(self: *Window) void {
-        if (self.surface != .null_handle) {
-            log.info("destroying surface for window {*}", .{self.window});
-            gpu.instance.destroySurfaceKHR(self.surface, null);
+        if (self.surface) |*s| {
+            s.deinit();
         }
         // destroy window
         log.info("destroying window {*}", .{self.window});

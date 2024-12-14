@@ -1,7 +1,6 @@
 const std = @import("std");
-const core = @import("../core/core.zig");
+const core = @import("../core.zig");
 pub const log = core.logger.Logger("gpu");
-const Window = @import("platform.zig").Window;
 
 const Device = @import("device.zig").Device;
 const pickPhysicalDevice = @import("device.zig").pickPhysicalDevice;
@@ -38,9 +37,8 @@ pub const Instance = vk.InstanceProxy(apis);
 const Self = @This();
 pub var vki: InstanceDispatch = undefined;
 pub var instance: Instance = undefined;
-pub var dev: Device = undefined;
 
-pub fn init(window: *Window, allocator: Allocator) !void {
+pub fn init() !void {
     log.info("init", .{});
 
     if (!c.SDL_Vulkan_LoadLibrary(null)) {
@@ -62,9 +60,7 @@ pub fn init(window: *Window, allocator: Allocator) !void {
     }
 
     const app_info = vk.ApplicationInfo{
-        .p_application_name = window.getTitle(),
         .application_version = vk.makeApiVersion(0, 0, 0, 0),
-        .p_engine_name = window.getTitle(),
         .engine_version = vk.makeApiVersion(0, 0, 0, 0),
         .api_version = vk.API_VERSION_1_2,
     };
@@ -80,12 +76,35 @@ pub fn init(window: *Window, allocator: Allocator) !void {
     instance = Instance.init(vk_instance, &vki);
     errdefer instance.destroyInstance(null);
 
-    const surface = try window.getSurface();
+}
 
-    const candidate = try pickPhysicalDevice(instance, surface, allocator);
+pub fn createDevice(allocator: Allocator, surface: Surface) !Device {
+    const candidate = try pickPhysicalDevice(instance, surface.handle, allocator);
     log.info("chose device '{s}'", .{std.mem.sliceTo(&candidate.props.device_name, 0)});
-    dev = try Device.init(instance, candidate);
-    errdefer dev.deinit(null);
+    return Device.init(instance, candidate);
+}
+
+pub const Surface = struct {
+    handle: vk.SurfaceKHR = .null_handle,
+
+    pub fn deinit(self: *Surface) void {
+        log.info("destroying surface", .{});
+        instance.destroySurfaceKHR(self.handle, null);
+        self.handle = .null_handle;
+    }
+};
+
+pub fn createSurface(window: *c.SDL_Window) !Surface {
+    var ret = Surface{};
+    if (!c.SDL_Vulkan_CreateSurface(
+        window,
+        @ptrFromInt(@intFromEnum(instance.handle)),
+        null,
+        @ptrCast(&ret.handle)
+    )) {
+        return error.FailedToCreateSurface;
+    }
+    return ret;
 }
 
 pub fn deinit() void {
@@ -93,7 +112,6 @@ pub fn deinit() void {
 
     // TODO: destroy all window surfaces somehow
 
-    dev.deinit();
     log.info("destroying instance", .{});
     instance.destroyInstance(null);
 }
