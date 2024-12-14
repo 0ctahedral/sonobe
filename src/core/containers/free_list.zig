@@ -8,7 +8,7 @@ pub fn FreeList(
 
     // union type to store either the next free index or the item
     const item_t = extern union {
-        item: T,
+        item: [@sizeOf(T)] u8 align(@alignOf(T)),
         next: u32,
     };
 
@@ -71,7 +71,7 @@ pub fn FreeList(
 
         pub fn alloc(self: *Self) !*T {
             const slot = try self.allocIndex();
-            return &self.mem[slot].item;
+            return @alignCast(@ptrCast(&self.mem[slot].item));
         }
 
         pub fn allocIndex(self: *Self) !Index {
@@ -103,11 +103,11 @@ pub fn FreeList(
         }
 
         pub fn set(self: *Self, idx: Index, val: T) void {
-            self.mem[@intCast(idx)] = .{ .item = val };
+            self.mem[@intCast(idx)] = .{ .item = @bitCast(val) };
         }
 
         pub fn get(self: *Self, idx: Index) *T {
-            return &self.mem[@intCast(idx)].item;
+            return @alignCast(@ptrCast(self.mem[@intCast(idx)].item));
         }
 
         pub inline fn getIndex(self: Self, ptr: *T) Index {
@@ -135,7 +135,7 @@ pub fn FreeList(
                     self.i += 1;
                 }
 
-                const ret: *T = &self.fl.mem[self.i].item;
+                const ret: *T = @alignCast(@ptrCast(&self.fl.mem[self.i].item));
                 self.i += 1;
 
                 return ret;
