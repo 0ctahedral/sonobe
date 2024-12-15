@@ -1,9 +1,12 @@
 const std = @import("std");
-const core = @import("../core.zig");
+const core = @import("core.zig");
 pub const log = core.logger.Logger("gpu");
 
-const Device = @import("device.zig").Device;
-const pickPhysicalDevice = @import("device.zig").pickPhysicalDevice;
+const device = @import("gpu/device.zig");
+const Device = device.Device;
+const pickPhysicalDevice = device.pickPhysicalDevice;
+
+const Swapchain = @import("gpu/swapchain.zig");
 
 const Allocator = std.mem.Allocator;
 
@@ -33,10 +36,13 @@ pub const apis: []const vk.ApiInfo = &.{
 const BaseDispatch = vk.BaseWrapper(apis);
 const InstanceDispatch = vk.InstanceWrapper(apis);
 pub const Instance = vk.InstanceProxy(apis);
+const DeviceDispatch = vk.DeviceWrapper(apis);
 
 const Self = @This();
+
 pub var vki: InstanceDispatch = undefined;
 pub var instance: Instance = undefined;
+var vkd: DeviceDispatch = undefined;
 
 pub fn init() !void {
     log.info("init", .{});
@@ -81,7 +87,7 @@ pub fn init() !void {
 pub fn createDevice(allocator: Allocator, surface: Surface) !Device {
     const candidate = try pickPhysicalDevice(instance, surface.handle, allocator);
     log.info("chose device '{s}'", .{std.mem.sliceTo(&candidate.props.device_name, 0)});
-    return Device.init(instance, candidate);
+    return Device.init(instance, candidate, &vkd);
 }
 
 pub const Surface = struct {
@@ -105,6 +111,10 @@ pub fn createSurface(window: *c.SDL_Window) !Surface {
         return error.FailedToCreateSurface;
     }
     return ret;
+}
+
+pub fn createSwapchain() !Swapchain {
+    return Swapchain.init(instance, );
 }
 
 pub fn deinit() void {

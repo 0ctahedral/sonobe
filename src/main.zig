@@ -4,7 +4,7 @@ pub const log = core.logger.Logger("platform");
 // this will eventually be able to do this
 // const platform = @import("platform");
 const platform = @import("platform.zig");
-const gpu = @import("platform/gpu.zig");
+const gpu = @import("gpu.zig");
 
 const Runtime = @import("Runtime.zig");
 
@@ -26,10 +26,11 @@ pub fn main() !void {
     defer gpu.deinit();
 
     window.surface = try gpu.createSurface(window.window);
-
     const device = try gpu.createDevice(allocator, window.surface.?);
     defer device.deinit();
 
+    var swapchain = try gpu.createSwapchain();
+    defer swapchain.deinit();
 
     var runtime = Runtime{};
     try runtime.init();

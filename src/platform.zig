@@ -4,7 +4,7 @@ const vk = @import("vulkan");
 const core = @import("core.zig");
 const FreeList = core.containers.FreeList;
 pub const Event = @import("platform/event.zig").Event;
-pub const gpu = @import("platform/gpu.zig");
+pub const gpu = @import("gpu.zig");
 
 pub const log = core.logger.Logger("platform");
 

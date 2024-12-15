@@ -1,13 +1,13 @@
 const std = @import("std");
 const vk = @import("vulkan");
-const gpu = @import("gpu.zig");
+const gpu = @import("../gpu.zig");
 
 const log = gpu.log.sub("device");
 
 const Allocator = std.mem.Allocator;
 
 const DeviceDispatch = vk.DeviceWrapper(gpu.apis);
-// const Device = vk.DeviceProxy(gpu.apis);
+const VkDevice = vk.DeviceProxy(gpu.apis);
 
 const required_device_extensions = [_][*:0]const u8{vk.extensions.khr_swapchain.name};
 
@@ -17,8 +17,8 @@ pub const Queue = struct {
 };
 
 pub const Device = struct {
-    vkd: DeviceDispatch,
-    handle: vk.Device,
+    // TODO: who should own physical vs logical device
+    dev: VkDevice,
     pdev: vk.PhysicalDevice,
 
     graphics: ?Queue = null,
@@ -31,7 +31,7 @@ pub const Device = struct {
     mem_props: vk.PhysicalDeviceMemoryProperties,
     features: vk.PhysicalDeviceFeatures,
 
-    pub fn init(instance: gpu.Instance, candidate: DeviceCandidate) !Device {
+    pub fn init(instance: gpu.Instance, candidate: DeviceCandidate, vkd: *DeviceDispatch) !Device {
         const priority = [_]f32{1};
         const qci = [_]vk.DeviceQueueCreateInfo{
             .{
@@ -65,9 +65,10 @@ pub const Device = struct {
 
         const pdev = candidate.pdev;
 
+        vkd.* = try DeviceDispatch.load(handle, instance.wrapper.dispatch.vkGetDeviceProcAddr);
+
         return .{
-            .vkd = try DeviceDispatch.load(handle, instance.wrapper.dispatch.vkGetDeviceProcAddr),
-            .handle = handle,
+            .dev = VkDevice.init(handle, vkd),
             .pdev = pdev,
             .props = instance.getPhysicalDeviceProperties(pdev),
             .mem_props = instance.getPhysicalDeviceMemoryProperties(pdev),
@@ -77,7 +78,7 @@ pub const Device = struct {
 
     pub fn deinit(self: Device) void {
         log.info("destroying device {s}", .{self.props.device_name});
-        self.vkd.destroyDevice(self.handle, null);
+        self.dev.destroyDevice(null);
     }
 };
 
