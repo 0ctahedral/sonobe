@@ -2,9 +2,11 @@ const std = @import("std");
 const core = @import("core.zig");
 pub const log = core.logger.Logger("gpu");
 
-const device = @import("gpu/device.zig");
-const Device = device.Device;
-const pickPhysicalDevice = device.pickPhysicalDevice;
+const dev = @import("gpu/device.zig");
+const Device = dev.Device;
+const pickPhysicalDevice = dev.pickPhysicalDevice;
+
+const Window = @import("platform.zig").Window;
 
 const Swapchain = @import("gpu/swapchain.zig");
 
@@ -35,8 +37,8 @@ pub const apis: []const vk.ApiInfo = &.{
 
 const BaseDispatch = vk.BaseWrapper(apis);
 const InstanceDispatch = vk.InstanceWrapper(apis);
-pub const Instance = vk.InstanceProxy(apis);
 const DeviceDispatch = vk.DeviceWrapper(apis);
+pub const Instance = vk.InstanceProxy(apis);
 
 const Self = @This();
 
@@ -44,8 +46,12 @@ pub var vki: InstanceDispatch = undefined;
 pub var instance: Instance = undefined;
 var vkd: DeviceDispatch = undefined;
 
-pub fn init() !void {
+var alloc: Allocator = undefined;
+
+pub fn init(allocator: Allocator) !void {
     log.info("init", .{});
+
+    alloc = allocator;
 
     if (!c.SDL_Vulkan_LoadLibrary(null)) {
         return error.CouldNotLoadVulkan;
@@ -84,10 +90,10 @@ pub fn init() !void {
 
 }
 
-pub fn createDevice(allocator: Allocator, surface: Surface) !Device {
-    const candidate = try pickPhysicalDevice(instance, surface.handle, allocator);
+pub fn createDevice(surface: Surface) !*Device {
+    const candidate = try pickPhysicalDevice(instance, surface.handle, alloc);
     log.info("chose device '{s}'", .{std.mem.sliceTo(&candidate.props.device_name, 0)});
-    return Device.init(instance, candidate, &vkd);
+    return Device.init(instance, candidate, &vkd, alloc);
 }
 
 pub const Surface = struct {
@@ -113,8 +119,8 @@ pub fn createSurface(window: *c.SDL_Window) !Surface {
     return ret;
 }
 
-pub fn createSwapchain() !Swapchain {
-    return Swapchain.init(instance, );
+pub fn createSwapchain(device: *Device, window: Window) !Swapchain {
+    return Swapchain.init(instance, device, window.surface.?.handle, window.w, window.h, alloc);
 }
 
 pub fn deinit() void {

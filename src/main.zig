@@ -12,24 +12,24 @@ const posix = std.posix;
 const SIG = posix.system.SIG;
 
 pub fn main() !void {
-    // TODO: each system gets its own arena allocator from the top level allocator
 
+    // TODO: each system gets its own arena allocator from the top level allocator
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     const allocator = gpa.allocator();
 
     try platform.init();
     defer platform.deinit();
 
-    var window = try platform.Window.init("playground");
+    var window = try platform.Window.init("playground", 800, 600);
 
-    try gpu.init();
+    try gpu.init(allocator);
     defer gpu.deinit();
 
     window.surface = try gpu.createSurface(window.window);
-    const device = try gpu.createDevice(allocator, window.surface.?);
+    const device = try gpu.createDevice(window.surface.?);
     defer device.deinit();
 
-    var swapchain = try gpu.createSwapchain();
+    var swapchain = try gpu.createSwapchain(device, window);
     defer swapchain.deinit();
 
     var runtime = Runtime{};

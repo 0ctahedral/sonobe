@@ -1,77 +1,77 @@
 const std = @import("std");
 const vk = @import("vulkan");
 const descs = @import("../resources/descs.zig");
-const SamplerDesc = @import("../resources/descs.zig").SamplerDesc;
 const Device = @import("device.zig").Device;
-const Image = @import("image.zig").Image;
+const Image = @import("image.zig");
 const Buffer = @import("buffer.zig").Buffer;
 const CommandBuffer = @import("commandbuffer.zig").CommandBuffer;
 
-pub const Sampler = struct {
-    const Self = @This();
-
-    /// handle to the sampler
-    handle: vk.Sampler = .null_handle,
-
-    pub fn init(
-        device: Device,
-        desc: SamplerDesc,
-    ) !Self {
-        var self = Self{};
-
-        const Config = struct {
-            filter: vk.Filter,
-            mipmap_mode: vk.SamplerMipmapMode,
-        };
-
-        const mip_filter: Config = switch (desc.filter) {
-            .nearest => .{ .filter = .nearest, .mipmap_mode = .nearest },
-            .bilinear => .{ .filter = .linear, .mipmap_mode = .nearest },
-            .trilinear => .{ .filter = .linear, .mipmap_mode = .linear },
-            .anisotropic => .{ .filter = .linear, .mipmap_mode = .linear },
-        };
-
-        const repeat: vk.SamplerAddressMode = switch (desc.repeat) {
-            .wrap => .repeat,
-            .clamp => .clamp_to_edge,
-        };
-
-        const compare_op: vk.CompareOp = switch (desc.compare) {
-            .never => .never,
-            .less => .less,
-            .greater => .greater,
-            .less_eq => .less_or_equal,
-            .greater_eq => .greater_or_equal,
-        };
-
-        const sci = vk.SamplerCreateInfo{
-            .flags = .{},
-            .mag_filter = mip_filter.filter,
-            .min_filter = mip_filter.filter,
-            .address_mode_u = repeat,
-            .address_mode_v = repeat,
-            .address_mode_w = repeat,
-            .mipmap_mode = mip_filter.mipmap_mode,
-            .mip_lod_bias = 0,
-            .anisotropy_enable = if (desc.filter == .anisotropic) vk.TRUE else vk.FALSE,
-            .max_anisotropy = 16,
-            .compare_enable = if (desc.compare == .never) vk.FALSE else vk.TRUE,
-            .compare_op = compare_op,
-            .min_lod = 0,
-            .max_lod = 0,
-            .border_color = vk.BorderColor.float_opaque_black,
-            .unnormalized_coordinates = vk.FALSE,
-        };
-
-        self.handle = try device.vkd.createSampler(device.logical, &sci, null);
-
-        return self;
-    }
-
-    pub fn deinit(self: *Self, device: Device) void {
-        device.vkd.destroySampler(device.logical, self.handle, null);
-    }
-};
+// const SamplerDesc = @import("../resources/descs.zig").SamplerDesc;
+// pub const Sampler = struct {
+//     const Self = @This();
+//
+//     /// handle to the sampler
+//     handle: vk.Sampler = .null_handle,
+//
+//     pub fn init(
+//         device: Device,
+//         desc: SamplerDesc,
+//     ) !Self {
+//         var self = Self{};
+//
+//         const Config = struct {
+//             filter: vk.Filter,
+//             mipmap_mode: vk.SamplerMipmapMode,
+//         };
+//
+//         const mip_filter: Config = switch (desc.filter) {
+//             .nearest => .{ .filter = .nearest, .mipmap_mode = .nearest },
+//             .bilinear => .{ .filter = .linear, .mipmap_mode = .nearest },
+//             .trilinear => .{ .filter = .linear, .mipmap_mode = .linear },
+//             .anisotropic => .{ .filter = .linear, .mipmap_mode = .linear },
+//         };
+//
+//         const repeat: vk.SamplerAddressMode = switch (desc.repeat) {
+//             .wrap => .repeat,
+//             .clamp => .clamp_to_edge,
+//         };
+//
+//         const compare_op: vk.CompareOp = switch (desc.compare) {
+//             .never => .never,
+//             .less => .less,
+//             .greater => .greater,
+//             .less_eq => .less_or_equal,
+//             .greater_eq => .greater_or_equal,
+//         };
+//
+//         const sci = vk.SamplerCreateInfo{
+//             .flags = .{},
+//             .mag_filter = mip_filter.filter,
+//             .min_filter = mip_filter.filter,
+//             .address_mode_u = repeat,
+//             .address_mode_v = repeat,
+//             .address_mode_w = repeat,
+//             .mipmap_mode = mip_filter.mipmap_mode,
+//             .mip_lod_bias = 0,
+//             .anisotropy_enable = if (desc.filter == .anisotropic) vk.TRUE else vk.FALSE,
+//             .max_anisotropy = 16,
+//             .compare_enable = if (desc.compare == .never) vk.FALSE else vk.TRUE,
+//             .compare_op = compare_op,
+//             .min_lod = 0,
+//             .max_lod = 0,
+//             .border_color = vk.BorderColor.float_opaque_black,
+//             .unnormalized_coordinates = vk.FALSE,
+//         };
+//
+//         self.handle = try device.vkd.createSampler(device.logical, &sci, null);
+//
+//         return self;
+//     }
+//
+//     pub fn deinit(self: *Self, device: Device) void {
+//         device.vkd.destroySampler(device.logical, self.handle, null);
+//     }
+// };
 
 /// An image we read and write from
 pub const Texture = struct {

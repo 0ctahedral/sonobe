@@ -115,14 +115,19 @@ pub const Window = struct {
     window: *c.SDL_Window,
     surface: ?gpu.Surface = null,
 
-    pub fn init(title: []const u8) !Window {
+    w: u32 = 800,
+    h: u32 = 800,
+
+    pub fn init(title: []const u8, width: u32, height: u32) !Window {
         log.info("creating window", .{});
         const flags: u64 = c.SDL_WINDOW_VULKAN;
         const win_ptr = try windows.alloc();
         errdefer windows.free(win_ptr);
 
         win_ptr.* = Window{
-            .window = c.SDL_CreateWindow(@ptrCast(title), 800, 600, flags) orelse return error.CreateWindowFailed,
+            .window = c.SDL_CreateWindow(@ptrCast(title), @intCast(width), @intCast( height ), flags) orelse return error.CreateWindowFailed,
+            .w = width,
+            .h = height,
         };
 
         log.info("window: {} created", .{win_ptr.window});

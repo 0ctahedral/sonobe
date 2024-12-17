@@ -31,7 +31,9 @@ pub const Device = struct {
     mem_props: vk.PhysicalDeviceMemoryProperties,
     features: vk.PhysicalDeviceFeatures,
 
-    pub fn init(instance: gpu.Instance, candidate: DeviceCandidate, vkd: *DeviceDispatch) !Device {
+    alloc: Allocator,
+
+    pub fn init(instance: gpu.Instance, candidate: DeviceCandidate, vkd: *DeviceDispatch, allocator: Allocator) !*Device {
         const priority = [_]f32{1};
         const qci = [_]vk.DeviceQueueCreateInfo{
             .{
@@ -67,18 +69,33 @@ pub const Device = struct {
 
         vkd.* = try DeviceDispatch.load(handle, instance.wrapper.dispatch.vkGetDeviceProcAddr);
 
-        return .{
+        const device = try allocator.create(Device);
+
+        device.* = .{
             .dev = VkDevice.init(handle, vkd),
             .pdev = pdev,
             .props = instance.getPhysicalDeviceProperties(pdev),
             .mem_props = instance.getPhysicalDeviceMemoryProperties(pdev),
             .features = instance.getPhysicalDeviceFeatures(pdev),
+            .alloc = allocator,
         };
+
+        device.graphics = .{
+            .handle = device.dev.getDeviceQueue(candidate.queues.graphics_family, 0),
+            .family = candidate.queues.graphics_family,
+        };
+        device.present = .{
+            .handle = device.dev.getDeviceQueue(candidate.queues.present_family, 0),
+            .family = candidate.queues.present_family,
+        };
+
+        return device;
     }
 
-    pub fn deinit(self: Device) void {
+    pub fn deinit(self: *Device) void {
         log.info("destroying device {s}", .{self.props.device_name});
         self.dev.destroyDevice(null);
+        self.alloc.destroy(self);
     }
 };
 
