@@ -5,27 +5,59 @@ const log = gpu.log.sub("swapchain");
 const Instance = gpu.Instance;
 const Device = @import("device.zig").Device;
 const Image = @import("Image.zig");
-const Texture = @import("texture.zig").Texture;
-// const Queue = @import("device.zig").Queue;
-// const Semaphore = @import("semaphore.zig").Semaphore;
-// const Fence = @import("Fence.zig");
 
 pub const Swapchain = @This();
 
-surface_format: vk.SurfaceFormatKHR = undefined,
-// defaults to fifo which all devices support
-present_mode: vk.PresentModeKHR = .fifo_khr,
-extent: vk.Extent2D = .{ .width = 0, .height = 0},
+const SwapImage = struct {
+    // NOTE: don't need a whole texture, plus we'll add some extra stuff to track later
 
-handle: vk.SwapchainKHR = .null_handle,
+    handle: vk.Image,
+    view: vk.ImageView,
 
-img_count: u32 = 0,
+    // image_acquired: vk.Semaphore,
+    // render_finished: vk.Semaphore,
+    // frame_fence: vk.Fence,
 
-render_textures: []Texture = undefined,
+    pub fn init(device: *Device, handle: vk.Image, format: vk.Format) !SwapImage {
+        const img_type: vk.ImageViewType = .@"2d";
+        const info = vk.ImageViewCreateInfo{
+            .flags = .{},
+            .image = handle,
+            .view_type = img_type,
+            .format = format,
+            // TODO: set with config
+            .components = .{ .r = .identity, .g = .identity, .b = .identity, .a = .identity },
+            // TODO: set with config
+            .subresource_range = .{
+                .aspect_mask = .{.color_bit = true},
+                .level_count = 1,
+                .base_mip_level = 0,
+                .layer_count = 1,
+                .base_array_layer = 0,
+            },
+        };
+
+        return .{
+            .handle = handle,
+            .view = try device.dev.createImageView(&info, null),
+        };
+    }
+
+    pub fn deinit(self: *SwapImage, device: *Device) void {
+        device.dev.destroyImageView(self.view, null);
+    }
+};
+
 device: *Device,
 allocator: std.mem.Allocator,
 
-// depth_texture: Texture = undefined,
+handle: vk.SwapchainKHR = .null_handle,
+extent: vk.Extent2D = .{ .width = 0, .height = 0},
+surface_format: vk.SurfaceFormatKHR = undefined,
+// defaults to fifo which all devices support
+present_mode: vk.PresentModeKHR = .fifo_khr,
+
+swap_imgs: []SwapImage = undefined,
 
 
 /// initialize/create a swapchian object
@@ -35,7 +67,6 @@ pub fn init(
     surface: vk.SurfaceKHR,
     w: u32,
     h: u32,
-// TODO: save the allocator here?
     allocator: std.mem.Allocator,
 ) !Swapchain {
     var self: Swapchain = .{
@@ -50,7 +81,7 @@ pub fn init(
 pub fn deinit(self: *Swapchain) void {
     self.destroy();
     self.device.dev.destroySwapchainKHR(self.handle, null);
-    self.allocator.free(self.render_textures);
+    self.allocator.free(self.swap_imgs);
 }
 
 /// create our swapchain
@@ -149,53 +180,27 @@ fn create(
     if (old_handle != .null_handle) {
         sub.info("destroying old handle: {}", .{old_handle});
         device.dev.destroySwapchainKHR(old_handle, null);
-        // self.allocator.free(self.render_textures);
     }
 
     // make the images and views
-    self.img_count = 0;
+    var img_count: u32 = 0;
     var imgs: [8]vk.Image = undefined;
-    _ = try device.dev.getSwapchainImagesKHR(self.handle, &self.img_count, null);
-    sub.debug("image img_count: {}", .{self.img_count});
-    _ = try device.dev.getSwapchainImagesKHR(self.handle, &self.img_count, imgs[0..]);
+    _ = try device.dev.getSwapchainImagesKHR(self.handle, &img_count, null);
+    sub.debug("image img_count: {}", .{img_count});
+    _ = try device.dev.getSwapchainImagesKHR(self.handle, &img_count, imgs[0..]);
 
     if (is_recreate) {
-        for (self.render_textures) |*tex| {
-            tex.deinit(device);
+        for (self.swap_imgs) |*img| {
+            img.deinit(device);
         }
-        // self.depth_texture.deinit(device);
     } else {
-        self.render_textures = try self.allocator.alloc(Texture, self.img_count);
+        self.swap_imgs = try self.allocator.alloc(SwapImage, img_count);
     }
 
-    // update the textures
-    for (imgs[0..self.img_count], 0..) |img, i| {
-        self.render_textures[i].image = Image{
-            .format = self.surface_format.format,
-            .handle = img,
-            .width = self.extent.width,
-            .height = self.extent.height,
-        };
-        try self.render_textures[i].image.createView(
-            device,
-            self.surface_format.format,
-            .{ .color_bit = true },
-            .@"2d",
-        );
+    // update the swap images
+    for (imgs[0..img_count], 0..) |img, i| {
+        self.swap_imgs[i] = try SwapImage.init(self.device, img, self.surface_format.format);
     }
-
-    // self.depth_texture.image = try Image.init(
-    //     device,
-    //     self.extent.width,
-    //     self.extent.height,
-    //     1,
-    //     device.depth_format,
-    //     .optimal,
-    //     .{ .depth_stencil_attachment_bit = true },
-    //     .{ .device_local_bit = true },
-    //     .{ .depth_bit = true },
-    //     .@"2d",
-    // );
 }
 
 /// destroy our swapchain
@@ -206,10 +211,9 @@ fn destroy(self: *Swapchain) void {
         unreachable;
     };
 
-    for (self.render_textures) |*tex| {
-        tex.deinit(self.device);
+    for (self.swap_imgs) |*img| {
+        img.deinit(self.device);
     }
-    // self.depth_texture.deinit(device);
 }
 
 pub fn recreate(self: *Swapchain, instance: Instance, surface: vk.SurfaceKHR, w: u32, h: u32) !void {

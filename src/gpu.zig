@@ -8,7 +8,7 @@ const pickPhysicalDevice = dev.pickPhysicalDevice;
 
 const Window = @import("platform.zig").Window;
 
-const Swapchain = @import("gpu/swapchain.zig");
+const Swapchain = @import("gpu/Swapchain.zig");
 
 const Allocator = std.mem.Allocator;
 
