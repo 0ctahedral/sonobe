@@ -20,7 +20,7 @@ const Image = @This();
 /// creates an image view and copies the vkImage in
 pub fn createView(
     self: *Image,
-    device: *Device,
+    device: *const Device,
     format: vk.Format,
     aspect_mask: vk.ImageAspectFlags,
     texture_type: TextureDesc.Type,
@@ -50,7 +50,7 @@ pub fn createView(
 }
 
 pub fn init(
-    device: *Device,
+    device: *const Device,
     width: u32,
     height: u32,
     depth: u32,
@@ -207,7 +207,7 @@ pub fn init(
 //     device.cmdCopyBufferToImage(cmdbuf.handle, buffer.handle, self.handle, .transfer_dst_optimal, 1, @ptrCast(&bic));
 // }
 
-pub fn deinit(self: *Image, device: *Device) void {
+pub fn deinit(self: *Image, device: *const Device) void {
     device.dev.destroyImageView(self.view, null);
     self.view = .null_handle;
     // if this has memory then we know it is an image we created

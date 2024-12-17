@@ -18,7 +18,7 @@ const SwapImage = struct {
     // render_finished: vk.Semaphore,
     // frame_fence: vk.Fence,
 
-    pub fn init(device: *Device, handle: vk.Image, format: vk.Format) !SwapImage {
+    pub fn init(device: *const Device, handle: vk.Image, format: vk.Format) !SwapImage {
         const img_type: vk.ImageViewType = .@"2d";
         const info = vk.ImageViewCreateInfo{
             .flags = .{},
@@ -43,12 +43,12 @@ const SwapImage = struct {
         };
     }
 
-    pub fn deinit(self: *SwapImage, device: *Device) void {
+    pub fn deinit(self: *SwapImage, device: *const Device) void {
         device.dev.destroyImageView(self.view, null);
     }
 };
 
-device: *Device,
+device: *const Device,
 allocator: std.mem.Allocator,
 
 handle: vk.SwapchainKHR = .null_handle,
@@ -63,7 +63,7 @@ swap_imgs: []SwapImage = undefined,
 /// initialize/create a swapchian object
 pub fn init(
     instance: Instance,
-    device: *Device,
+    device: *const Device,
     surface: vk.SurfaceKHR,
     w: u32,
     h: u32,
@@ -88,7 +88,7 @@ pub fn deinit(self: *Swapchain) void {
 fn create(
     self: *Swapchain,
     instance: Instance,
-    device: *Device,
+    device: *const Device,
     surface: vk.SurfaceKHR,
     w: u32,
     h: u32,
