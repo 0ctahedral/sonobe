@@ -32,6 +32,28 @@ pub fn main() !void {
     var swapchain = try gpu.createSwapchain(device, window);
     defer swapchain.deinit();
 
+    // pipeline layout
+
+    // renderpass
+    // pipeline itself
+
+    // framebuffers
+
+    // command pool
+    //
+    // vertex buffer
+    // create and bind
+    // upload vertices
+
+    // create command buffers
+
+    // in the loop:
+    // present the current command buffer
+    // if swapchain is out of date or size changes:
+    // recreate swapchain
+    // recreate framebuffers
+    // recreate commandbuffers
+
     var runtime = Runtime{};
     try runtime.init();
     defer runtime.deinit();
