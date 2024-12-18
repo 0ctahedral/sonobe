@@ -40,6 +40,27 @@ fn vulkanSetup(b: *std.Build, c: *Compile) void {
     const vk_generate_cmd = b.addRunArtifact(vk_gen);
     vk_generate_cmd.addFileArg(registry);
 
+    const vert_cmd = b.addSystemCommand(&.{
+        "glslc",
+        "--target-env=vulkan1.2",
+        "-o",
+    });
+    const vert_spv = vert_cmd.addOutputFileArg("vert.spv");
+    vert_cmd.addFileArg(b.path("src/gpu/shaders/triangle.vert"));
+    c.root_module.addAnonymousImport("vertex_shader", .{
+        .root_source_file = vert_spv,
+    });
+
+    const frag_cmd = b.addSystemCommand(&.{
+        "glslc",
+        "--target-env=vulkan1.2",
+        "-o",
+    });
+    const frag_spv = frag_cmd.addOutputFileArg("frag.spv");
+    frag_cmd.addFileArg(b.path("src/gpu/shaders/triangle.frag"));
+    c.root_module.addAnonymousImport("fragment_shader", .{
+        .root_source_file = frag_spv,
+    });
 
     c.root_module.addAnonymousImport("vulkan", .{
         .root_source_file = vk_generate_cmd.addOutputFileArg("vk.zig"),

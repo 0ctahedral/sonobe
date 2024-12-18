@@ -1,12 +1,15 @@
 const std = @import("std");
 const vk = @import("vulkan");
-const utils = @import("utils");
-const log = utils.log.Logger("pipeline");
-const PipelineDesc = @import("../resources/descs.zig").PipelineDesc;
+const log = @import("../gpu.zig").log.sub("pipeline");
 const Device = @import("device.zig").Device;
-const RenderPass = @import("renderpass.zig").RenderPass;
-const CommandBuffer = @import("commandbuffer.zig").CommandBuffer;
-const Mesh = @import("mesh.zig").Mesh;
+
+// TODO: include these guys from somewhere else
+const vert_spv align(@alignOf(u32)) = @embedFile("vertex_shader").*;
+const frag_spv align(@alignOf(u32)) = @embedFile("fragment_shader").*;
+
+pub const PipelineDesc = struct {
+    
+};
 
 pub const Pipeline = struct {
     const Self = @This();
@@ -21,7 +24,7 @@ pub const Pipeline = struct {
     modules: [MAX_STAGES]vk.ShaderModule = [_]vk.ShaderModule{.null_handle} ** MAX_STAGES,
 
     pub fn init(
-        device: Device,
+        device: *const Device,
         desc: PipelineDesc,
         renderpass: vk.RenderPass,
         descriptor_set_layouts: []const vk.DescriptorSetLayout,
@@ -31,6 +34,7 @@ pub const Pipeline = struct {
         vertex_attrs: []const vk.VertexInputAttributeDescription,
         allocator: std.mem.Allocator,
     ) !Self {
+        _ = desc;
         _ = allocator;
         var self: Self = .{};
 
@@ -43,12 +47,13 @@ pub const Pipeline = struct {
             .p_scissors = null,
         };
 
-        const cull_mode: vk.CullModeFlags = switch (desc.cull_mode) {
-            .none => .{},
-            .front => .{ .front_bit = true },
-            .back => .{ .back_bit = true },
-            .both => .{ .front_bit = true, .back_bit = true },
-        };
+        const cull_mode: vk.CullModeFlags = .{ .back_bit = true };
+        // const cull_mode: vk.CullModeFlags = switch (desc.cull_mode) {
+        //     .none => .{},
+        //     .front => .{ .front_bit = true },
+        //     .back => .{ .back_bit = true },
+        //     .both => .{ .front_bit = true, .back_bit = true },
+        // };
 
         const rasterization_ci = vk.PipelineRasterizationStateCreateInfo{
             .flags = .{},
@@ -74,18 +79,20 @@ pub const Pipeline = struct {
             .alpha_to_one_enable = vk.FALSE,
         };
 
-        const depth_stencil_ci = vk.PipelineDepthStencilStateCreateInfo{
-            .flags = .{},
-            .depth_test_enable = if (desc.depth_stencil_flags.depth_test_enable) vk.TRUE else vk.FALSE,
-            .depth_write_enable = if (desc.depth_stencil_flags.depth_write_enable) vk.TRUE else vk.FALSE,
-            .depth_compare_op = .less,
-            .depth_bounds_test_enable = vk.FALSE,
-            .stencil_test_enable = if (desc.depth_stencil_flags.stencil_test_enable) vk.TRUE else vk.FALSE,
-            .front = undefined,
-            .back = undefined,
-            .min_depth_bounds = 0,
-            .max_depth_bounds = 1,
-        };
+        // const depth_stencil_ci = vk.PipelineDepthStencilStateCreateInfo{
+        //     .flags = .{},
+        //     // .depth_test_enable = if (desc.depth_stencil_flags.depth_test_enable) vk.TRUE else vk.FALSE,
+        //     .depth_test_enable = vk.FALSE,
+        //     // .depth_write_enable = if (desc.depth_stencil_flags.depth_write_enable) vk.TRUE else vk.FALSE,
+        //     .depth_write_enable = vk.FALSE,
+        //     .depth_compare_op = .less,
+        //     .depth_bounds_test_enable = vk.FALSE,
+        //     .stencil_test_enable = if (desc.depth_stencil_flags.stencil_test_enable) vk.TRUE else vk.FALSE,
+        //     .front = undefined,
+        //     .back = undefined,
+        //     .min_depth_bounds = 0,
+        //     .max_depth_bounds = 1,
+        // };
 
         const color_blend_state = vk.PipelineColorBlendAttachmentState{
             .blend_enable = vk.TRUE,
@@ -103,7 +110,7 @@ pub const Pipeline = struct {
             .logic_op_enable = vk.FALSE,
             .logic_op = .copy,
             .attachment_count = 1,
-            .p_attachments = @ptrCast([*]const vk.PipelineColorBlendAttachmentState, &color_blend_state),
+            .p_attachments = @ptrCast( &color_blend_state),
             .blend_constants = [_]f32{ 0, 0, 0, 0 },
         };
 
@@ -116,14 +123,14 @@ pub const Pipeline = struct {
             .p_dynamic_states = &dynamic_state,
         };
 
-        const binds = if (vertex_inputs.len == 0) undefined else @ptrCast([*]const vk.VertexInputBindingDescription, vertex_inputs);
-        const attrs = if (vertex_attrs.len == 0) undefined else @ptrCast([*]const vk.VertexInputAttributeDescription, vertex_attrs);
+        // const binds = if (vertex_inputs.len == 0) undefined else @ptrCast( vertex_inputs);
+        // const attrs = if (vertex_attrs.len == 0) undefined else @ptrCast( vertex_attrs);
         const vertex_input_ci = vk.PipelineVertexInputStateCreateInfo{
             .flags = .{},
-            .vertex_binding_description_count = @intCast(u32, vertex_inputs.len),
-            .p_vertex_binding_descriptions = binds,
-            .vertex_attribute_description_count = @intCast(u32, vertex_attrs.len),
-            .p_vertex_attribute_descriptions = attrs,
+            .vertex_binding_description_count = @intCast(vertex_inputs.len),
+            .p_vertex_binding_descriptions = @ptrCast( vertex_inputs),
+            .vertex_attribute_description_count = @intCast(vertex_attrs.len),
+            .p_vertex_attribute_descriptions = @ptrCast( vertex_attrs),
         };
 
         const input_assembly = vk.PipelineInputAssemblyStateCreateInfo{
@@ -132,48 +139,74 @@ pub const Pipeline = struct {
             .primitive_restart_enable = vk.FALSE,
         };
 
-        self.layout = try device.vkd.createPipelineLayout(device.logical, &.{
+        self.layout = try device.dev.createPipelineLayout(&.{
             .flags = .{},
-            .set_layout_count = @intCast(u32, descriptor_set_layouts.len),
+            .set_layout_count = @intCast(descriptor_set_layouts.len),
             .p_set_layouts = descriptor_set_layouts.ptr,
-            .push_constant_range_count = @intCast(u32, push_constants.len),
+            .push_constant_range_count = @intCast(push_constants.len),
             .p_push_constant_ranges = push_constants.ptr,
         }, null);
 
+        const vert = try device.dev.createShaderModule(&.{
+            .code_size = vert_spv.len,
+            .p_code = @ptrCast(&vert_spv),
+        }, null);
+        defer device.dev.destroyShaderModule(vert, null);
+
+        const frag = try device.dev.createShaderModule(&.{
+            .code_size = frag_spv.len,
+            .p_code = @ptrCast(&frag_spv),
+        }, null);
+        defer device.dev.destroyShaderModule(frag, null);
+
+        const stage_infos = [_]vk.PipelineShaderStageCreateInfo{
+            .{
+                .stage = .{ .vertex_bit = true },
+                .module = vert,
+                .p_name = "main",
+            },
+            .{
+                .stage = .{ .fragment_bit = true },
+                .module = frag,
+                .p_name = "main",
+            },
+        };
+
         // setup the stages
-        var stage_infos: [MAX_STAGES]vk.PipelineShaderStageCreateInfo = undefined;
-        var n_stage_desc: usize = 0;
-        for (desc.stages) |stage_desc| {
-            if (stage_desc) |sd| {
-                const stage_type: vk.ShaderStageFlags = switch (sd.bindpoint) {
-                    .Vertex => .{ .vertex_bit = true },
-                    .Fragment => .{ .fragment_bit = true },
-                };
-
-                // const data = try loadShader(sd.path, allocator);
-                // defer allocator.free(data);
-
-                self.modules[n_stage_desc] = try device.vkd.createShaderModule(device.logical, &.{
-                    .flags = .{},
-                    .code_size = sd.data.len,
-                    .p_code = @ptrCast([*]const u32, @alignCast(4, sd.data)),
-                }, null);
-
-                stage_infos[n_stage_desc] = .{
-                    .flags = .{},
-                    .stage = stage_type,
-                    .module = self.modules[n_stage_desc],
-                    .p_name = "main",
-                    .p_specialization_info = null,
-                };
-
-                n_stage_desc += 1;
-            }
-        }
+        // var stage_infos: [MAX_STAGES]vk.PipelineShaderStageCreateInfo = undefined;
+        const n_stage_desc: usize = 2;
+        // var n_stage_desc: usize = 0;
+        // for (desc.stages) |stage_desc| {
+        //     if (stage_desc) |sd| {
+        //         const stage_type: vk.ShaderStageFlags = switch (sd.bindpoint) {
+        //             .Vertex => .{ .vertex_bit = true },
+        //             .Fragment => .{ .fragment_bit = true },
+        //         };
+        //
+        //         // const data = try loadShader(sd.path, allocator);
+        //         // defer allocator.free(data);
+        //
+        //         self.modules[n_stage_desc] = try device.dev.createShaderModule(&.{
+        //             .flags = .{},
+        //             .code_size = sd.data.len,
+        //             .p_code = @ptrCast( @alignCast(sd.data)),
+        //         }, null);
+        //
+        //         stage_infos[n_stage_desc] = .{
+        //             .flags = .{},
+        //             .stage = stage_type,
+        //             .module = self.modules[n_stage_desc],
+        //             .p_name = "main",
+        //             .p_specialization_info = null,
+        //         };
+        //
+        //         n_stage_desc += 1;
+        //     }
+        // }
 
         const gpci = vk.GraphicsPipelineCreateInfo{
             .flags = .{},
-            .stage_count = @intCast(u32, n_stage_desc),
+            .stage_count = @intCast(n_stage_desc),
             .p_stages = &stage_infos,
             .p_vertex_input_state = &vertex_input_ci,
             .p_input_assembly_state = &input_assembly,
@@ -181,7 +214,8 @@ pub const Pipeline = struct {
             .p_viewport_state = &viewport_state,
             .p_rasterization_state = &rasterization_ci,
             .p_multisample_state = &multi_sample_ci,
-            .p_depth_stencil_state = &depth_stencil_ci,
+            // .p_depth_stencil_state = &depth_stencil_ci,
+            .p_depth_stencil_state = null,
             .p_color_blend_state = &color_blend_state_ci,
             .p_dynamic_state = &dynamic_state_ci,
             .layout = self.layout,
@@ -191,13 +225,12 @@ pub const Pipeline = struct {
             .base_pipeline_index = -1,
         };
 
-        _ = try device.vkd.createGraphicsPipelines(
-            device.logical,
+        _ = try device.dev.createGraphicsPipelines(
             .null_handle,
             1,
-            @ptrCast([*]const vk.GraphicsPipelineCreateInfo, &gpci),
+            @ptrCast( &gpci),
             null,
-            @ptrCast([*]vk.Pipeline, &self.handle),
+            @ptrCast( &self.handle),
         );
 
         return self;
@@ -221,14 +254,14 @@ pub const Pipeline = struct {
 
     pub fn deinit(
         self: Self,
-        device: Device,
+        device: *const Device,
     ) void {
-        for (self.modules) |m| {
-            if (m != .null_handle) {
-                device.vkd.destroyShaderModule(device.logical, m, null);
-            }
-        }
-        device.vkd.destroyPipeline(device.logical, self.handle, null);
-        device.vkd.destroyPipelineLayout(device.logical, self.layout, null);
+        // for (self.modules) |m| {
+        //     if (m != .null_handle) {
+        //         device.dev.destroyShaderModule(m, null);
+        //     }
+        // }
+        device.dev.destroyPipeline(self.handle, null);
+        device.dev.destroyPipelineLayout(self.layout, null);
     }
 };

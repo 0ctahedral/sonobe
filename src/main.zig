@@ -32,26 +32,17 @@ pub fn main() !void {
     var swapchain = try gpu.createSwapchain(device, window);
     defer swapchain.deinit();
 
-    // pipeline layout
-    // TODO: encapsulate in type
-    log.info("creating pipeline layout", .{});
-    const pipeline_layout = try device.dev.createPipelineLayout(&.{
-        .flags = .{},
-        .set_layout_count = 0,
-        .p_set_layouts = undefined,
-        .push_constant_range_count = 0,
-        .p_push_constant_ranges = undefined,
-    }, null);
-    defer device.dev.destroyPipelineLayout(pipeline_layout, null);
-
     // renderpass
     log.info("creating renderpass", .{});
     const render_pass = try gpu.createRenderPass(device, &swapchain);
     defer device.dev.destroyRenderPass(render_pass, null);
 
+    // pipeline layout
+    log.info("creating pipeline layout", .{});
+    const pipeline_desc = gpu.pipeline.PipelineDesc{};
     // pipeline itself
-    // const pipeline = try gpu.createPipeline(device, pipeline_layout, render_pass);
-    // defer device.dev.destroyPipeline(pipeline, null);
+    const pipeline = try gpu.createPipeline(device, pipeline_desc, render_pass);
+    defer pipeline.deinit(device);
 
     // framebuffers
 

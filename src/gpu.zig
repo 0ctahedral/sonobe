@@ -2,6 +2,7 @@ const std = @import("std");
 const core = @import("core.zig");
 pub const log = core.logger.Logger("gpu");
 
+pub const pipeline = @import("gpu/pipeline.zig");
 const dev = @import("gpu/device.zig");
 const Device = dev.Device;
 const pickPhysicalDevice = dev.pickPhysicalDevice;
@@ -153,6 +154,55 @@ pub fn createRenderPass(device: *const Device, swapchain: *const Swapchain) !vk.
         .p_subpasses = @ptrCast(&subpass),
     }, null);
 
+}
+
+const Vertex = struct {
+    pos: [2]f32,
+    color: [3]f32,
+};
+
+const vertices = [_]Vertex{
+    .{ .pos = .{ 0, -0.5 }, .color = .{ 1, 0, 0 } },
+    .{ .pos = .{ 0.5, 0.5 }, .color = .{ 0, 1, 0 } },
+    .{ .pos = .{ -0.5, 0.5 }, .color = .{ 0, 0, 1 } },
+};
+
+pub fn createPipeline(device: *const Device, desc: pipeline.PipelineDesc, render_pass: vk.RenderPass) !pipeline.Pipeline {
+    const layouts = [_]vk.DescriptorSetLayout{
+    };
+    const vertex_inputs = [_]vk.VertexInputBindingDescription{
+        .{
+            .binding = 0,
+            .stride = @sizeOf(Vertex),
+            .input_rate = .vertex,
+        },
+    };
+    const vertex_attrs = [_]vk.VertexInputAttributeDescription{
+        .{
+            .binding = 0,
+            .location = 0,
+            .format = .r32g32_sfloat,
+            .offset = @offsetOf(Vertex, "pos"),
+        },
+        .{
+            .binding = 0,
+            .location = 1,
+            .format = .r32g32b32_sfloat,
+            .offset = @offsetOf(Vertex, "color"),
+        },
+    };
+
+    return try pipeline.Pipeline.init(
+        device,        
+        desc,
+        render_pass,
+        &layouts,
+        &.{},
+        false,
+        &vertex_inputs,
+        &vertex_attrs,
+        alloc,
+    );
 }
 
 pub fn deinit() void {
