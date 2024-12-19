@@ -205,6 +205,39 @@ pub fn createPipeline(device: *const Device, desc: pipeline.PipelineDesc, render
     );
 }
 
+pub fn createFrameBuffers(
+    device: *const Device,
+    swapchain: *const Swapchain,
+    render_pass: vk.RenderPass,
+) ![]vk.Framebuffer {
+    log.info("creating {} framebuffers", .{swapchain.swap_imgs.len});
+    const framebuffers = try alloc.alloc(vk.Framebuffer, swapchain.swap_imgs.len);
+    errdefer alloc.free(framebuffers);
+
+    var i: usize = 0;
+    errdefer for (framebuffers[0..i]) |fb| device.dev.destroyFramebuffer(fb, null);
+
+    for (framebuffers) |*fb| {
+        fb.* = try device.dev.createFramebuffer(&.{
+            .render_pass = render_pass,
+            .attachment_count = 1,
+            .p_attachments = @ptrCast(&swapchain.swap_imgs[i].view),
+            .width = swapchain.extent.width,
+            .height = swapchain.extent.height,
+            .layers = 1,
+        }, null);
+        i += 1;
+    }
+
+    return framebuffers;
+}
+
+pub fn destroyFrameBuffers(device: *const Device, framebuffers: []vk.Framebuffer) void {
+    log.info("destroying {} framebuffers", .{framebuffers.len});
+    for (framebuffers) |fb| device.dev.destroyFramebuffer(fb, null);
+    alloc.free(framebuffers);
+}
+
 pub fn deinit() void {
     log.info("deinit", .{});
 

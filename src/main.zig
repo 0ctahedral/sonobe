@@ -44,10 +44,12 @@ pub fn main() !void {
     const pipeline = try gpu.createPipeline(device, pipeline_desc, render_pass);
     defer pipeline.deinit(device);
 
-    // framebuffers
+    // framebuffers for renderpass (one to reference each swapchain imageview)
+    const framebuffers = try gpu.createFrameBuffers(device, &swapchain, render_pass);
+    defer gpu.destroyFrameBuffers(device, framebuffers);
 
     // command pool
-    //
+
     // vertex buffer
     // create and bind
     // upload vertices
