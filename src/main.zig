@@ -49,10 +49,33 @@ pub fn main() !void {
     defer gpu.destroyFrameBuffers(device, framebuffers);
 
     // command pool
+    const pool = try device.dev.createCommandPool(&.{
+        .queue_family_index = device.graphics.?.family,
+    }, null);
+    defer device.dev.destroyCommandPool(pool, null);
+
+
+    const vertices = [_]gpu.Vertex{
+        .{ .pos = .{ 0, -0.5 }, .color = .{ 1, 0, 0 } },
+        .{ .pos = .{ 0.5, 0.5 }, .color = .{ 0, 1, 0 } },
+        .{ .pos = .{ -0.5, 0.5 }, .color = .{ 0, 0, 1 } },
+    };
 
     // vertex buffer
     // create and bind
+    const buffer = try device.dev.createBuffer(&.{
+        .size = @sizeOf(@TypeOf(vertices)),
+        .usage = .{ .transfer_dst_bit = true, .vertex_buffer_bit = true },
+        .sharing_mode = .exclusive,
+    }, null);
+    defer device.dev.destroyBuffer(buffer, null);
+    const mem_reqs = device.dev.getBufferMemoryRequirements(buffer);
+    const memory = try device.allocate(mem_reqs, .{ .device_local_bit = true });
+    defer device.dev.freeMemory(memory, null);
+    try device.dev.bindBufferMemory(buffer, memory, 0);
+
     // upload vertices
+    try gpu.uploadVertices(device, vertices, buffer, pool);
 
     // create command buffers
 

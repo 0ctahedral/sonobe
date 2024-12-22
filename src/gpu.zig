@@ -5,6 +5,7 @@ pub const log = core.logger.Logger("gpu");
 pub const pipeline = @import("gpu/pipeline.zig");
 const dev = @import("gpu/device.zig");
 const Device = dev.Device;
+const CommandBuffer = @import("gpu/CommandBuffer.zig");
 const pickPhysicalDevice = dev.pickPhysicalDevice;
 
 const Window = @import("platform.zig").Window;
@@ -156,15 +157,9 @@ pub fn createRenderPass(device: *const Device, swapchain: *const Swapchain) !vk.
 
 }
 
-const Vertex = struct {
+pub const Vertex = struct {
     pos: [2]f32,
     color: [3]f32,
-};
-
-const vertices = [_]Vertex{
-    .{ .pos = .{ 0, -0.5 }, .color = .{ 1, 0, 0 } },
-    .{ .pos = .{ 0.5, 0.5 }, .color = .{ 0, 1, 0 } },
-    .{ .pos = .{ -0.5, 0.5 }, .color = .{ 0, 0, 1 } },
 };
 
 pub fn createPipeline(device: *const Device, desc: pipeline.PipelineDesc, render_pass: vk.RenderPass) !pipeline.Pipeline {
@@ -236,6 +231,48 @@ pub fn destroyFrameBuffers(device: *const Device, framebuffers: []vk.Framebuffer
     log.info("destroying {} framebuffers", .{framebuffers.len});
     for (framebuffers) |fb| device.dev.destroyFramebuffer(fb, null);
     alloc.free(framebuffers);
+}
+
+pub fn uploadVertices(device: *const Device, vertices: anytype, buffer: vk.Buffer, pool: vk.CommandPool) !void {
+    const staging_buffer = try device.dev.createBuffer(&.{
+        .size = @sizeOf(@TypeOf(vertices)),
+        .usage = .{ .transfer_src_bit = true },
+        .sharing_mode = .exclusive,
+    }, null);
+    defer device.dev.destroyBuffer(staging_buffer, null);
+    const staging_mem_reqs = device.dev.getBufferMemoryRequirements(staging_buffer);
+    const staging_memory = try device.allocate(staging_mem_reqs, .{ .host_visible_bit = true, .host_coherent_bit = true });
+    defer device.dev.freeMemory(staging_memory, null);
+    try device.dev.bindBufferMemory(staging_buffer, staging_memory, 0);
+
+{
+        const data = try device.dev.mapMemory(staging_memory, 0, vk.WHOLE_SIZE, .{});
+        defer device.dev.unmapMemory(staging_memory);
+
+        const gpu_vertices: [*]Vertex = @ptrCast(@alignCast(data));
+        @memcpy(gpu_vertices, vertices[0..]);
+    }
+
+    try copyBuffer(device, pool, buffer, staging_buffer, @sizeOf(@TypeOf(vertices)));
+}
+
+fn copyBuffer(device: *const Device, pool: vk.CommandPool, dst: vk.Buffer, src: vk.Buffer, size: vk.DeviceSize) !void {
+    const cmdbuf = try CommandBuffer.beginSingleUse(device, pool);
+
+    const region = vk.BufferCopy{
+        .src_offset = 0,
+        .dst_offset = 0,
+        .size = size,
+    };
+
+    // TODO: make this part of the command buffer?
+    // cmdbuf should probably keep a copy of the device
+    device.dev.cmdCopyBuffer(cmdbuf.handle, src, dst, 1, @ptrCast(&region));
+
+    // try cmdbuf.endSingleUse(device, pool, queue);
+    // this is done in device submit...
+
+    try device.submit(cmdbuf.handle);
 }
 
 pub fn deinit() void {

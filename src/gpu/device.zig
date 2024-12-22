@@ -97,6 +97,36 @@ pub const Device = struct {
         self.dev.destroyDevice(null);
         self.alloc.destroy(self);
     }
+
+    pub fn allocate(self: Device, requirements: vk.MemoryRequirements, flags: vk.MemoryPropertyFlags) !vk.DeviceMemory {
+        return try self.dev.allocateMemory(&.{
+            .allocation_size = requirements.size,
+            .memory_type_index = try self.findMemoryIndex(requirements.memory_type_bits, flags),
+        }, null);
+    }
+
+    pub fn findMemoryIndex(self: Device, type_bits: u32, flags: vk.MemoryPropertyFlags) !u32 {
+        for (self.mem_props.memory_types[0..self.mem_props.memory_type_count], 0..) |mem_type, i| {
+            if (type_bits & (@as(u32, 1) << @truncate(i)) != 0 and mem_type.property_flags.contains(flags)) {
+                return @truncate(i);
+            }
+        }
+
+        log.err("cannot find mem index type: {} flags: {}", .{ type_bits, flags });
+
+        return error.CannotFindMemoryIndex;
+    }
+
+    pub fn submit(self: Device, cmdbuf: vk.CommandBuffer) !void {
+        const si = vk.SubmitInfo{
+            .command_buffer_count = 1,
+            .p_command_buffers = (&cmdbuf)[0..1],
+            .p_wait_dst_stage_mask = undefined,
+        };
+        // TODO: no fence needed because we are waiting idle here?
+        try self.dev.queueSubmit(self.graphics.?.handle, 1, @ptrCast(&si), .null_handle);
+        try self.dev.queueWaitIdle(self.graphics.?.handle);
+    }
 };
 
 const QueueAllocation = struct {
