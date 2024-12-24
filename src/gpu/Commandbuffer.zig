@@ -1,6 +1,7 @@
 const std = @import("std");
 const vk = @import("vulkan");
 const Device = @import("device.zig").Device;
+const log = @import("../gpu.zig").log.sub("cmdbuf");
 
 //TODO: check state
 const State = enum { ready, recording, in_render_pass, recording_ended, submitted, not_allocated };
@@ -24,12 +25,14 @@ pub fn init(
         .command_buffer_count = 1,
     }, @ptrCast(&self.handle));
     self.state = .ready;
+    log.info("created command buffer", .{});
     return self;
 }
 
 /// free command buffer back to the pool
 pub fn deinit(self: *Self, device: *const Device, pool: vk.CommandPool) void {
-    device.freeCommandBuffers(pool, 1, @ptrCast(&self.handle));
+    log.info("destroying command buffer", .{});
+    device.dev.freeCommandBuffers(pool, 1, @ptrCast(&self.handle));
     self.handle = vk.CommandBuffer.null_handle;
     self.state = .not_allocated;
 }
@@ -63,11 +66,14 @@ pub fn begin(
         .p_inheritance_info = null,
     });
     self.state = .recording;
+
+    log.debug("begin buffer with flags: {}", .{flags});
 }
 
 pub fn end(self: *Self, device: *const Device) !void {
     try device.dev.endCommandBuffer(self.handle);
     self.state = .recording_ended;
+    log.debug("ended buffer", .{});
 }
 
 /// update submitted buffer

@@ -63,21 +63,34 @@ pub fn main() !void {
 
     // vertex buffer
     // create and bind
-    const buffer = try device.dev.createBuffer(&.{
+    const vertex_buffer_buffer = try device.dev.createBuffer(&.{
         .size = @sizeOf(@TypeOf(vertices)),
         .usage = .{ .transfer_dst_bit = true, .vertex_buffer_bit = true },
         .sharing_mode = .exclusive,
     }, null);
-    defer device.dev.destroyBuffer(buffer, null);
-    const mem_reqs = device.dev.getBufferMemoryRequirements(buffer);
+    defer device.dev.destroyBuffer(vertex_buffer_buffer, null);
+    const mem_reqs = device.dev.getBufferMemoryRequirements(vertex_buffer_buffer);
     const memory = try device.allocate(mem_reqs, .{ .device_local_bit = true });
     defer device.dev.freeMemory(memory, null);
-    try device.dev.bindBufferMemory(buffer, memory, 0);
+    try device.dev.bindBufferMemory(vertex_buffer_buffer, memory, 0);
 
     // upload vertices
-    try gpu.uploadVertices(device, vertices, buffer, pool);
+    try gpu.uploadVertices(device, vertices, vertex_buffer_buffer, pool);
 
     // create command buffers
+    const cmdbufs = try gpu.createCommandBuffers(
+        device,
+        pool,
+        framebuffers,
+        swapchain.extent,
+        render_pass,
+        pipeline.handle,
+        vertex_buffer_buffer,
+        @intCast(vertices.len),
+    );
+    defer for (cmdbufs) |*cmdbuf| {
+        cmdbuf.deinit(device, pool);
+    };
 
     // in the loop:
     // present the current command buffer

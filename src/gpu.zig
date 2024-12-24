@@ -256,8 +256,14 @@ pub fn uploadVertices(device: *const Device, vertices: anytype, buffer: vk.Buffe
     try copyBuffer(device, pool, buffer, staging_buffer, @sizeOf(@TypeOf(vertices)));
 }
 
-fn copyBuffer(device: *const Device, pool: vk.CommandPool, dst: vk.Buffer, src: vk.Buffer, size: vk.DeviceSize) !void {
-    const cmdbuf = try CommandBuffer.beginSingleUse(device, pool);
+fn copyBuffer(
+    device: *const Device,
+    pool: vk.CommandPool,
+    dst: vk.Buffer,
+    src: vk.Buffer,
+    size: vk.DeviceSize
+) !void {
+    var cmdbuf = try CommandBuffer.beginSingleUse(device, pool);
 
     const region = vk.BufferCopy{
         .src_offset = 0,
@@ -269,11 +275,83 @@ fn copyBuffer(device: *const Device, pool: vk.CommandPool, dst: vk.Buffer, src: 
     // cmdbuf should probably keep a copy of the device
     device.dev.cmdCopyBuffer(cmdbuf.handle, src, dst, 1, @ptrCast(&region));
 
-    // try cmdbuf.endSingleUse(device, pool, queue);
+    try cmdbuf.end(device);
     // this is done in device submit...
 
-    try device.submit(cmdbuf.handle);
+    // try device.submit(cmdbuf.handle);
 }
+
+pub fn createCommandBuffers(
+    device: *const Device,
+    pool: vk.CommandPool,
+    framebuffers: []vk.Framebuffer, 
+    extent: vk.Extent2D,
+    render_pass: vk.RenderPass,
+    render_pipeline: vk.Pipeline,
+    vertex_buffer: vk.Buffer,
+    num_vertices: u32,
+) ![]CommandBuffer {
+    const cmdbufs = try alloc.alloc(CommandBuffer, framebuffers.len);
+    errdefer alloc.free(cmdbufs);
+
+    for (cmdbufs) |*buf| {
+        buf.* = try CommandBuffer.init(device, pool, true);
+        errdefer buf.deinit(device, pool);
+    }
+
+    // TODO: this is obvi user configured
+    const clear = vk.ClearValue{
+        .color = .{ .float_32 = .{ 0, 0, 0, 1 } },
+    };
+
+    const viewport = vk.Viewport{
+        .x = 0,
+        .y = 0,
+        .width = @floatFromInt(extent.width),
+        .height = @floatFromInt(extent.height),
+        .min_depth = 0,
+        .max_depth = 1,
+    };
+
+    const scissor = vk.Rect2D{
+        .offset = .{ .x = 0, .y = 0 },
+        .extent = extent,
+    };
+
+    for (cmdbufs, framebuffers) |*cmdbuf, framebuffer| {
+        // TODO: store device ptr in cmdbuf
+        try cmdbuf.begin(device, .{});
+
+        // TODO: add dees
+        device.dev.cmdSetViewport(cmdbuf.handle, 0, 1, @ptrCast(&viewport));
+        device.dev.cmdSetScissor(cmdbuf.handle, 0, 1, @ptrCast(&scissor));
+
+        // This needs to be a separate definition - see https://github.com/ziglang/zig/issues/7627.
+        const render_area = vk.Rect2D{
+            .offset = .{ .x = 0, .y = 0 },
+            .extent = extent,
+        };
+
+        device.dev.cmdBeginRenderPass(cmdbuf.handle, &.{
+            .render_pass = render_pass,
+            .framebuffer = framebuffer,
+            .render_area = render_area,
+            .clear_value_count = 1,
+            .p_clear_values = @ptrCast(&clear),
+        }, .@"inline");
+
+        device.dev.cmdBindPipeline(cmdbuf.handle, .graphics, render_pipeline);
+        const offset = [_]vk.DeviceSize{0};
+        device.dev.cmdBindVertexBuffers(cmdbuf.handle, 0, 1, @ptrCast(&vertex_buffer), &offset);
+        device.dev.cmdDraw(cmdbuf.handle, num_vertices, 1, 0, 0);
+
+        device.dev.cmdEndRenderPass(cmdbuf.handle);
+        try cmdbuf.end(device);
+    }
+
+    return cmdbufs;
+}
+
 
 pub fn deinit() void {
     log.info("deinit", .{});
